@@ -1,0 +1,24 @@
+{
+  "ultrawork-intent-gate": {
+    "_comment": "Turns the literal word 'ultrawork' (or 'ultra work' / 'ulw') in a user prompt into an injected directive that activates .agents/skills/ultrawork/SKILL.md -- high-rigour, evidence-bound work with a registered goal loop. PreInvocation carries NO prompt text, so the transcript is the only source. Cheap by construction: the transcript is append-only, so the hook stores a byte offset per conversationId and scans only what was appended. Fires at most once per triggering prompt and at most 8 times per conversation. The trigger is matched ONLY inside <USER_REQUEST> (the metadata block inlines whole skill bodies, so matching there would fire on any skill that mentions the word); nothing is injected when the record shows the platform already activated the skill; records carrying the hook's own marker are skipped so an injection cannot re-trigger the gate. Keying on a literal word scopes it to the main session for free -- a subagent's task prompt cannot contain the trigger unless the orchestrator put it there. Fails open. Escape hatch: `python .agents/hooks/intent_gate.py --off` (also --on, --status, --print-directive, --scan <transcript>). Injected by `pokit init` -- retarget the delegation step in SKILL.md to whatever subagents this project uses.",
+    "enabled": true,
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python hooks/intent_gate.py",
+        "timeout": 10
+      }
+    ]
+  },
+  "stop-verifier": {
+    "_comment": "Holds a registered goal loop open until its goals hold. Inert unless the stopping conversation OWNS a loop under .agents/state/loop/ -- so it is opt-in by construction (someone ran `loop.py create-goals`) and cannot fight subagents, which do not own their parent's loop. Verification validates the RECORD, never re-runs the work: a recorded non-zero exit code under a 'complete' goal, a missing evidence artifact, or goals.json drifting from the ledger each block the stop. Hard-stops on the real terminationReason enum (ERROR/USER_CANCELED/MAX_INVOCATIONS/...); defers while fullyIdle is false; caps resumes at 2 per goal and 6 per session; marks the loop stuck and stops when the LEDGER did not advance across a resume. Fails open (prints a permit) on any error. Escape hatch: `python .agents/hooks/stop_verifier.py --off` (also --on, --status, --clear [--session X]). Domain-agnostic -- works unchanged in any project.",
+    "enabled": true,
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python hooks/stop_verifier.py",
+        "timeout": 20
+      }
+    ]
+  }
+}
