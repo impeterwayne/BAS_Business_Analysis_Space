@@ -75,6 +75,10 @@ declare global {
         planeWorkspaceSlug?: string;
         projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
+        reakitPath?: string;
+        reakitDefaultSource?: string;
+        reakitHeapSize?: string;
+        reakitHarnessProfile?: string;
       }>;
       updateSettings: (settings: {
         subworktreeBranchParents?: Record<string, string>;
@@ -94,6 +98,10 @@ declare global {
         planeWorkspaceSlug?: string;
         projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
+        reakitPath?: string;
+        reakitDefaultSource?: string;
+        reakitHeapSize?: string;
+        reakitHarnessProfile?: string;
       }) => Promise<{
         subworktreeBranchParents?: Record<string, string>;
         vscodePath?: string;
@@ -112,6 +120,10 @@ declare global {
         planeWorkspaceSlug?: string;
         projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
+        reakitPath?: string;
+        reakitDefaultSource?: string;
+        reakitHeapSize?: string;
+        reakitHarnessProfile?: string;
       }>;
       selectExecutable: () => Promise<string | null>;
       detectIntegrationPaths: () => Promise<{
@@ -141,9 +153,49 @@ declare global {
       checkToolkitStatus: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ exists: boolean }>;
       deployToolkit: (opts: { worktreePath: string; name: string; sourcePath: string }) => Promise<{ success: boolean; error?: string }>;
       removeToolkit: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ success: boolean; error?: string }>;
-      getDefaultToolkitSources: () => Promise<{ openspecPath: string; pokitPath: string; bmadPath: string }>;
+      getDefaultToolkitSources: () => Promise<{ openspecPath: string; pokitPath: string; bmadPath: string; reakitPath?: string }>;
       writeProjectFile: (opts: { projectPath: string; relativeFilePath: string; content: string }) => Promise<any>;
       downloadFile: (opts: { url: string; destinationPath: string }) => Promise<any>;
+
+      // ── ReaKit Operations ──
+      reakitRunCommand: (opts: { args: string[]; cwd?: string }) => Promise<{
+        success: boolean;
+        stdout: string;
+        stderr: string;
+        exitCode: number;
+      }>;
+      reakitGetEnv: () => Promise<{
+        success: boolean;
+        output: string;
+        components: Array<{ name: string; status: 'READY' | 'WARN' | 'ERROR' | 'UNKNOWN'; details: string }>;
+        devices: string[];
+        error?: string;
+      }>;
+      reakitGetTargets: (opts?: { worktreePath?: string }) => Promise<Array<{
+        packageName: string;
+        alias?: string;
+        existsOnDisk: boolean;
+        targetDir?: string;
+      }>>;
+      reakitGetTargetStatus: (opts: { worktreePath: string; packageName: string }) => Promise<{
+        exists: boolean;
+        targetDir: string;
+        apks: { count: number; files: string[]; sizeBytes: number };
+        jadx: { exists: boolean; hasSource: boolean; fileCount: number };
+        runtime: { exists: boolean; files: string[]; count: number };
+        native: { exists: boolean; soFiles: string[]; archs: string[] };
+        traffic: { exists: boolean; count: number };
+        docs: { exists: boolean; files: string[] };
+      }>;
+      reakitLaunchJadxGui: (opts?: { target?: string; worktreePath?: string }) => Promise<{ success: boolean; error?: string }>;
+      reakitLaunchMirror: (opts?: { serial?: string; maxSize?: number; fps?: number }) => Promise<{ success: boolean; error?: string }>;
+      reakitHarnessAction: (opts: { action: string; targetPath: string; profile?: string }) => Promise<{
+        success: boolean;
+        stdout: string;
+        stderr: string;
+        exitCode: number;
+      }>;
+      reakitSaveTarget: (opts: { worktreePath: string; packageName: string; alias?: string }) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

@@ -38,6 +38,7 @@ const { openCreateBranchModal } = require('./modals/createBranchModal');
 const { openAddWorktreeModal, openAddSubWorktreeModal, openMergeWorktreeModal, openForceRemoveWorktreeModal } = require('./modals/worktreeModals');
 const { createModalHelpers } = require('./ui/modalHelpers');
 const { createModalPrimitives } = require('./ui/modalPrimitives');
+import { createReakitStudio } from './ui/reakitStudio';
 
 type TerminalBehavior = {
   forceMouseMode: boolean;
@@ -243,6 +244,92 @@ const dom = {
   planeWorkspaceSlugInput: $('#plane-workspace-slug-input'),
   planeProjectIdInput: $('#plane-project-id-input'),
   btnSavePlaneProjectConfig: $('#btn-save-plane-project-config'),
+
+  // ── ReaKit Elements ──
+  btnReakit: $('#btn-reakit'),
+  welcomeBtnReakit: $('#welcome-btn-reakit'),
+  reakitScreen: $('#reakit-screen'),
+  btnCloseReakitScreen: $('#btn-close-reakit-screen'),
+  btnReakitOpenTerminal: $('#btn-reakit-open-terminal'),
+  btnReakitRefreshEnv: $('#btn-reakit-refresh-env'),
+  reakitEnvBadge: $('#reakit-env-badge'),
+  reakitDeviceBadge: $('#reakit-device-badge'),
+  reakitActiveWorktreeName: $('#reakit-active-worktree-name'),
+  reakitTargetInput: $('#reakit-target-input'),
+  reakitAliasInput: $('#reakit-alias-input'),
+  reakitTargetSelect: $('#reakit-target-select'),
+  btnReakitSaveTarget: $('#btn-reakit-save-target'),
+  btnReakitRefreshTarget: $('#btn-reakit-refresh-target'),
+  btnReakitOpenFolder: $('#btn-reakit-open-folder'),
+  reakitArtifactsContainer: $('#reakit-artifacts-container'),
+  badgeApksStatus: $('#badge-apks-status'),
+  descApksStatus: $('#desc-apks-status'),
+  labelApksCount: $('#label-apks-count'),
+  btnReakitOpenApks: $('#btn-reakit-open-apks'),
+  badgeJadxStatus: $('#badge-jadx-status'),
+  descJadxStatus: $('#desc-jadx-status'),
+  btnReakitOpenSourceCode: $('#btn-reakit-open-source-code'),
+  btnReakitOpenJadx: $('#btn-reakit-open-jadx'),
+  badgeRuntimeStatus: $('#badge-runtime-status'),
+  descRuntimeStatus: $('#desc-runtime-status'),
+  labelRuntimeCount: $('#label-runtime-count'),
+  btnReakitOpenRuntime: $('#btn-reakit-open-runtime'),
+  badgeNativeStatus: $('#badge-native-status'),
+  descNativeStatus: $('#desc-native-status'),
+  labelNativeCount: $('#label-native-count'),
+  btnReakitOpenNative: $('#btn-reakit-open-native'),
+  badgeTrafficStatus: $('#badge-traffic-status'),
+  descTrafficStatus: $('#desc-traffic-status'),
+  labelTrafficCount: $('#label-traffic-count'),
+  btnReakitOpenTraffic: $('#btn-reakit-open-traffic'),
+  reakitPipelineHeap: $('#reakit-pipeline-heap'),
+  reakitPipelineSkipDecode: $('#reakit-pipeline-skip-decode'),
+  btnReakitRunPipeline: $('#btn-reakit-run-pipeline'),
+  reakitDlSource: $('#reakit-dl-source'),
+  btnReakitRunDl: $('#btn-reakit-run-dl'),
+  btnReakitRunDecode: $('#btn-reakit-run-decode'),
+  btnReakitLaunchJadxGui: $('#btn-reakit-launch-jadx-gui'),
+  btnReakitRunApktoolD: $('#btn-reakit-run-apktool-d'),
+  btnReakitRunApktoolB: $('#btn-reakit-run-apktool-b'),
+  reakitDeviceSelect: $('#reakit-device-select'),
+  btnReakitRefreshDevices: $('#btn-reakit-refresh-devices'),
+  btnReakitMirror: $('#btn-reakit-mirror'),
+  btnReakitPullRuntime: $('#btn-reakit-pull-runtime'),
+  btnReakitCaptureUi: $('#btn-reakit-capture-ui'),
+  reakitTapX: $('#reakit-tap-x'),
+  reakitTapY: $('#reakit-tap-y'),
+  btnReakitTap: $('#btn-reakit-tap'),
+  reakitTextInput: $('#reakit-text-input'),
+  btnReakitTypeText: $('#btn-reakit-type-text'),
+  btnReakitKeyHome: $('#btn-reakit-key-home'),
+  btnReakitKeyBack: $('#btn-reakit-key-back'),
+  btnReakitKeyAppswitch: $('#btn-reakit-key-appswitch'),
+  btnReakitDaemonStatus: $('#btn-reakit-daemon-status'),
+  btnReakitNativeExtract: $('#btn-reakit-native-extract'),
+  btnReakitNativeDoctor: $('#btn-reakit-native-doctor'),
+  reakitNativeLibInput: $('#reakit-native-lib-input'),
+  btnReakitNativeServe: $('#btn-reakit-native-serve'),
+  btnReakitHttpStream: $('#btn-reakit-http-stream'),
+  btnReakitExportCert: $('#btn-reakit-export-cert'),
+  btnReakitProxyOn: $('#btn-reakit-proxy-on'),
+  btnReakitProxyOff: $('#btn-reakit-proxy-off'),
+  reakitHarnessProfileSelect: $('#reakit-harness-profile-select'),
+  btnReakitHarnessInit: $('#btn-reakit-harness-init'),
+  btnReakitHarnessStatus: $('#btn-reakit-harness-status'),
+  btnReakitHarnessUpdate: $('#btn-reakit-harness-update'),
+  btnReakitHarnessRemove: $('#btn-reakit-harness-remove'),
+  btnReakitDiagnosticsRun: $('#btn-reakit-diagnostics-run'),
+  btnReakitDiagnosticsInstall: $('#btn-reakit-diagnostics-install'),
+  reakitDiagnosticsTbody: $('#reakit-diagnostics-tbody'),
+  reakitConsoleOutput: $('#reakit-console-output'),
+  reakitConsoleSpinner: $('#reakit-console-spinner'),
+  btnReakitCopyConsole: $('#btn-reakit-copy-console'),
+  btnReakitClearConsole: $('#btn-reakit-clear-console'),
+  settingsReakitPath: $('#settings-reakit-path'),
+  btnBrowseReakit: $('#btn-browse-reakit'),
+  settingsReakitSource: $('#settings-reakit-source'),
+  settingsReakitHeap: $('#settings-reakit-heap'),
+  settingsReakitProfile: $('#settings-reakit-profile'),
 };
 
 const WORKSPACE_SIDEBAR_COLLAPSED_KEY = 'codingspace.workspaceSidebarCollapsed';
@@ -294,6 +381,16 @@ if (dom.btnBrowsePokit && dom.settingsPokitSourcePath) {
   });
 }
 
+if (dom.btnBrowseReakit && dom.settingsReakitPath) {
+  dom.btnBrowseReakit.addEventListener('click', async () => {
+    const selected = await window.api.selectDirectory('Select ReaKit Root Folder or Executable Directory');
+    if (selected) {
+      dom.settingsReakitPath.value = selected;
+      await saveSettingsFromUI();
+    }
+  });
+}
+
 const settingsInputs = [
   dom.settingsAntigravityPath,
   dom.settingsAntigravityAgentPath,
@@ -306,6 +403,10 @@ const settingsInputs = [
   dom.settingsPlaneApiKey,
   dom.settingsPlaneBaseUrl,
   dom.settingsPlaneWorkspaceSlug,
+  dom.settingsReakitPath,
+  dom.settingsReakitSource,
+  dom.settingsReakitHeap,
+  dom.settingsReakitProfile,
 ];
 for (const input of settingsInputs) {
   if (input) {
@@ -494,6 +595,7 @@ const iconRaw = {
   figma: loadIcon('figma'),
   pokit: loadIcon('pokit'),
   task: loadIcon('task'),
+  reakit: loadIcon('reakit'),
 };
 
 // Pre-sized icon strings matching original inline sizes
@@ -525,6 +627,7 @@ const icons = {
   figma: iconSvg(iconRaw.figma, 14),
   pokit: iconSvg(iconRaw.pokit, 14),
   task: iconSvg(iconRaw.task, 14),
+  reakit: iconSvg(iconRaw.reakit, 14),
 };
 
 const TOOL_TABS: Record<string, ToolTab> = {
@@ -595,6 +698,20 @@ const TOOL_TABS: Record<string, ToolTab> = {
     launchArgs: ['--dangerously-skip-permissions'],
     title: 'Open Claude with --dangerously-skip-permissions. Only use this in isolated/sandboxed environments.',
     warningBadge: 'danger',
+    behavior: {
+      forceMouseMode: false,
+    },
+  },
+
+  rea: {
+    key: 'rea',
+    action: 'new-rea',
+    command: 'rea',
+    label: 'ReaKit CLI',
+    iconKey: 'reakit',
+    prewarm: false,
+    launchArgs: [],
+    title: 'Open ReaKit Reverse Engineering CLI in a new terminal tab',
     behavior: {
       forceMouseMode: false,
     },
@@ -1344,6 +1461,7 @@ function switchWorktreeContext(wtPath) {
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
+  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
 
   if (state.activeWorktreePath === wtPath) return;
 
@@ -1426,6 +1544,7 @@ function switchToTerminal(id) {
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
+  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
 
   const termInfo = state.terminals.get(id);
   if (!termInfo) return;
@@ -2440,6 +2559,10 @@ async function saveSettingsFromUI() {
     planeApiKey: dom.settingsPlaneApiKey ? dom.settingsPlaneApiKey.value.trim() : state.settings?.planeApiKey || '',
     planeBaseUrl: dom.settingsPlaneBaseUrl ? dom.settingsPlaneBaseUrl.value.trim() : state.settings?.planeBaseUrl || '',
     planeWorkspaceSlug: dom.settingsPlaneWorkspaceSlug ? dom.settingsPlaneWorkspaceSlug.value.trim() : state.settings?.planeWorkspaceSlug || '',
+    reakitPath: dom.settingsReakitPath ? cleanVal(dom.settingsReakitPath.value) : (state.settings?.reakitPath || ''),
+    reakitDefaultSource: dom.settingsReakitSource ? dom.settingsReakitSource.value : (state.settings?.reakitDefaultSource || 'apkcombo'),
+    reakitHeapSize: dom.settingsReakitHeap ? dom.settingsReakitHeap.value : (state.settings?.reakitHeapSize || '8g'),
+    reakitHarnessProfile: dom.settingsReakitProfile ? dom.settingsReakitProfile.value : (state.settings?.reakitHarnessProfile || 'standard'),
   };
   state.settings = await window.api.updateSettings(nextSettings);
 }
@@ -2454,6 +2577,10 @@ async function showSettingsScreen() {
     if (dom.settingsFigmaUrl) dom.settingsFigmaUrl.value = state.settings.figmaUrl || 'https://www.figma.com';
     if (dom.settingsScrcpyPath) dom.settingsScrcpyPath.value = state.settings.scrcpyPath || 'detecting...';
     if (dom.settingsPokitSourcePath) dom.settingsPokitSourcePath.value = state.settings.pokitSourcePath || '';
+    if (dom.settingsReakitPath) dom.settingsReakitPath.value = state.settings.reakitPath || 'detecting...';
+    if (dom.settingsReakitSource) dom.settingsReakitSource.value = state.settings.reakitDefaultSource || 'apkcombo';
+    if (dom.settingsReakitHeap) dom.settingsReakitHeap.value = state.settings.reakitHeapSize || '8g';
+    if (dom.settingsReakitProfile) dom.settingsReakitProfile.value = state.settings.reakitHarnessProfile || 'standard';
     if (dom.settingsAutoRefresh) dom.settingsAutoRefresh.checked = !!state.settings.autoRefreshCurrentProject;
     if (dom.settingsAutoRefreshInterval) dom.settingsAutoRefreshInterval.value = String(state.settings.autoRefreshInterval || 10);
     if (dom.settingsPlaneApiKey) dom.settingsPlaneApiKey.value = state.settings.planeApiKey || '';
@@ -2464,6 +2591,7 @@ async function showSettingsScreen() {
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
+  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   dom.settingsScreen.classList.remove('hidden');
 
   try {
@@ -2487,6 +2615,9 @@ async function showSettingsScreen() {
       if (dom.settingsFigmaPath) {
         dom.settingsFigmaPath.value = state.settings.figmaPath || detected.figmaPath || '';
       }
+      if (dom.settingsReakitPath) {
+        dom.settingsReakitPath.value = state.settings.reakitPath || detected.reakitPath || 'not detected';
+      }
     }
   } catch (err) {
     console.error('Failed to detect integration paths:', err);
@@ -2508,6 +2639,9 @@ async function showSettingsScreen() {
       }
       if (dom.settingsFigmaPath) {
         dom.settingsFigmaPath.value = state.settings.figmaPath || '';
+      }
+      if (dom.settingsReakitPath) {
+        dom.settingsReakitPath.value = state.settings.reakitPath || 'not detected';
       }
     }
   }
@@ -2532,6 +2666,7 @@ async function showSymlinkScreen() {
   dom.settingsScreen.classList.add('hidden');
   if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.remove('hidden');
 
   if (dom.symlinkScreenNewPath) dom.symlinkScreenNewPath.value = '';
@@ -2921,6 +3056,7 @@ async function showAgentToolkitScreen() {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
+  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.remove('hidden');
 
   await refreshAgentToolkitStatus();
@@ -3017,7 +3153,55 @@ const OPENSPEC_COMPONENTS = [
   }
 ];
 
-const TOOLKIT_COMPONENTS = [...POKIT_COMPONENTS, ...OPENSPEC_COMPONENTS];
+const REAKIT_COMPONENTS = [
+  {
+    id: 'reakit_agents',
+    toolkit: 'reakit',
+    name: 'ReaKit RE Agent Roster',
+    folderName: '.agents\\agents',
+    sourceFolder: 'agents',
+    description: 'Deploy ba, orchestrator, native-analyst, traffic-analyst, oracle, and explore agents.',
+    gitExcludePatterns: [
+      '.agents/agents/ba.md',
+      '.agents/agents/native-analyst.md',
+      '.agents/agents/traffic-analyst.md',
+      '.agents/agents/oracle.md',
+      '.agents/agents/explore.md',
+      '.agents/agents/worker-deep.md',
+      '.agents/agents/worker-quick.md'
+    ]
+  },
+  {
+    id: 'reakit_skills',
+    toolkit: 'reakit',
+    name: 'ReaKit RE Skills (pipeline, decomp, native, traffic)',
+    folderName: '.agents\\skills',
+    sourceFolder: 'skills',
+    description: 'Decompilation, runtime-extraction, jni-reversing, protocol-reversing, and apk-acquisition.',
+    gitExcludePatterns: [
+      '.agents/skills/static-pipeline/',
+      '.agents/skills/decompilation/',
+      '.agents/skills/native-analysis/',
+      '.agents/skills/traffic-capture/',
+      '.agents/skills/jni-reversing/',
+      '.agents/skills/protocol-reversing/'
+    ]
+  },
+  {
+    id: 'reakit_hooks_rules',
+    toolkit: 'reakit',
+    name: 'ReaKit Hooks & RE Analysis Rules',
+    isMulti: true,
+    folders: [
+      { name: '.agents\\hooks', source: 'hooks', pattern: '.agents/hooks/' },
+      { name: '.agents\\rules', source: 'rules', pattern: '.agents/rules/' }
+    ],
+    description: 'Reverse engineering hooks, state ledger, and methodology rules.',
+    gitExcludePatterns: ['.agents/hooks/', '.agents/rules/', '.agents/hooks.json']
+  }
+];
+
+const TOOLKIT_COMPONENTS = [...POKIT_COMPONENTS, ...REAKIT_COMPONENTS, ...OPENSPEC_COMPONENTS];
 
 async function refreshAgentToolkitStatus() {
   const activeWorktreePath = state.activeWorktreePath;
@@ -3079,6 +3263,30 @@ async function refreshAgentToolkitStatus() {
     pokitPath = defaultSources.pokitPath;
   }
 
+  let reakitPath = state.settings.reakitPath || '';
+  if (!reakitPath || reakitPath.toLowerCase().endsWith('.exe')) {
+    if (await window.api.pathExists(defaultSources.reakitPath)) {
+      reakitPath = defaultSources.reakitPath;
+    } else {
+      const reakitCandidates = [
+        pPath + '\\ReaKit',
+        pPath + '\\toolkits\\ReaKit',
+        'D:\\Quest\\BA_Space\\ReaKit',
+        'D:\\Quest\\ReaKit',
+      ];
+      for (const cand of reakitCandidates) {
+        if (await window.api.pathExists(cand)) {
+          reakitPath = cand;
+          break;
+        }
+      }
+    }
+  }
+  if (!reakitPath) {
+    reakitPath = defaultSources.reakitPath || 'D:\\Quest\\BA_Space\\ReaKit';
+  }
+  const reakitAgentsBase = reakitPath + '\\.agents';
+
   const listContainer = dom.agentToolkitListContainer;
   if (!listContainer) return;
 
@@ -3091,7 +3299,7 @@ async function refreshAgentToolkitStatus() {
   try {
     // Fetch statuses for all components
     const statuses = await Promise.all(TOOLKIT_COMPONENTS.map(async (comp: any) => {
-      const srcBase = (comp.toolkit === 'pokit') ? pokitPath : openspecPath;
+      const srcBase = (comp.toolkit === 'pokit') ? pokitPath : ((comp.toolkit === 'reakit') ? reakitAgentsBase : openspecPath);
       
       let sourceExists = false;
       try {
@@ -3186,6 +3394,8 @@ async function refreshAgentToolkitStatus() {
       let compIcon = '';
       if (compItem.id.includes('pokit')) {
         compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.pokit}</span>`;
+      } else if (compItem.id.includes('reakit')) {
+        compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.reakit}</span>`;
       } else if (compItem.id.includes('antigravity')) {
         compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.antigravity}</span>`;
       } else if (compItem.id.includes('claude')) {
@@ -3242,6 +3452,33 @@ async function refreshAgentToolkitStatus() {
       </div>
     `;
 
+    // Generate ReaKit HTML Group
+    const reakitItemsHtml = REAKIT_COMPONENTS.map(r => renderComponentItem(r)).join('');
+    const reakitActive = REAKIT_COMPONENTS.some(r => getStatus(r.id).exists);
+    const reakitBadge = reakitActive
+      ? `<span class="symlink-status-badge symlink-status-linked" style="background: rgba(16, 185, 129, 0.15); color: rgb(52, 211, 153); font-size: 10px; padding: 2px 6px;">Harness Active</span>`
+      : `<span class="symlink-status-badge symlink-status-unlinked" style="font-size: 10px; padding: 2px 6px;">Idle</span>`;
+
+    const reakitHtml = `
+      <div style="display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px 20px; background: var(--bg-default); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="color: var(--accent-default); display: flex; align-items: center; font-size: 18px;">
+              ${icons.reakit}
+            </div>
+            <div class="symlink-info">
+              <span class="symlink-name" style="font-size: 15px; font-weight: 700; color: var(--text-default);">ReaKit RE Harness</span>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Reverse engineering multi-agent roster with decompilation, runtime, and Ghidra workflows.</div>
+            </div>
+          </div>
+          ${reakitBadge}
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-subtle); padding-top: 14px; margin-top: 6px;">
+          ${reakitItemsHtml}
+        </div>
+      </div>
+    `;
+
     // Generate OpenSpec HTML Group
     const OPENSPEC_PLATFORMS = OPENSPEC_COMPONENTS.filter(c => c.id !== 'openspec_core');
     const osItemsHtml = OPENSPEC_PLATFORMS.map(p => renderComponentItem(p)).join('');
@@ -3273,6 +3510,7 @@ async function refreshAgentToolkitStatus() {
     listContainer.innerHTML = `
       <div style="display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%;">
         ${pokitHtml}
+        ${reakitHtml}
         ${openspecHtml}
       </div>
     `;
@@ -3289,7 +3527,7 @@ async function refreshAgentToolkitStatus() {
         if (!comp) return;
         target.disabled = true;
 
-        const srcBase = (comp.toolkit === 'pokit') ? pokitPath : openspecPath;
+        const srcBase = (comp.toolkit === 'pokit') ? pokitPath : ((comp.toolkit === 'reakit') ? reakitAgentsBase : openspecPath);
 
         const safeDeploy = async (name: string, sourcePath: string) => {
           const res = await window.api.deployToolkit({
@@ -3516,6 +3754,7 @@ async function showPlaneTaskScreen() {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   if (dom.planeTaskScreen) dom.planeTaskScreen.classList.remove('hidden');
 
   if (!cfg.projectId) {
@@ -4236,3 +4475,15 @@ initializeRendererLifecycle({
 });
 
 startAutoRefreshLoop();
+
+// ── ReaKit Studio ──────────────────────────────────────
+const reakitStudio = createReakitStudio({
+  dom,
+  state,
+  icons,
+  showToast,
+  createToolTab,
+  fitActiveTerminal,
+  startAutoRefreshLoop,
+});
+

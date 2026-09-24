@@ -28,6 +28,10 @@ function normalizeSettings(settings) {
     planeBaseUrl: typeof nextSettings.planeBaseUrl === 'string' && nextSettings.planeBaseUrl.trim() ? nextSettings.planeBaseUrl.trim() : 'https://plane.itgproduct.com',
     planeWorkspaceSlug: typeof nextSettings.planeWorkspaceSlug === 'string' && nextSettings.planeWorkspaceSlug.trim() ? nextSettings.planeWorkspaceSlug.trim() : 'product',
     projectPlaneIds: nextSettings.projectPlaneIds && typeof nextSettings.projectPlaneIds === 'object' ? nextSettings.projectPlaneIds : {},
+    reakitPath: typeof nextSettings.reakitPath === 'string' ? nextSettings.reakitPath.trim() : '',
+    reakitDefaultSource: typeof nextSettings.reakitDefaultSource === 'string' && nextSettings.reakitDefaultSource.trim() ? nextSettings.reakitDefaultSource.trim() : 'apkcombo',
+    reakitHeapSize: typeof nextSettings.reakitHeapSize === 'string' && nextSettings.reakitHeapSize.trim() ? nextSettings.reakitHeapSize.trim() : '8g',
+    reakitHarnessProfile: typeof nextSettings.reakitHarnessProfile === 'string' && nextSettings.reakitHarnessProfile.trim() ? nextSettings.reakitHarnessProfile.trim() : 'full',
     symlinkTargets: Array.isArray(nextSettings.symlinkTargets)
       ? nextSettings.symlinkTargets
           .filter(t => t && typeof t === 'object' && typeof t.name === 'string' && typeof t.targetPath === 'string')

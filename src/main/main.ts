@@ -8,6 +8,7 @@ const { getWorktrees: readWorktrees, getGitInfo: readGitInfo } = require('./git/
 const { createWorkspaceConfigStore } = require('../application/workspaceConfigStore');
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
+const { registerReakitIpc } = require('./reakit/reakitService');
 const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
 
 // ── State ──────────────────────────────────────────────
@@ -290,6 +291,10 @@ app.whenReady().then(() => {
     ipcMain,
     dialog,
     mainWindow,
+    workspaceService,
+  });
+  registerReakitIpc({
+    ipcMain,
     workspaceService,
   });
 
@@ -621,10 +626,13 @@ app.whenReady().then(() => {
     const toolkitsDir = app.isPackaged
       ? path.join(process.resourcesPath, 'toolkits')
       : path.join(app.getAppPath(), 'toolkits');
+    const rootReakit = path.join(app.getAppPath(), 'ReaKit');
+    const toolkitsReakit = path.join(toolkitsDir, 'ReaKit');
     return {
       openspecPath: path.join(toolkitsDir, 'OpenSpec'),
       pokitPath: path.join(toolkitsDir, 'POKit'),
-      bmadPath: path.join(toolkitsDir, 'BMAD-METHOD')
+      bmadPath: path.join(toolkitsDir, 'BMAD-METHOD'),
+      reakitPath: fs.existsSync(rootReakit) ? rootReakit : (fs.existsSync(toolkitsReakit) ? toolkitsReakit : 'D:\\Quest\\BA_Space\\ReaKit')
     };
   });
 
@@ -964,6 +972,12 @@ app.whenReady().then(() => {
       figmaPath: detectPath('figma', [
         path.join(os.homedir(), 'AppData', 'Local', 'Figma', 'Figma.exe'),
         path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Figma', 'Figma.exe'),
+      ]),
+      reakitPath: detectPath('rea', [
+        'C:\\Users\\admin\\Miniforge3\\Scripts\\rea.exe',
+        path.join(app.getAppPath(), 'ReaKit', 'rea.py'),
+        'D:\\Quest\\BA_Space\\ReaKit\\rea.py',
+        'D:\\Quest\\ReaKit\\rea.py',
       ]),
     };
   });

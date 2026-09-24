@@ -44,6 +44,10 @@ test('normalizeSettings trims values and drops blank entries', () => {
       planeBaseUrl: 'https://plane.itgproduct.com',
       planeWorkspaceSlug: 'product',
       projectPlaneIds: {},
+      reakitPath: '',
+      reakitDefaultSource: 'apkcombo',
+      reakitHeapSize: '8g',
+      reakitHarnessProfile: 'full',
     }
   );
 });
@@ -66,7 +70,34 @@ test('normalizeSettings falls back for non-object input', () => {
     planeBaseUrl: 'https://plane.itgproduct.com',
     planeWorkspaceSlug: 'product',
     projectPlaneIds: {},
+    reakitPath: '',
+    reakitDefaultSource: 'apkcombo',
+    reakitHeapSize: '8g',
+    reakitHarnessProfile: 'full',
   });
+});
+
+test('normalizeSettings trims and defaults ReaKit settings', () => {
+  assert.strictEqual(
+    normalizeSettings({ reakitPath: '  D:\\ReaKit  ' }).reakitPath,
+    'D:\\ReaKit'
+  );
+  assert.strictEqual(
+    normalizeSettings({ reakitDefaultSource: '  fdroid  ' }).reakitDefaultSource,
+    'fdroid'
+  );
+  assert.strictEqual(
+    normalizeSettings({ reakitHeapSize: '  16g  ' }).reakitHeapSize,
+    '16g'
+  );
+  assert.strictEqual(
+    normalizeSettings({ reakitHarnessProfile: '  native  ' }).reakitHarnessProfile,
+    'native'
+  );
+  assert.strictEqual(
+    normalizeSettings({ reakitDefaultSource: '' }).reakitDefaultSource,
+    'apkcombo'
+  );
 });
 
 test('normalizeSettings preserves autoRefreshCurrentProject boolean state', () => {
@@ -124,5 +155,9 @@ test('normalizeWorkspaceConfig keeps projects array and normalizes settings', ()
     planeBaseUrl: 'https://plane.itgproduct.com',
     planeWorkspaceSlug: 'product',
     projectPlaneIds: {},
+    reakitPath: '',
+    reakitDefaultSource: 'apkcombo',
+    reakitHeapSize: '8g',
+    reakitHarnessProfile: 'full',
   });
 });
