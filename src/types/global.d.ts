@@ -39,6 +39,7 @@ declare global {
       openInAntigravity: (path: string) => Promise<any>;
       openInAntigravityAgent: (path: string) => Promise<any>;
       openInFigma: (pathOrUrl?: string) => Promise<any>;
+      openInObsidian: (pathOrVault?: string) => Promise<any>;
       scrcpyMirror: (serial?: string) => Promise<any>;
       scrcpyCaptureUi: (opts: { worktreePath: string; prefix?: string }) => Promise<{
         success: boolean;
@@ -65,15 +66,11 @@ declare global {
         antigravityAgentPath?: string;
         figmaPath?: string;
         figmaUrl?: string;
+        obsidianPath?: string;
+        obsidianVault?: string;
         scrcpyPath?: string;
-        pokitSourcePath?: string;
-        openspecSourcePath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
-        planeApiKey?: string;
-        planeBaseUrl?: string;
-        planeWorkspaceSlug?: string;
-        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
         reakitPath?: string;
         reakitDefaultSource?: string;
@@ -88,15 +85,11 @@ declare global {
         antigravityAgentPath?: string;
         figmaPath?: string;
         figmaUrl?: string;
+        obsidianPath?: string;
+        obsidianVault?: string;
         scrcpyPath?: string;
-        pokitSourcePath?: string;
-        openspecSourcePath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
-        planeApiKey?: string;
-        planeBaseUrl?: string;
-        planeWorkspaceSlug?: string;
-        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
         reakitPath?: string;
         reakitDefaultSource?: string;
@@ -110,15 +103,11 @@ declare global {
         antigravityAgentPath?: string;
         figmaPath?: string;
         figmaUrl?: string;
+        obsidianPath?: string;
+        obsidianVault?: string;
         scrcpyPath?: string;
-        pokitSourcePath?: string;
-        openspecSourcePath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
-        planeApiKey?: string;
-        planeBaseUrl?: string;
-        planeWorkspaceSlug?: string;
-        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
         reakitPath?: string;
         reakitDefaultSource?: string;
@@ -133,6 +122,8 @@ declare global {
         vscodePath: string | null;
         scrcpyPath?: string | null;
         figmaPath?: string | null;
+        obsidianPath?: string | null;
+        obsidianVault?: string | null;
       }>;
       gitPull: (path: string) => Promise<any>;
       gitFetch: (path: string) => Promise<any>;
@@ -151,9 +142,14 @@ declare global {
       createDirectory: (path: string) => Promise<any>;
       pathExists: (path: string) => Promise<boolean>;
       checkToolkitStatus: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ exists: boolean }>;
-      deployToolkit: (opts: { worktreePath: string; name: string; sourcePath: string }) => Promise<{ success: boolean; error?: string }>;
+      deployToolkit: (opts: { worktreePath: string; name: string; sourcePath: string; preserveExisting?: boolean }) => Promise<{ success: boolean; error?: string }>;
       removeToolkit: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ success: boolean; error?: string }>;
-      getDefaultToolkitSources: () => Promise<{ openspecPath: string; pokitPath: string; bmadPath: string; reakitPath?: string }>;
+      getDefaultToolkitSources: () => Promise<{ bmadPath: string; bakitPath: string; reakitPath?: string }>;
+
+      // ── BAKit: mobilerun MCP registration in Antigravity's global MCP config ──
+      getMobilerunMcpStatus: () => Promise<{ registered: boolean; configPath: string; entry?: any; pythonPath: string | null; error?: string }>;
+      registerMobilerunMcp: () => Promise<{ success: boolean; alreadyRegistered?: boolean; configPath?: string; error?: string }>;
+      unregisterMobilerunMcp: () => Promise<{ success: boolean; configPath?: string; error?: string }>;
       writeProjectFile: (opts: { projectPath: string; relativeFilePath: string; content: string }) => Promise<any>;
       downloadFile: (opts: { url: string; destinationPath: string }) => Promise<any>;
 
@@ -177,17 +173,17 @@ declare global {
         existsOnDisk: boolean;
         targetDir?: string;
       }>>;
-      reakitGetTargetStatus: (opts: { worktreePath: string; packageName: string }) => Promise<{
+      reakitGetTargetStatus: (opts: { worktreePath: string; packageName?: string }) => Promise<{
         exists: boolean;
         targetDir: string;
-        apks: { count: number; files: string[]; sizeBytes: number };
-        jadx: { exists: boolean; hasSource: boolean; fileCount: number };
+        apks: { count: number; files: string[]; items?: Array<{ name: string; path: string; size: number }>; sizeBytes: number; dir?: string };
+        jadx: { exists: boolean; hasSource: boolean; fileCount: number; sourceDir?: string };
         runtime: { exists: boolean; files: string[]; count: number };
         native: { exists: boolean; soFiles: string[]; archs: string[] };
         traffic: { exists: boolean; count: number };
         docs: { exists: boolean; files: string[] };
       }>;
-      reakitLaunchJadxGui: (opts?: { target?: string; worktreePath?: string }) => Promise<{ success: boolean; error?: string }>;
+      reakitLaunchJadxGui: (opts?: { target?: string; apkPath?: string; worktreePath?: string }) => Promise<{ success: boolean; error?: string }>;
       reakitLaunchMirror: (opts?: { serial?: string; maxSize?: number; fps?: number }) => Promise<{ success: boolean; error?: string }>;
       reakitHarnessAction: (opts: { action: string; targetPath: string; profile?: string }) => Promise<{
         success: boolean;
@@ -196,6 +192,49 @@ declare global {
         exitCode: number;
       }>;
       reakitSaveTarget: (opts: { worktreePath: string; packageName: string; alias?: string }) => Promise<{ success: boolean; error?: string }>;
+      reakitSelectApkFile: () => Promise<string | null>;
+      reakitDownloadApk: (opts: { target: string; source?: string; outputDir?: string; worktreePath: string }) => Promise<{
+        success: boolean;
+        stdout: string;
+        stderr: string;
+        downloadedFiles: string[];
+        outputDir: string;
+      }>;
+      reakitDecompileApk: (opts: {
+        apkPath?: string;
+        packageName?: string;
+        outputDir?: string;
+        worktreePath: string;
+        heap?: string;
+        threads?: string | number;
+        exportGradle?: boolean;
+        deobf?: boolean;
+        showBadCode?: boolean;
+      }) => Promise<{
+        success: boolean;
+        stdout: string;
+        stderr: string;
+        outputDir: string;
+        fileCount: number;
+      }>;
+      reakitPipelineApk: (opts: {
+        target: string;
+        source?: string;
+        outputDir?: string;
+        worktreePath: string;
+        heap?: string;
+        threads?: string | number;
+        exportGradle?: boolean;
+        deobf?: boolean;
+        showBadCode?: boolean;
+      }) => Promise<{
+        success: boolean;
+        stdout: string;
+        stderr: string;
+        downloadedFiles: string[];
+        outputDir: string;
+        fileCount: number;
+      }>;
     };
   }
 }

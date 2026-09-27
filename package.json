@@ -1,7 +1,7 @@
 {
   "name": "ba-space",
   "version": "1.0.0",
-  "description": "Business Analyst workspace manager with Git worktrees, Plane tasks, screen inspection, and AI agent harnesses",
+  "description": "Business Analyst workspace manager with Git worktrees, screen inspection, and AI agent harnesses",
   "main": "dist/main/main.js",
   "scripts": {
     "build:main": "esbuild src/main/main.ts --outfile=dist/main/main.js --platform=node --format=cjs --bundle --external:electron --external:node-pty",
@@ -19,7 +19,6 @@
     "worktree",
     "workspace",
     "terminal",
-    "plane",
     "scrcpy",
     "specifications"
   ],

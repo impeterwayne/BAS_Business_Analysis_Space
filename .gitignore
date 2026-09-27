@@ -8,5 +8,6 @@ build/*
 *.log
 .DS_Store
 Thumbs.db
-openspec/
 /ReaKit/
+/BA_Flow
+/mobilerun-mcp

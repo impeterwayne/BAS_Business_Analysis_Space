@@ -1,22 +1,6 @@
 /* ═══════════════════════════════════════════════════════
    Coding Space — Renderer (Embedded Terminal + Sidebar)
    ═══════════════════════════════════════════════════════ */
-import {
-  DEFAULT_PLANE_CONFIG,
-  fetchProjectStates,
-  fetchProjectIssues,
-  fetchProjectDetails,
-  categorizeIssues,
-  generateTaskListMD,
-  cleanHTML,
-  formatPriority,
-  PlaneIssue,
-  PlaneState,
-  PlaneProject,
-  EvidenceMedia,
-  scrapeLightshotImageURL,
-  scrapeStreamableMediaURLs,
-} from './services/planeService';
 
 const { Terminal } = require('@xterm/xterm');
 const { FitAddon } = require('@xterm/addon-fit');
@@ -95,13 +79,8 @@ const state: {
     figmaPath?: string;
     figmaUrl?: string;
     scrcpyPath?: string;
-    pokitSourcePath?: string;
-    openspecSourcePath?: string;
     autoRefreshCurrentProject?: boolean;
     autoRefreshInterval?: number;
-    planeApiKey?: string;
-    planeBaseUrl?: string;
-    planeWorkspaceSlug?: string;
   };
   useExternalWt: boolean;
   workspaceSidebarCollapsed: boolean;
@@ -181,10 +160,14 @@ const dom = {
   btnScrcpyMirror: $('#btn-scrcpy-mirror'),
   btnScrcpyCapture: $('#btn-scrcpy-capture'),
   btnFigma: $('#btn-figma'),
-  welcomeBtnPlane: $('#welcome-btn-plane'),
+  btnObsidian: $('#btn-obsidian'),
+  welcomeBtnTerminal: $('#welcome-btn-terminal'),
   welcomeBtnMirror: $('#welcome-btn-mirror'),
   welcomeBtnCapture: $('#welcome-btn-capture'),
   welcomeBtnToolkit: $('#welcome-btn-toolkit'),
+  titlebarCrumbProject: $('#titlebar-crumb-project'),
+  titlebarCrumbBranch: $('#titlebar-crumb-branch'),
+  welcomeStatusName: $('#welcome-status-name'),
   btnManageSymlinks: $('#btn-manage-symlinks'),
   btnToggleWorkspaceSidebar: $('#btn-toggle-workspace-sidebar'),
   sidebarResizeHandle: $('#sidebar-resize-handle'),
@@ -197,15 +180,17 @@ const dom = {
   settingsVsCodePath: $('#settings-vscode-path'),
   settingsFigmaPath: $('#settings-figma-path'),
   settingsFigmaUrl: $('#settings-figma-url'),
+  settingsObsidianPath: $('#settings-obsidian-path'),
+  settingsObsidianVault: $('#settings-obsidian-vault'),
   settingsScrcpyPath: $('#settings-scrcpy-path'),
-  settingsPokitSourcePath: $('#settings-pokit-source-path'),
   btnBrowseAntigravity: $('#btn-browse-antigravity'),
   btnBrowseAntigravityAgent: $('#btn-browse-antigravity-agent'),
   btnBrowseAndroidStudio: $('#btn-browse-android-studio'),
   btnBrowseVsCode: $('#btn-browse-vscode'),
   btnBrowseFigma: $('#btn-browse-figma'),
+  btnBrowseObsidian: $('#btn-browse-obsidian'),
+  btnBrowseObsidianVault: $('#btn-browse-obsidian-vault'),
   btnBrowseScrcpy: $('#btn-browse-scrcpy'),
-  btnBrowsePokit: $('#btn-browse-pokit'),
   btnAgentToolkitApplyAll: $('#btn-agent-toolkit-apply-all'),
   symlinkScreen: $('#symlink-screen'),
   btnCloseSymlinkScreen: $('#btn-close-symlink-screen'),
@@ -223,27 +208,6 @@ const dom = {
   agentToolkitActiveName: $('#agent-toolkit-active-name'),
   agentToolkitActivePath: $('#agent-toolkit-active-path'),
   agentToolkitListContainer: $('#agent-toolkit-list-container'),
-  btnPlaneTasks: $('#btn-plane-tasks'),
-  planeTaskScreen: $('#plane-task-screen'),
-  btnClosePlaneTaskScreen: $('#btn-close-plane-task-screen'),
-  btnRefreshPlaneTasks: $('#btn-refresh-plane-tasks'),
-  btnExportPlaneTasks: $('#btn-export-plane-tasks'),
-  planeWorkspaceSlug: $('#plane-workspace-slug'),
-  planeProjectId: $('#plane-project-id'),
-  planeActiveWorktreeName: $('#plane-active-worktree-name'),
-  planeSearchInput: $('#plane-search-input'),
-  planeSortSelect: $('#plane-sort-select'),
-  planeSelectAllCheckbox: $('#plane-select-all-checkbox'),
-  planeSelectionSummary: $('#plane-selection-summary'),
-  planeTasksTbody: $('#plane-tasks-tbody'),
-  planeTableLoading: $('#plane-table-loading'),
-  planeStatusBadge: $('#plane-status-badge'),
-  settingsPlaneApiKey: $('#settings-plane-api-key'),
-  settingsPlaneBaseUrl: $('#settings-plane-base-url'),
-  settingsPlaneWorkspaceSlug: $('#settings-plane-workspace-slug'),
-  planeWorkspaceSlugInput: $('#plane-workspace-slug-input'),
-  planeProjectIdInput: $('#plane-project-id-input'),
-  btnSavePlaneProjectConfig: $('#btn-save-plane-project-config'),
 
   // ── ReaKit Elements ──
   btnReakit: $('#btn-reakit'),
@@ -255,19 +219,42 @@ const dom = {
   reakitEnvBadge: $('#reakit-env-badge'),
   reakitDeviceBadge: $('#reakit-device-badge'),
   reakitActiveWorktreeName: $('#reakit-active-worktree-name'),
+  reakitActiveWorktreePath: $('#reakit-active-worktree-path'),
+  reakitWsBranchBadge: $('#reakit-ws-branch-badge'),
+  btnReakitOpenWsFolder: $('#btn-reakit-open-ws-folder'),
+  btnReakitOpenWsEditor: $('#btn-reakit-open-ws-editor'),
   reakitTargetInput: $('#reakit-target-input'),
   reakitAliasInput: $('#reakit-alias-input'),
   reakitTargetSelect: $('#reakit-target-select'),
   btnReakitSaveTarget: $('#btn-reakit-save-target'),
   btnReakitRefreshTarget: $('#btn-reakit-refresh-target'),
   btnReakitOpenFolder: $('#btn-reakit-open-folder'),
-  reakitArtifactsContainer: $('#reakit-artifacts-container'),
+  reakitDlSource: $('#reakit-dl-source'),
+  reakitLocalApkPath: $('#reakit-local-apk-path'),
+  btnReakitBrowseApk: $('#btn-reakit-browse-apk'),
+  btnReakitClearLocalApk: $('#btn-reakit-clear-local-apk'),
+  reakitDestSelect: $('#reakit-dest-select'),
+  reakitDestPathPreview: $('#reakit-dest-path-preview'),
+  reakitPipelineHeap: $('#reakit-pipeline-heap'),
+  reakitPipelineThreads: $('#reakit-pipeline-threads'),
+  reakitPipelineSkipDecode: $('#reakit-pipeline-skip-decode'),
+  reakitOptExportGradle: $('#reakit-opt-export-gradle'),
+  reakitOptDeobf: $('#reakit-opt-deobf'),
+  reakitOptShowBadCode: $('#reakit-opt-show-bad-code'),
+  btnReakitRunPipeline: $('#btn-reakit-run-pipeline'),
+  btnReakitRunDl: $('#btn-reakit-run-dl'),
+  btnReakitRunDecode: $('#btn-reakit-run-decode'),
+  btnReakitLaunchJadxGui: $('#btn-reakit-launch-jadx-gui'),
+  btnReakitRunApktoolD: $('#btn-reakit-run-apktool-d'),
+  btnReakitRunApktoolB: $('#btn-reakit-run-apktool-b'),
   badgeApksStatus: $('#badge-apks-status'),
   descApksStatus: $('#desc-apks-status'),
   labelApksCount: $('#label-apks-count'),
   btnReakitOpenApks: $('#btn-reakit-open-apks'),
+  btnReakitGuiFromTile: $('#btn-reakit-gui-from-tile'),
   badgeJadxStatus: $('#badge-jadx-status'),
   descJadxStatus: $('#desc-jadx-status'),
+  labelJadxCount: $('#label-jadx-count'),
   btnReakitOpenSourceCode: $('#btn-reakit-open-source-code'),
   btnReakitOpenJadx: $('#btn-reakit-open-jadx'),
   badgeRuntimeStatus: $('#badge-runtime-status'),
@@ -282,15 +269,6 @@ const dom = {
   descTrafficStatus: $('#desc-traffic-status'),
   labelTrafficCount: $('#label-traffic-count'),
   btnReakitOpenTraffic: $('#btn-reakit-open-traffic'),
-  reakitPipelineHeap: $('#reakit-pipeline-heap'),
-  reakitPipelineSkipDecode: $('#reakit-pipeline-skip-decode'),
-  btnReakitRunPipeline: $('#btn-reakit-run-pipeline'),
-  reakitDlSource: $('#reakit-dl-source'),
-  btnReakitRunDl: $('#btn-reakit-run-dl'),
-  btnReakitRunDecode: $('#btn-reakit-run-decode'),
-  btnReakitLaunchJadxGui: $('#btn-reakit-launch-jadx-gui'),
-  btnReakitRunApktoolD: $('#btn-reakit-run-apktool-d'),
-  btnReakitRunApktoolB: $('#btn-reakit-run-apktool-b'),
   reakitDeviceSelect: $('#reakit-device-select'),
   btnReakitRefreshDevices: $('#btn-reakit-refresh-devices'),
   btnReakitMirror: $('#btn-reakit-mirror'),
@@ -310,9 +288,9 @@ const dom = {
   reakitNativeLibInput: $('#reakit-native-lib-input'),
   btnReakitNativeServe: $('#btn-reakit-native-serve'),
   btnReakitHttpStream: $('#btn-reakit-http-stream'),
-  btnReakitExportCert: $('#btn-reakit-export-cert'),
   btnReakitProxyOn: $('#btn-reakit-proxy-on'),
   btnReakitProxyOff: $('#btn-reakit-proxy-off'),
+  btnReakitExportCert: $('#btn-reakit-export-cert'),
   reakitHarnessProfileSelect: $('#reakit-harness-profile-select'),
   btnReakitHarnessInit: $('#btn-reakit-harness-init'),
   btnReakitHarnessStatus: $('#btn-reakit-harness-status'),
@@ -369,13 +347,14 @@ setupBrowseButton(dom.btnBrowseAntigravityAgent, dom.settingsAntigravityAgentPat
 setupBrowseButton(dom.btnBrowseAndroidStudio, dom.settingsAndroidStudioPath);
 setupBrowseButton(dom.btnBrowseVsCode, dom.settingsVsCodePath);
 setupBrowseButton(dom.btnBrowseFigma, dom.settingsFigmaPath);
+setupBrowseButton(dom.btnBrowseObsidian, dom.settingsObsidianPath);
 setupBrowseButton(dom.btnBrowseScrcpy, dom.settingsScrcpyPath);
 
-if (dom.btnBrowsePokit && dom.settingsPokitSourcePath) {
-  dom.btnBrowsePokit.addEventListener('click', async () => {
-    const selected = await window.api.selectDirectory('Select POKit BA Harness Directory');
+if (dom.btnBrowseObsidianVault && dom.settingsObsidianVault) {
+  dom.btnBrowseObsidianVault.addEventListener('click', async () => {
+    const selected = await window.api.selectDirectory('Select Obsidian Vault Folder');
     if (selected) {
-      dom.settingsPokitSourcePath.value = selected;
+      dom.settingsObsidianVault.value = selected;
       await saveSettingsFromUI();
     }
   });
@@ -398,11 +377,9 @@ const settingsInputs = [
   dom.settingsVsCodePath,
   dom.settingsFigmaPath,
   dom.settingsFigmaUrl,
+  dom.settingsObsidianPath,
+  dom.settingsObsidianVault,
   dom.settingsScrcpyPath,
-  dom.settingsPokitSourcePath,
-  dom.settingsPlaneApiKey,
-  dom.settingsPlaneBaseUrl,
-  dom.settingsPlaneWorkspaceSlug,
   dom.settingsReakitPath,
   dom.settingsReakitSource,
   dom.settingsReakitHeap,
@@ -589,11 +566,9 @@ const iconRaw = {
   copy: loadIcon('copy'),
   link: loadIcon('link'),
   'agent-toolkit': loadIcon('agent-toolkit'),
-  openspec: loadIcon('openspec'),
   screen: loadIcon('screen'),
   capture: loadIcon('capture'),
   figma: loadIcon('figma'),
-  pokit: loadIcon('pokit'),
   task: loadIcon('task'),
   reakit: loadIcon('reakit'),
 };
@@ -621,11 +596,9 @@ const icons = {
   link: iconSvg(iconRaw.link, 12),
   codex: iconSvg(iconRaw.codex, 12),
   agentToolkit: iconSvg(iconRaw['agent-toolkit'], 16),
-  openspec: iconSvg(iconRaw.openspec, 16),
   screen: iconSvg(iconRaw.screen, 14),
   capture: iconSvg(iconRaw.capture, 14),
   figma: iconSvg(iconRaw.figma, 14),
-  pokit: iconSvg(iconRaw.pokit, 14),
   task: iconSvg(iconRaw.task, 14),
   reakit: iconSvg(iconRaw.reakit, 14),
 };
@@ -1460,7 +1433,6 @@ function switchWorktreeContext(wtPath) {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
   if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
 
   if (state.activeWorktreePath === wtPath) return;
@@ -1543,7 +1515,6 @@ function switchToTerminal(id) {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
   if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
 
   const termInfo = state.terminals.get(id);
@@ -2026,14 +1997,6 @@ dom.tabNewBtn.addEventListener('click', (e) => {
 bindWorktreeQuickAction(dom.btnAntigravity, (wtPath) => window.api.openInAntigravity(wtPath), 'Opening Antigravity...');
 bindWorktreeQuickAction(dom.btnAntigravityAgent, (wtPath) => window.api.openInAntigravityAgent(wtPath), 'Opening Agent Manager...');
 
-if (dom.btnPlaneTasks) {
-  dom.btnPlaneTasks.addEventListener('click', () => {
-    const activeWorktreePath = getRequiredActiveWorktreePath();
-    if (!activeWorktreePath) return;
-    showPlaneTaskScreen();
-  });
-}
-
 if (dom.btnScrcpyMirror) {
   dom.btnScrcpyMirror.addEventListener('click', async () => {
     showToast('Launching Screen Mirror...', 'info');
@@ -2065,13 +2028,38 @@ if (dom.btnFigma) {
   });
 }
 
+if (dom.btnObsidian) {
+  dom.btnObsidian.addEventListener('click', async () => {
+    const wtPath = state.activeWorktreePath;
+    showToast('Opening Obsidian...', 'info');
+    const res = await window.api.openInObsidian(wtPath || undefined);
+    if (res && !res.success && res.error) {
+      showToast(`Failed to open Obsidian: ${res.error}`, 'error');
+    }
+  });
+}
+
 bindWorktreeQuickAction(dom.btnVsCode, (wtPath) => window.api.openInEditor(wtPath), 'Opening Spec Editor...');
 bindWorktreeQuickAction(dom.btnExplorer, (wtPath) => window.api.openInExplorer(wtPath), 'Opening Explorer...');
 
 // Welcome screen quick actions
-if (dom.welcomeBtnPlane) {
-  dom.welcomeBtnPlane.addEventListener('click', () => {
-    if (dom.btnPlaneTasks) dom.btnPlaneTasks.click();
+if (dom.welcomeBtnTerminal) {
+  dom.welcomeBtnTerminal.addEventListener('click', async () => {
+    if (state.activeWorktreePath) {
+      const activeName = state.activeWorktreePath.split(/[\\/]/).pop() || 'Terminal';
+      await createTerminal(state.activeWorktreePath, activeName);
+    } else if (state.projects && state.projects.length > 0) {
+      const p = state.projects.find((proj) => proj.path === state.selectedProjectPath) || state.projects[0];
+      const wt = (p.worktrees && p.worktrees[0]) ? p.worktrees[0].path : p.path;
+      await createTerminal(wt, p.name);
+    } else {
+      showToast('Please open or add a project first.', 'info');
+    }
+  });
+}
+if (dom.welcomeBtnReakit) {
+  dom.welcomeBtnReakit.addEventListener('click', () => {
+    if (dom.btnReakit) dom.btnReakit.click();
   });
 }
 if (dom.welcomeBtnMirror) {
@@ -2264,6 +2252,40 @@ function updateSidebarActiveState() {
     if (!(el instanceof HTMLElement)) return;
     el.classList.toggle('active', el.dataset.wtPath === state.activeWorktreePath);
   });
+
+  const activeWtPath = state.activeWorktreePath;
+  let activeProject: any = null;
+  let activeWt: any = null;
+
+  if (activeWtPath && state.projects) {
+    for (const p of state.projects) {
+      const found = (p.worktrees || []).find((w: any) => w.path === activeWtPath);
+      if (found) {
+        activeProject = p;
+        activeWt = found;
+        break;
+      }
+    }
+  }
+
+  const titlebarProject = dom.titlebarCrumbProject || document.getElementById('titlebar-crumb-project');
+  const titlebarBranch = dom.titlebarCrumbBranch || document.getElementById('titlebar-crumb-branch');
+  const welcomeStatusName = dom.welcomeStatusName || document.getElementById('welcome-status-name');
+
+  if (activeProject && activeWt) {
+    if (titlebarProject) titlebarProject.textContent = activeProject.name;
+    if (titlebarBranch) titlebarBranch.textContent = `${activeWt.name} (${activeWt.branch || 'detached'})`;
+    if (welcomeStatusName) welcomeStatusName.textContent = `${activeProject.name} — ${activeWt.name} (${activeWt.branch || 'main'})`;
+  } else if (state.projects && state.projects.length > 0) {
+    const selP = state.projects.find((p: any) => p.path === state.selectedProjectPath) || state.projects[0];
+    if (titlebarProject) titlebarProject.textContent = selP.name;
+    if (titlebarBranch) titlebarBranch.textContent = 'Workspace';
+    if (welcomeStatusName) welcomeStatusName.textContent = `${selP.name} — Select a worktree to begin`;
+  } else {
+    if (titlebarProject) titlebarProject.textContent = 'BA Space';
+    if (titlebarBranch) titlebarBranch.textContent = 'Ready';
+    if (welcomeStatusName) welcomeStatusName.textContent = 'Add or select a project to get started';
+  }
 }
 
 function attachSelectedProjectEvents(project) {
@@ -2354,6 +2376,13 @@ function attachSelectedProjectEvents(project) {
       const currentTarget = e.currentTarget;
       if (currentTarget instanceof HTMLElement) window.api.openInAntigravity(currentTarget.dataset.path || '');
       showToast('Opening Antigravity...', 'info');
+    });
+
+    wtEl.querySelector('[data-action="obsidian"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentTarget = e.currentTarget;
+      if (currentTarget instanceof HTMLElement) window.api.openInObsidian(currentTarget.dataset.path || '');
+      showToast('Opening Obsidian...', 'info');
     });
 
     wtEl.querySelector('[data-action="explorer"]')?.addEventListener('click', (e) => {
@@ -2552,13 +2581,11 @@ async function saveSettingsFromUI() {
     vscodePath: dom.settingsVsCodePath ? cleanVal(dom.settingsVsCodePath.value) : '',
     figmaPath: dom.settingsFigmaPath ? cleanVal(dom.settingsFigmaPath.value) : '',
     figmaUrl: dom.settingsFigmaUrl ? dom.settingsFigmaUrl.value.trim() : (state.settings?.figmaUrl || 'https://www.figma.com'),
+    obsidianPath: dom.settingsObsidianPath ? cleanVal(dom.settingsObsidianPath.value) : '',
+    obsidianVault: dom.settingsObsidianVault ? dom.settingsObsidianVault.value.trim() : (state.settings?.obsidianVault || ''),
     scrcpyPath: dom.settingsScrcpyPath ? cleanVal(dom.settingsScrcpyPath.value) : '',
-    pokitSourcePath: dom.settingsPokitSourcePath ? dom.settingsPokitSourcePath.value.trim() : (state.settings?.pokitSourcePath || ''),
     autoRefreshCurrentProject: dom.settingsAutoRefresh ? dom.settingsAutoRefresh.checked : true,
     autoRefreshInterval: isNaN(intervalVal) || intervalVal < 1 ? 10 : intervalVal,
-    planeApiKey: dom.settingsPlaneApiKey ? dom.settingsPlaneApiKey.value.trim() : state.settings?.planeApiKey || '',
-    planeBaseUrl: dom.settingsPlaneBaseUrl ? dom.settingsPlaneBaseUrl.value.trim() : state.settings?.planeBaseUrl || '',
-    planeWorkspaceSlug: dom.settingsPlaneWorkspaceSlug ? dom.settingsPlaneWorkspaceSlug.value.trim() : state.settings?.planeWorkspaceSlug || '',
     reakitPath: dom.settingsReakitPath ? cleanVal(dom.settingsReakitPath.value) : (state.settings?.reakitPath || ''),
     reakitDefaultSource: dom.settingsReakitSource ? dom.settingsReakitSource.value : (state.settings?.reakitDefaultSource || 'apkcombo'),
     reakitHeapSize: dom.settingsReakitHeap ? dom.settingsReakitHeap.value : (state.settings?.reakitHeapSize || '8g'),
@@ -2575,22 +2602,19 @@ async function showSettingsScreen() {
     if (dom.settingsVsCodePath) dom.settingsVsCodePath.value = state.settings.vscodePath || 'detecting...';
     if (dom.settingsFigmaPath) dom.settingsFigmaPath.value = state.settings.figmaPath || '';
     if (dom.settingsFigmaUrl) dom.settingsFigmaUrl.value = state.settings.figmaUrl || 'https://www.figma.com';
+    if (dom.settingsObsidianPath) dom.settingsObsidianPath.value = state.settings.obsidianPath || 'detecting...';
+    if (dom.settingsObsidianVault) dom.settingsObsidianVault.value = state.settings.obsidianVault || '';
     if (dom.settingsScrcpyPath) dom.settingsScrcpyPath.value = state.settings.scrcpyPath || 'detecting...';
-    if (dom.settingsPokitSourcePath) dom.settingsPokitSourcePath.value = state.settings.pokitSourcePath || '';
     if (dom.settingsReakitPath) dom.settingsReakitPath.value = state.settings.reakitPath || 'detecting...';
     if (dom.settingsReakitSource) dom.settingsReakitSource.value = state.settings.reakitDefaultSource || 'apkcombo';
     if (dom.settingsReakitHeap) dom.settingsReakitHeap.value = state.settings.reakitHeapSize || '8g';
     if (dom.settingsReakitProfile) dom.settingsReakitProfile.value = state.settings.reakitHarnessProfile || 'standard';
     if (dom.settingsAutoRefresh) dom.settingsAutoRefresh.checked = !!state.settings.autoRefreshCurrentProject;
     if (dom.settingsAutoRefreshInterval) dom.settingsAutoRefreshInterval.value = String(state.settings.autoRefreshInterval || 10);
-    if (dom.settingsPlaneApiKey) dom.settingsPlaneApiKey.value = state.settings.planeApiKey || '';
-    if (dom.settingsPlaneBaseUrl) dom.settingsPlaneBaseUrl.value = state.settings.planeBaseUrl || 'https://plane.itgproduct.com';
-    if (dom.settingsPlaneWorkspaceSlug) dom.settingsPlaneWorkspaceSlug.value = state.settings.planeWorkspaceSlug || 'product';
   }
 
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
   if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   dom.settingsScreen.classList.remove('hidden');
 
@@ -2614,6 +2638,12 @@ async function showSettingsScreen() {
       }
       if (dom.settingsFigmaPath) {
         dom.settingsFigmaPath.value = state.settings.figmaPath || detected.figmaPath || '';
+      }
+      if (dom.settingsObsidianPath) {
+        dom.settingsObsidianPath.value = state.settings.obsidianPath || detected.obsidianPath || 'not detected';
+      }
+      if (dom.settingsObsidianVault) {
+        dom.settingsObsidianVault.value = state.settings.obsidianVault || detected.obsidianVault || '';
       }
       if (dom.settingsReakitPath) {
         dom.settingsReakitPath.value = state.settings.reakitPath || detected.reakitPath || 'not detected';
@@ -2640,6 +2670,12 @@ async function showSettingsScreen() {
       if (dom.settingsFigmaPath) {
         dom.settingsFigmaPath.value = state.settings.figmaPath || '';
       }
+      if (dom.settingsObsidianPath) {
+        dom.settingsObsidianPath.value = state.settings.obsidianPath || 'not detected';
+      }
+      if (dom.settingsObsidianVault) {
+        dom.settingsObsidianVault.value = state.settings.obsidianVault || '';
+      }
       if (dom.settingsReakitPath) {
         dom.settingsReakitPath.value = state.settings.reakitPath || 'not detected';
       }
@@ -2664,7 +2700,6 @@ async function showSymlinkScreen() {
   if (dom.symlinkScreenActivePath) dom.symlinkScreenActivePath.textContent = activeWorktreePath || 'Please select a worktree first.';
 
   dom.settingsScreen.classList.add('hidden');
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.remove('hidden');
@@ -3055,7 +3090,6 @@ async function showAgentToolkitScreen() {
 
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
   if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.remove('hidden');
 
@@ -3069,90 +3103,6 @@ function hideAgentToolkitScreen() {
 }
 
 // Toolkit components to link/manage
-const POKIT_COMPONENTS = [
-  {
-    id: 'pokit_agents',
-    toolkit: 'pokit',
-    name: 'BA Agent Roster',
-    folderName: '.agents\\agents',
-    sourceFolder: 'agents',
-    description: 'Deploy orchestrator, business-analyst, and screen-analyst agents.',
-    gitExcludePatterns: ['.agents/agents/business-analyst.md', '.agents/agents/screen-analyst.md', '.agents/agents/orchestrator.md']
-  },
-  {
-    id: 'pokit_skills',
-    toolkit: 'pokit',
-    name: 'BA Skills (ultrawork, loop, device-control)',
-    folderName: '.agents\\skills',
-    sourceFolder: 'skills',
-    description: 'Skills for goal ledger tracking, scrcpy device control, and ultrawork execution.',
-    gitExcludePatterns: ['.agents/skills/ultrawork/', '.agents/skills/loop/', '.agents/skills/device-control/']
-  },
-  {
-    id: 'pokit_hooks_scripts',
-    toolkit: 'pokit',
-    name: 'Automation & Guard Hooks',
-    isMulti: true,
-    folders: [
-      { name: '.agents\\hooks', source: 'hooks', pattern: '.agents/hooks/' },
-      { name: '.agents\\scripts', source: 'scripts', pattern: '.agents/scripts/' }
-    ],
-    description: 'Mechanical enforcement: device_guard, scrcpy_daemon, stop_verifier, loop.py.',
-    gitExcludePatterns: ['.agents/hooks/', '.agents/scripts/']
-  }
-];
-
-const OPENSPEC_COMPONENTS = [
-  {
-    id: 'openspec_core',
-    toolkit: 'openspec',
-    name: 'OpenSpec Core Infrastructure',
-    folderName: 'openspec',
-    description: 'Core OpenSpec configuration and specs folder.',
-    gitExcludePatterns: ['openspec/']
-  },
-  {
-    id: 'openspec_antigravity',
-    toolkit: 'openspec',
-    name: 'Antigravity OpenSpec Workflows',
-    isMulti: true,
-    folders: [
-      { name: '.agents\\skills', pattern: '.agents/skills/' },
-      { name: '.agents\\workflows', pattern: '.agents/workflows/' }
-    ],
-    description: 'Deploys OpenSpec shared skills and slash-command workflows.',
-    gitExcludePatterns: ['.agents/skills/openspec-*/', '.agents/workflows/opsx-*']
-  },
-  {
-    id: 'openspec_claude',
-    toolkit: 'openspec',
-    name: 'Claude OpenSpec Skills',
-    folderName: '.claude\\skills',
-    description: 'Claude-specific skills and agent instructions.',
-    gitExcludePatterns: ['.claude/skills/openspec-*/']
-  },
-  {
-    id: 'openspec_codex',
-    toolkit: 'openspec',
-    name: 'Codex OpenSpec Skills',
-    folderName: '.codex\\skills',
-    description: 'Codex-specific skills and custom Codex settings.',
-    gitExcludePatterns: ['.codex/skills/openspec-*/']
-  },
-  {
-    id: 'openspec_opencode',
-    toolkit: 'openspec',
-    name: 'OpenCode OpenSpec Skills',
-    isMulti: true,
-    folders: [
-      { name: '.opencode\\skills', pattern: '.opencode/skills/' },
-      { name: '.opencode\\commands', pattern: '.opencode/commands/' }
-    ],
-    description: 'OpenCode-specific skills and tools.',
-    gitExcludePatterns: ['.opencode/skills/openspec-*/', '.opencode/commands/openspec-*/']
-  }
-];
-
 const REAKIT_COMPONENTS = [
   {
     id: 'reakit_agents',
@@ -3201,7 +3151,76 @@ const REAKIT_COMPONENTS = [
   }
 ];
 
-const TOOLKIT_COMPONENTS = [...POKIT_COMPONENTS, ...REAKIT_COMPONENTS, ...OPENSPEC_COMPONENTS];
+const BAKIT_COMPONENTS = [
+  {
+    id: 'bakit_agents',
+    toolkit: 'bakit',
+    name: 'BA Agent Roster',
+    folderName: '.agents\\agents',
+    sourceFolder: 'agents',
+    description: 'Deploy ba-lead, competitor-analyst, ba-researcher, ba-brainstormer, and ba-spec-writer agents.',
+    gitExcludePatterns: [
+      '.agents/agents/ba-lead.md',
+      '.agents/agents/competitor-analyst.md',
+      '.agents/agents/ba-researcher.md',
+      '.agents/agents/ba-brainstormer.md',
+      '.agents/agents/ba-spec-writer.md'
+    ]
+  },
+  {
+    id: 'bakit_skills',
+    toolkit: 'bakit',
+    name: 'BA Skills & Templates (specs, competitor analysis, audits, test cases)',
+    folderName: '.agents\\skills',
+    sourceFolder: 'skills',
+    description: 'ba-templates catalog, competitor-app-analysis, mobilerun, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
+    gitExcludePatterns: [
+      '.agents/skills/ba-templates/',
+      '.agents/skills/competitor-app-analysis/',
+      '.agents/skills/mobilerun/',
+      '.agents/skills/specs/',
+      '.agents/skills/test-cases/',
+      '.agents/skills/BA-audit-SRS/',
+      '.agents/skills/BA-audit-QnA/',
+      '.agents/skills/brainstorm-features/',
+      '.agents/skills/document-extraction/',
+      '.agents/skills/mermaidjs-v11/',
+      '.agents/skills/problem-solving/',
+      '.agents/skills/sequential-thinking/'
+    ]
+  },
+  {
+    id: 'bakit_rules_workflows',
+    toolkit: 'bakit',
+    name: 'BA Rules, Slash Workflows & Project Config',
+    isMulti: true,
+    folders: [
+      { name: '.agents\\rules', source: 'rules', pattern: '.agents/rules/' },
+      { name: '.agents\\workflows', source: 'workflows', pattern: '.agents/workflows/' },
+      // The project config is filled in per project: never overwrite it, never delete it.
+      { name: '.agents\\config', source: 'config', pattern: '.agents/config/', preserveExisting: true, keepOnRemove: true }
+    ],
+    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety) and /ba-competitor, /ba-template, /ba-spec, /ba-review, /ba-testcases, /ba-device-check.',
+    gitExcludePatterns: [
+      '.agents/rules/ba-global-rules.md',
+      '.agents/rules/ba-workflow.md',
+      '.agents/rules/ba-naming-convention.md',
+      '.agents/rules/ba-device-automation.md',
+      '.agents/rules/ba-markdown-formatting.md',
+      '.agents/workflows/ba-*.md'
+    ]
+  },
+  {
+    id: 'bakit_mobilerun_mcp',
+    toolkit: 'bakit',
+    kind: 'mcp',
+    name: 'Mobilerun MCP (Antigravity)',
+    description: "Registers the mobilerun server in Antigravity's global MCP config so agents can drive competitor apps on the connected Android device. Applies to every Antigravity workspace.",
+    gitExcludePatterns: []
+  }
+];
+
+const TOOLKIT_COMPONENTS = [...BAKIT_COMPONENTS, ...REAKIT_COMPONENTS];
 
 async function refreshAgentToolkitStatus() {
   const activeWorktreePath = state.activeWorktreePath;
@@ -3219,49 +3238,6 @@ async function refreshAgentToolkitStatus() {
 
   // 1. Determine toolkit source directories
   const defaultSources = await window.api.getDefaultToolkitSources();
-  let openspecPath = state.settings.openspecSourcePath || '';
-  if (!openspecPath) {
-    if (await window.api.pathExists(defaultSources.openspecPath)) {
-      openspecPath = defaultSources.openspecPath;
-    } else {
-      const openspecCandidates = [
-        pPath + '\\OpenSpec',
-        pPath + '\\openspec',
-        pPath + '\\openspec-source'
-      ];
-      for (const cand of openspecCandidates) {
-        if (await window.api.pathExists(cand)) {
-          openspecPath = cand;
-          break;
-        }
-      }
-    }
-  }
-  if (!openspecPath) {
-    openspecPath = defaultSources.openspecPath;
-  }
-
-  let pokitPath = state.settings.pokitSourcePath || '';
-  if (!pokitPath) {
-    if (await window.api.pathExists(defaultSources.pokitPath)) {
-      pokitPath = defaultSources.pokitPath;
-    } else {
-      const pokitCandidates = [
-        pPath + '\\toolkits\\POKit',
-        'D:\\Quest\\POKit\\cli\\assets',
-        pPath + '\\POKit'
-      ];
-      for (const cand of pokitCandidates) {
-        if (await window.api.pathExists(cand)) {
-          pokitPath = cand;
-          break;
-        }
-      }
-    }
-  }
-  if (!pokitPath) {
-    pokitPath = defaultSources.pokitPath;
-  }
 
   let reakitPath = state.settings.reakitPath || '';
   if (!reakitPath || reakitPath.toLowerCase().endsWith('.exe')) {
@@ -3287,6 +3263,16 @@ async function refreshAgentToolkitStatus() {
   }
   const reakitAgentsBase = reakitPath + '\\.agents';
 
+  let bakitPath = defaultSources.bakitPath;
+  if (!(await window.api.pathExists(bakitPath)) && (await window.api.pathExists(pPath + '\\toolkits\\BAKit'))) {
+    bakitPath = pPath + '\\toolkits\\BAKit';
+  }
+
+  const srcBaseFor = (comp: any) => {
+    if (comp.toolkit === 'reakit') return reakitAgentsBase;
+    return bakitPath;
+  };
+
   const listContainer = dom.agentToolkitListContainer;
   if (!listContainer) return;
 
@@ -3299,7 +3285,15 @@ async function refreshAgentToolkitStatus() {
   try {
     // Fetch statuses for all components
     const statuses = await Promise.all(TOOLKIT_COMPONENTS.map(async (comp: any) => {
-      const srcBase = (comp.toolkit === 'pokit') ? pokitPath : ((comp.toolkit === 'reakit') ? reakitAgentsBase : openspecPath);
+      if (comp.kind === 'mcp') {
+        try {
+          const mcp = await window.api.getMobilerunMcpStatus();
+          return { id: comp.id, name: comp.name, sourceExists: mcp.registered || !!mcp.pythonPath, exists: mcp.registered };
+        } catch (e) {
+          return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
+        }
+      }
+      const srcBase = srcBaseFor(comp);
       
       let sourceExists = false;
       try {
@@ -3347,22 +3341,6 @@ async function refreshAgentToolkitStatus() {
         }
       }
 
-      // If it's an OpenSpec platform component, also require that openspec core exists
-      if (exists && comp.id.startsWith('openspec_') && comp.id !== 'openspec_core') {
-        try {
-          const coreStatus = await window.api.checkToolkitStatus({
-            worktreePath: activeWorktreePath,
-            name: 'openspec',
-            sourcePath: openspecPath + '\\openspec'
-          });
-          if (!coreStatus.exists) {
-            exists = false;
-          }
-        } catch (e) {
-          exists = false;
-        }
-      }
-
       return {
         id: comp.id,
         name: comp.name,
@@ -3392,8 +3370,8 @@ async function refreshAgentToolkitStatus() {
       }
 
       let compIcon = '';
-      if (compItem.id.includes('pokit')) {
-        compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.pokit}</span>`;
+      if (compItem.kind === 'mcp') {
+        compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.android}</span>`;
       } else if (compItem.id.includes('reakit')) {
         compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.reakit}</span>`;
       } else if (compItem.id.includes('antigravity')) {
@@ -3425,29 +3403,29 @@ async function refreshAgentToolkitStatus() {
       `;
     }
 
-    // Generate POKit HTML Group
-    const pokitItemsHtml = POKIT_COMPONENTS.map(p => renderComponentItem(p)).join('');
-    const pokitActive = POKIT_COMPONENTS.some(p => getStatus(p.id).exists);
-    const pokitBadge = pokitActive
+    // Generate BAKit HTML Group
+    const bakitItemsHtml = BAKIT_COMPONENTS.map(b => renderComponentItem(b)).join('');
+    const bakitActive = BAKIT_COMPONENTS.some(b => b.kind !== 'mcp' && getStatus(b.id).exists);
+    const bakitBadge = bakitActive
       ? `<span class="symlink-status-badge symlink-status-linked" style="background: rgba(16, 185, 129, 0.15); color: rgb(52, 211, 153); font-size: 10px; padding: 2px 6px;">Harness Active</span>`
       : `<span class="symlink-status-badge symlink-status-unlinked" style="font-size: 10px; padding: 2px 6px;">Idle</span>`;
 
-    const pokitHtml = `
+    const bakitHtml = `
       <div style="display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px 20px; background: var(--bg-default); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
           <div style="display: flex; align-items: center; gap: 12px;">
             <div style="color: var(--accent-default); display: flex; align-items: center; font-size: 18px;">
-              ${icons.pokit}
+              ${icons.agentToolkit}
             </div>
             <div class="symlink-info">
-              <span class="symlink-name" style="font-size: 15px; font-weight: 700; color: var(--text-default);">POKit BA Harness</span>
-              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Business Analyst & Screen Analyst multi-agent roster with goal ledger and scrcpy UI capture.</div>
+              <span class="symlink-name" style="font-size: 15px; font-weight: 700; color: var(--text-default);">BAKit — Antigravity BA Toolkit</span>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">BA agents, template catalog, and competitor app analysis over the mobilerun MCP server.</div>
             </div>
           </div>
-          ${pokitBadge}
+          ${bakitBadge}
         </div>
         <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-subtle); padding-top: 14px; margin-top: 6px;">
-          ${pokitItemsHtml}
+          ${bakitItemsHtml}
         </div>
       </div>
     `;
@@ -3479,39 +3457,10 @@ async function refreshAgentToolkitStatus() {
       </div>
     `;
 
-    // Generate OpenSpec HTML Group
-    const OPENSPEC_PLATFORMS = OPENSPEC_COMPONENTS.filter(c => c.id !== 'openspec_core');
-    const osItemsHtml = OPENSPEC_PLATFORMS.map(p => renderComponentItem(p)).join('');
-    const osCoreActive = getStatus('openspec_core').exists;
-    const osCoreBadge = osCoreActive 
-      ? `<span class="symlink-status-badge symlink-status-linked" style="background: rgba(16, 185, 129, 0.15); color: rgb(52, 211, 153); font-size: 10px; padding: 2px 6px;">Core Active</span>` 
-      : `<span class="symlink-status-badge symlink-status-unlinked" style="font-size: 10px; padding: 2px 6px;">Core Idle</span>`;
-      
-    const openspecHtml = `
-      <div style="display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px 20px; background: var(--bg-default); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="color: var(--accent-default); display: flex; align-items: center; font-size: 18px;">
-              ${icons.openspec}
-            </div>
-            <div class="symlink-info">
-              <span class="symlink-name" style="font-size: 15px; font-weight: 700; color: var(--text-default);">OpenSpec Workflows</span>
-              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Spec authoring, proposals, and change management skills for AI assistants.</div>
-            </div>
-          </div>
-          ${osCoreBadge}
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-subtle); padding-top: 14px; margin-top: 6px;">
-          ${osItemsHtml}
-        </div>
-      </div>
-    `;
-
     listContainer.innerHTML = `
       <div style="display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%;">
-        ${pokitHtml}
+        ${bakitHtml}
         ${reakitHtml}
-        ${openspecHtml}
       </div>
     `;
 
@@ -3527,13 +3476,14 @@ async function refreshAgentToolkitStatus() {
         if (!comp) return;
         target.disabled = true;
 
-        const srcBase = (comp.toolkit === 'pokit') ? pokitPath : ((comp.toolkit === 'reakit') ? reakitAgentsBase : openspecPath);
+        const srcBase = srcBaseFor(comp);
 
-        const safeDeploy = async (name: string, sourcePath: string) => {
+        const safeDeploy = async (name: string, sourcePath: string, preserveExisting = false) => {
           const res = await window.api.deployToolkit({
             worktreePath: activeWorktreePath,
             name,
-            sourcePath
+            sourcePath,
+            preserveExisting
           });
           if (!res.success) throw new Error(res.error || `Failed to deploy ${name}`);
         };
@@ -3548,13 +3498,32 @@ async function refreshAgentToolkitStatus() {
         };
 
         try {
+          if (comp.kind === 'mcp') {
+            if (isChecked) {
+              const res = await window.api.registerMobilerunMcp();
+              if (!res.success) throw new Error(res.error || 'Failed to register mobilerun MCP');
+              showToast(res.alreadyRegistered
+                ? `mobilerun is already registered in ${res.configPath}.`
+                : `Registered mobilerun in ${res.configPath}. Restart the Antigravity agent to load it.`, 'success');
+            } else {
+              if (!window.confirm("Remove the mobilerun MCP server from Antigravity's global config? This affects every Antigravity workspace.")) {
+                target.checked = true;
+                return;
+              }
+              const res = await window.api.unregisterMobilerunMcp();
+              if (!res.success) throw new Error(res.error || 'Failed to unregister mobilerun MCP');
+              showToast(`Removed mobilerun from ${res.configPath}.`, 'success');
+            }
+            return;
+          }
+
           if (isChecked) {
             showToast(`Activating ${comp.name}...`, 'info');
             
             if (comp.isMulti) {
               for (const f of comp.folders) {
                 const rel = f.source || f.name;
-                await safeDeploy(f.name, srcBase + '\\' + rel);
+                await safeDeploy(f.name, srcBase + '\\' + rel, !!f.preserveExisting);
               }
             } else {
               const rel = comp.sourceFolder || comp.folderName;
@@ -3567,42 +3536,13 @@ async function refreshAgentToolkitStatus() {
               action: 'add'
             });
 
-            if (id.startsWith('openspec_')) {
-              const coreStatus = getStatus('openspec_core');
-              if (!coreStatus.exists) {
-                const coreComp = TOOLKIT_COMPONENTS.find(c => c.id === 'openspec_core');
-                if (coreComp) {
-                  await safeDeploy(coreComp.folderName, openspecPath + '\\' + coreComp.folderName);
-                  await window.api.updateGitExclude({
-                    worktreePath: activeWorktreePath,
-                    patterns: coreComp.gitExcludePatterns,
-                    action: 'add'
-                  });
-                }
-              }
-
-              const sharedStatus = getStatus('openspec_antigravity');
-              if (!sharedStatus.exists) {
-                const sharedComp: any = TOOLKIT_COMPONENTS.find(c => c.id === 'openspec_antigravity');
-                if (sharedComp) {
-                  for (const f of sharedComp.folders) {
-                    await safeDeploy(f.name, openspecPath + '\\' + f.name);
-                  }
-                  await window.api.updateGitExclude({
-                    worktreePath: activeWorktreePath,
-                    patterns: sharedComp.gitExcludePatterns,
-                    action: 'add'
-                  });
-                }
-              }
-            }
-
             showToast(`Successfully activated ${comp.name}!`, 'success');
           } else {
             showToast(`Deactivating ${comp.name}...`, 'info');
             
             if (comp.isMulti) {
               for (const f of comp.folders) {
+                if (f.keepOnRemove) continue;
                 const rel = f.source || f.name;
                 await safeRemove(f.name, srcBase + '\\' + rel);
               }
@@ -3616,37 +3556,6 @@ async function refreshAgentToolkitStatus() {
               patterns: comp.gitExcludePatterns,
               action: 'remove'
             });
-
-            if (id.startsWith('openspec_')) {
-              const activeOpenSpecChecks = OPENSPEC_PLATFORMS.filter(p => {
-                if (p.id === id) return false;
-                const cb = listContainer.querySelector(`.agent-toolkit-checkbox[data-id="${p.id}"]`) as HTMLInputElement;
-                return cb && cb.checked;
-              });
-
-              if (activeOpenSpecChecks.length === 0) {
-                const coreComp = TOOLKIT_COMPONENTS.find(c => c.id === 'openspec_core');
-                if (coreComp) {
-                  await safeRemove(coreComp.folderName, openspecPath + '\\' + coreComp.folderName);
-                  await window.api.updateGitExclude({
-                    worktreePath: activeWorktreePath,
-                    patterns: coreComp.gitExcludePatterns,
-                    action: 'remove'
-                  });
-                }
-                const sharedComp: any = TOOLKIT_COMPONENTS.find(c => c.id === 'openspec_antigravity');
-                if (sharedComp) {
-                  for (const f of sharedComp.folders) {
-                    await safeRemove(f.name, openspecPath + '\\' + f.name);
-                  }
-                  await window.api.updateGitExclude({
-                    worktreePath: activeWorktreePath,
-                    patterns: sharedComp.gitExcludePatterns,
-                    action: 'remove'
-                  });
-                }
-              }
-            }
 
             showToast(`Successfully deactivated ${comp.name}.`, 'success');
           }
@@ -3694,739 +3603,9 @@ if (dom.btnAgentToolkit) {
   });
 }
 
-// ── Plane Task Management Store & Actions ──────────────────
-interface PlaneTasksStore {
-  rawIssues: PlaneIssue[];
-  stateMap: Map<string, PlaneState>;
-  projectInfo: PlaneProject | null;
-  filterCategory: string;
-  searchQuery: string;
-  sortBy: string;
-  isLoading: boolean;
-}
 
-const planeTasksStore: PlaneTasksStore = {
-  rawIssues: [],
-  stateMap: new Map(),
-  projectInfo: null,
-  filterCategory: 'all',
-  searchQuery: '',
-  sortBy: 'priority-desc',
-  isLoading: false,
-};
 
-function getPlaneConfigForActiveProject(): PlaneConfig {
-  const activeWorktreePath = state.activeWorktreePath;
-  const projectPlaneIds = state.settings?.projectPlaneIds || {};
 
-  let projectId = '';
-  if (activeWorktreePath && projectPlaneIds[activeWorktreePath]) {
-    projectId = projectPlaneIds[activeWorktreePath];
-  } else if (dom.planeProjectIdInput && dom.planeProjectIdInput.value.trim()) {
-    projectId = dom.planeProjectIdInput.value.trim();
-  }
-
-  const workspaceSlug = dom.planeWorkspaceSlugInput && dom.planeWorkspaceSlugInput.value.trim()
-    ? dom.planeWorkspaceSlugInput.value.trim()
-    : state.settings?.planeWorkspaceSlug || DEFAULT_PLANE_CONFIG.workspaceSlug;
-
-  const baseUrl = state.settings?.planeBaseUrl || DEFAULT_PLANE_CONFIG.baseUrl;
-  const apiKey = state.settings?.planeApiKey || DEFAULT_PLANE_CONFIG.apiKey;
-
-  return {
-    baseUrl,
-    apiKey,
-    workspaceSlug,
-    projectId,
-  };
-}
-
-async function showPlaneTaskScreen() {
-  const activeWorktreePath = state.activeWorktreePath;
-  const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'No active project';
-
-  const cfg = getPlaneConfigForActiveProject();
-
-  if (dom.planeActiveWorktreeName) dom.planeActiveWorktreeName.textContent = activeWorktreeName || 'No active project';
-  if (dom.planeWorkspaceSlugInput) dom.planeWorkspaceSlugInput.value = cfg.workspaceSlug;
-  if (dom.planeProjectIdInput) dom.planeProjectIdInput.value = cfg.projectId;
-
-  dom.settingsScreen.classList.add('hidden');
-  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.remove('hidden');
-
-  if (!cfg.projectId) {
-    if (dom.planeStatusBadge) {
-      dom.planeStatusBadge.textContent = 'Project ID Required ⚠️';
-      dom.planeStatusBadge.className = 'plane-badge badge-warning';
-    }
-    if (dom.planeTasksTbody) {
-      dom.planeTasksTbody.innerHTML = `
-        <tr>
-          <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-tertiary);">
-            <div>Paste your Plane Project UUID in the input above and click <strong>"Save Config"</strong> to fetch tasks.</div>
-          </td>
-        </tr>
-      `;
-    }
-    return;
-  }
-
-  if (planeTasksStore.rawIssues.length === 0) {
-    await fetchAndRenderPlaneTasks();
-  } else {
-    renderPlaneTasksTable();
-  }
-}
-
-function hidePlaneTaskScreen() {
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
-  fitActiveTerminal();
-  startAutoRefreshLoop();
-}
-
-async function fetchAndRenderPlaneTasks() {
-  if (!dom.planeTaskScreen) return;
-
-  const cfg = getPlaneConfigForActiveProject();
-  if (!cfg.projectId) {
-    if (dom.planeStatusBadge) {
-      dom.planeStatusBadge.textContent = 'Project ID Required ⚠️';
-      dom.planeStatusBadge.className = 'plane-badge badge-warning';
-    }
-    if (dom.planeTasksTbody) {
-      dom.planeTasksTbody.innerHTML = `
-        <tr>
-          <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-tertiary);">
-            <div>Paste your Plane Project UUID in the input above and click <strong>"Save Config"</strong> to fetch tasks.</div>
-          </td>
-        </tr>
-      `;
-    }
-    showToast('Please paste a Plane Project UUID and click "Save Config"', 'warning');
-    return;
-  }
-
-  planeTasksStore.isLoading = true;
-  if (dom.planeTableLoading) dom.planeTableLoading.classList.remove('hidden');
-  if (dom.planeStatusBadge) {
-    dom.planeStatusBadge.textContent = 'Fetching... ⏳';
-    dom.planeStatusBadge.className = 'plane-badge badge-info';
-  }
-
-  try {
-    const [stateMap, issues, projectInfo] = await Promise.all([
-      fetchProjectStates(cfg),
-      fetchProjectIssues(cfg),
-      fetchProjectDetails(cfg).catch(() => null),
-    ]);
-
-    planeTasksStore.stateMap = stateMap;
-    planeTasksStore.rawIssues = issues;
-    planeTasksStore.projectInfo = projectInfo;
-
-    for (const issue of issues) {
-      const s = stateMap.get(issue.state);
-      if (s) {
-        issue.stateName = s.name;
-        issue.stateGroup = s.group;
-      }
-    }
-
-    if (dom.planeStatusBadge) {
-      dom.planeStatusBadge.textContent = 'Connected 🟢';
-      dom.planeStatusBadge.className = 'plane-badge badge-success';
-    }
-
-    updateCategoryCounts();
-    renderPlaneTasksTable();
-  } catch (err: any) {
-    console.error('Failed to fetch Plane tasks:', err);
-    if (dom.planeStatusBadge) {
-      dom.planeStatusBadge.textContent = 'Connection Failed 🔴';
-      dom.planeStatusBadge.className = 'plane-badge badge-danger';
-    }
-    showToast(`Failed to fetch Plane tasks: ${err?.message || String(err)}`, 'error');
-  } finally {
-    planeTasksStore.isLoading = false;
-    if (dom.planeTableLoading) dom.planeTableLoading.classList.add('hidden');
-  }
-}
-
-function updateCategoryCounts() {
-  const { backlog, todo, inProgress, done, cancelled } = categorizeIssues(
-    planeTasksStore.rawIssues,
-    planeTasksStore.stateMap
-  );
-
-  const setVal = (id: string, count: number) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = String(count);
-  };
-
-  setVal('count-all', planeTasksStore.rawIssues.length);
-  setVal('count-backlog', backlog.length);
-  setVal('count-todo', todo.length);
-  setVal('count-in-progress', inProgress.length);
-  setVal('count-done', done.length);
-  setVal('count-cancelled', cancelled.length);
-}
-
-function getFilteredAndSortedIssues(): PlaneIssue[] {
-  let issues = [...planeTasksStore.rawIssues];
-
-  if (planeTasksStore.filterCategory !== 'all') {
-    issues = issues.filter((issue) => {
-      const group = (issue.stateGroup || '').toLowerCase();
-      const name = (issue.stateName || '').toLowerCase();
-      switch (planeTasksStore.filterCategory) {
-        case 'backlog':
-          return group === 'backlog' || name === 'backlog';
-        case 'todo':
-          return group === 'unstarted' || name === 'todo';
-        case 'in_progress':
-          return group === 'started' || name === 'in progress';
-        case 'done':
-          return group === 'completed' || name === 'done';
-        case 'cancelled':
-          return group === 'cancelled' || name === 'cancelled';
-        default:
-          return true;
-      }
-    });
-  }
-
-  if (planeTasksStore.searchQuery.trim()) {
-    const q = planeTasksStore.searchQuery.toLowerCase().trim();
-    const projId = (planeTasksStore.projectInfo?.identifier || '').toLowerCase();
-    issues = issues.filter((issue) => {
-      const issueProj = (issue.project_detail?.identifier || issue.project_identifier || projId).toLowerCase();
-      const fullTaskStr = issueProj ? `${issueProj}-${issue.sequence_id}` : '';
-      const seqIdStr = `${issue.sequence_id}`;
-      const nameStr = (issue.name || '').toLowerCase();
-      const descStr = cleanHTML(issue.description_html).toLowerCase();
-      return (fullTaskStr && fullTaskStr.includes(q)) || seqIdStr.includes(q) || nameStr.includes(q) || descStr.includes(q);
-    });
-  }
-
-  const priorityRank: Record<string, number> = {
-    urgent: 4,
-    high: 3,
-    medium: 2,
-    low: 1,
-    none: 0,
-  };
-
-  issues.sort((a, b) => {
-    switch (planeTasksStore.sortBy) {
-      case 'priority-desc':
-        return (priorityRank[b.priority?.toLowerCase() || 'none'] || 0) - (priorityRank[a.priority?.toLowerCase() || 'none'] || 0);
-      case 'priority-asc':
-        return (priorityRank[a.priority?.toLowerCase() || 'none'] || 0) - (priorityRank[b.priority?.toLowerCase() || 'none'] || 0);
-      case 'id-asc':
-        return a.sequence_id - b.sequence_id;
-      case 'id-desc':
-        return b.sequence_id - a.sequence_id;
-      case 'title-asc':
-        return a.name.localeCompare(b.name);
-      case 'updated-desc':
-        return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
-      default:
-        return 0;
-    }
-  });
-
-  return issues;
-}
-
-function renderPlaneTasksTable() {
-  const tbody = dom.planeTasksTbody;
-  if (!tbody) return;
-
-  const filtered = getFilteredAndSortedIssues();
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-tertiary);">
-          No tasks found matching current filters.
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  const defaultProjIdentifier = planeTasksStore.projectInfo?.identifier || '';
-
-  tbody.innerHTML = filtered.map((issue) => {
-    const statusText = issue.stateName || 'Unknown';
-    const statusGroup = (issue.stateGroup || '').toLowerCase();
-
-    let statusBadgeClass = 'badge-neutral';
-    if (statusGroup === 'completed' || statusText.toLowerCase() === 'done') statusBadgeClass = 'badge-success';
-    else if (statusGroup === 'started' || statusText.toLowerCase() === 'in progress') statusBadgeClass = 'badge-info';
-    else if (statusGroup === 'unstarted' || statusText.toLowerCase() === 'todo') statusBadgeClass = 'badge-warning';
-    else if (statusGroup === 'backlog') statusBadgeClass = 'badge-danger';
-
-    const priorityFormatted = formatPriority(issue.priority);
-    const startDate = issue.start_date ? issue.start_date : '-';
-    const updatedDate = issue.updated_at ? issue.updated_at.substring(0, 10) : '-';
-    const projPrefix = issue.project_detail?.identifier || issue.project_identifier || defaultProjIdentifier;
-    const taskBadge = projPrefix ? `${esc(projPrefix)}-${issue.sequence_id}` : `#${issue.sequence_id}`;
-
-    return `
-      <tr>
-        <td style="font-family: var(--font-mono); font-weight: 600; color: var(--text-secondary);">
-          ${taskBadge}
-        </td>
-        <td>
-          <div style="font-weight: 500; color: var(--text-default); line-height: 1.3;">${esc(issue.name)}</div>
-          ${issue.description_html ? `<div style="font-size: 11px; color: var(--text-tertiary); max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">${esc(cleanHTML(issue.description_html))}</div>` : ''}
-        </td>
-        <td>
-          <span class="plane-badge ${statusBadgeClass}">${esc(statusText)}</span>
-        </td>
-        <td>
-          <span style="font-size: 12px;">${priorityFormatted}</span>
-        </td>
-        <td style="font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono);">${startDate}</td>
-        <td style="font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono);">${updatedDate}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function openExportPlaneTasksModal() {
-  const activeWorktreePath = state.activeWorktreePath;
-  if (!activeWorktreePath) {
-    showToast('No active project worktree selected!', 'error');
-    return;
-  }
-
-  if (planeTasksStore.rawIssues.length === 0) {
-    showToast('No tasks available to export. Fetch tasks first!', 'warning');
-    return;
-  }
-
-  const categorized = categorizeIssues(
-    planeTasksStore.rawIssues,
-    planeTasksStore.stateMap
-  );
-
-  const modalBodyHTML = `
-    <div style="display: flex; flex-direction: column; gap: 16px; font-size: 13px;">
-      <div>
-        <span style="font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); font-weight: 600; display: block; margin-bottom: 10px;">Select Sections to Include in Markdown</span>
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" class="export-section-checkbox" data-category="backlog" checked />
-            <span>🔴 <strong>Backlog Tasks</strong> (${categorized.backlog.length})</span>
-          </label>
-          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" class="export-section-checkbox" data-category="todo" checked />
-            <span>🟡 <strong>Todo Tasks</strong> (${categorized.todo.length})</span>
-          </label>
-          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" class="export-section-checkbox" data-category="in_progress" />
-            <span>🔵 <strong>In Progress Tasks</strong> (${categorized.inProgress.length})</span>
-          </label>
-          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" class="export-section-checkbox" data-category="done" />
-            <span>🟢 <strong>Done Tasks</strong> (${categorized.done.length})</span>
-          </label>
-          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" class="export-section-checkbox" data-category="cancelled" />
-            <span>⚪ <strong>Cancelled Tasks</strong> (${categorized.cancelled.length})</span>
-          </label>
-          ${categorized.other.length > 0 ? `
-          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" class="export-section-checkbox" data-category="other" />
-            <span>❓ <strong>Other / Draft Tasks</strong> (${categorized.other.length})</span>
-          </label>
-          ` : ''}
-        </div>
-      </div>
-
-      <div id="export-section-summary" style="padding: 10px 12px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
-        <strong>Target File:</strong> <code>plane/TASK_LIST.md</code> <br />
-        <span id="export-task-count-text">0 tasks will be exported.</span>
-      </div>
-    </div>
-  `;
-
-  dom.modalTitle.textContent = '📥 Export Task List Options';
-  dom.modalBody.innerHTML = modalBodyHTML;
-  if (dom.modal) {
-    dom.modal.classList.add('export-modal');
-  }
-  showModal();
-
-  const getCheckedCategories = (): Set<string> => {
-    const checked = new Set<string>();
-    dom.modalBody.querySelectorAll('.export-section-checkbox').forEach((cb: Element) => {
-      const input = cb as HTMLInputElement;
-      if (input.checked && input.dataset.category) {
-        checked.add(input.dataset.category);
-      }
-    });
-    return checked;
-  };
-
-  const updateModalSummary = () => {
-    const checked = getCheckedCategories();
-    const activeCategorized = categorizeIssues(planeTasksStore.rawIssues, planeTasksStore.stateMap);
-    let totalToExport = 0;
-    if (checked.has('backlog')) totalToExport += activeCategorized.backlog.length;
-    if (checked.has('todo')) totalToExport += activeCategorized.todo.length;
-    if (checked.has('in_progress')) totalToExport += activeCategorized.inProgress.length;
-    if (checked.has('done')) totalToExport += activeCategorized.done.length;
-    if (checked.has('cancelled')) totalToExport += activeCategorized.cancelled.length;
-    if (checked.has('other')) totalToExport += activeCategorized.other.length;
-
-    const countText = dom.modalBody.querySelector('#export-task-count-text');
-    if (countText) {
-      countText.textContent = `${totalToExport} tasks from ${checked.size} section(s) will be exported.`;
-    }
-  };
-
-  dom.modalBody.querySelectorAll('.export-section-checkbox').forEach((cb: Element) => {
-    cb.addEventListener('change', updateModalSummary);
-  });
-
-  updateModalSummary();
-
-  const footer = configureModalFooter([
-    { id: 'export-btn-cancel', label: 'Cancel', kind: 'secondary' },
-    { id: 'export-btn-submit', label: '🚀 Export', kind: 'primary' },
-  ]);
-
-  if (footer['export-btn-cancel']) {
-    footer['export-btn-cancel'].addEventListener('click', () => hideModal());
-  }
-
-  if (footer['export-btn-submit']) {
-    footer['export-btn-submit'].addEventListener('click', async () => {
-      const checked = getCheckedCategories();
-      if (checked.size === 0) {
-        showToast('Please select at least one section to export!', 'warning');
-        return;
-      }
-
-      const currentCategorized = categorizeIssues(planeTasksStore.rawIssues, planeTasksStore.stateMap);
-      const filteredForExport: PlaneIssue[] = [];
-      if (checked.has('backlog')) filteredForExport.push(...currentCategorized.backlog);
-      if (checked.has('todo')) filteredForExport.push(...currentCategorized.todo);
-      if (checked.has('in_progress')) filteredForExport.push(...currentCategorized.inProgress);
-      if (checked.has('done')) filteredForExport.push(...currentCategorized.done);
-      if (checked.has('cancelled')) filteredForExport.push(...currentCategorized.cancelled);
-      if (checked.has('other')) filteredForExport.push(...currentCategorized.other);
-
-      // Transition modal into Export Progress Console UI
-      dom.modalBody.innerHTML = `
-        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
-          Exporting <strong>${filteredForExport.length} tasks</strong> & downloading evidence media to <code>plane/TASK_LIST.md</code>...
-        </div>
-        <div class="export-progress-container">
-          <div class="export-progress-status-row">
-            <span id="export-status-label">Initializing Plane Export...</span>
-            <span id="export-percent-label">0%</span>
-          </div>
-          <div class="export-progress-bar-track">
-            <div id="export-progress-bar" class="export-progress-bar-fill" style="width: 0%;"></div>
-          </div>
-          <div id="export-log-terminal" class="export-log-terminal"></div>
-        </div>
-      `;
-
-      const progressFooter = configureModalFooter([
-        { id: 'export-btn-running', label: 'Exporting & Downloading...', kind: 'secondary' },
-      ]);
-      if (progressFooter['export-btn-running']) {
-        (progressFooter['export-btn-running'] as HTMLButtonElement).disabled = true;
-      }
-
-      const statusLabel = dom.modalBody.querySelector('#export-status-label');
-      const percentLabel = dom.modalBody.querySelector('#export-percent-label');
-      const progressBar = dom.modalBody.querySelector('#export-progress-bar') as HTMLElement;
-      const logTerminal = dom.modalBody.querySelector('#export-log-terminal') as HTMLElement;
-
-      const appendLog = async (msg: string, level: 'info' | 'screenshot' | 'video' | 'cache' | 'success' | 'error' = 'info', percent?: number) => {
-        if (percent !== undefined) {
-          const pct = Math.min(100, Math.max(0, percent));
-          if (percentLabel) percentLabel.textContent = `${Math.round(pct)}%`;
-          if (progressBar) progressBar.style.width = `${pct}%`;
-        }
-        if (statusLabel) statusLabel.textContent = msg;
-
-        if (logTerminal) {
-          const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-          const entry = document.createElement('div');
-          entry.className = `export-log-entry ${level}`;
-          entry.innerHTML = `<span style="opacity: 0.5;">[${timeStr}]</span> ${msg}`;
-          logTerminal.appendChild(entry);
-          logTerminal.scrollTop = logTerminal.scrollHeight;
-        }
-        await new Promise((r) => setTimeout(r, 20));
-      };
-
-      try {
-        await appendLog('🚀 Initializing plane/ export directory structure...', 'info', 5);
-        await new Promise((r) => setTimeout(r, 100));
-
-        await appendLog('🙈 Excluding plane/ directory in .git/info/exclude...', 'info', 8);
-        try {
-          await window.api.updateGitExclude({
-            worktreePath: activeWorktreePath,
-            patterns: ['plane/', 'plane/*'],
-            action: 'add',
-          });
-        } catch (e) {
-          // Ignore git exclude errors
-        }
-
-        await appendLog('📁 Saving plane/raw/ metadata backups...', 'info', 10);
-        const rawIssuesJSON = JSON.stringify(planeTasksStore.rawIssues, null, 2);
-        const rawStatesJSON = JSON.stringify(Array.from(planeTasksStore.stateMap.values()), null, 2);
-        
-        await window.api.writeProjectFile({ worktreePath: activeWorktreePath, filename: 'plane/raw/issues.json', content: rawIssuesJSON });
-        await window.api.writeProjectFile({ worktreePath: activeWorktreePath, filename: 'plane/raw/states.json', content: rawStatesJSON });
-
-        await appendLog('🔍 Parsing and downloading evidence media (prnt.sc screenshots & Streamable MP4 videos)...', 'info', 15);
-
-        const mediaMap = new Map<number, EvidenceMedia[]>();
-        let screenshotCount = 0;
-        let videoCount = 0;
-
-        const defaultProjIdentifier = planeTasksStore.projectInfo?.identifier || '';
-
-        for (let i = 0; i < filteredForExport.length; i++) {
-          const task = filteredForExport[i];
-          const desc = task.description_html || '';
-          const projPrefix = task.project_detail?.identifier || task.project_identifier || defaultProjIdentifier;
-          const taskID = projPrefix ? `${projPrefix}-${task.sequence_id}` : `TASK-${task.sequence_id}`;
-          const taskMediaList: EvidenceMedia[] = [];
-
-          // 1. Parse & Download Lightshot screenshots
-          const prntMatches = desc.match(/https?:\/\/prnt\.sc\/([a-zA-Z0-9_-]+)/g);
-          if (prntMatches) {
-            for (const webUrl of prntMatches) {
-              const mediaId = webUrl.split('/').pop()!;
-              if (taskMediaList.some((m) => m.mediaId === mediaId)) continue;
-
-              const targetFilePath = `${activeWorktreePath}\\plane\\evidence\\${taskID}\\${mediaId}.png`;
-              const relLocalPath = `./evidence/${taskID}/${mediaId}.png`;
-
-              await appendLog(`📸 Fetching Lightshot screenshot for ${taskID}: ${mediaId}...`, 'screenshot');
-              
-              const imgUrl = await scrapeLightshotImageURL(webUrl);
-              if (imgUrl) {
-                const dlRes = await window.api.downloadFile({ url: imgUrl, targetFilePath });
-                if (dlRes?.success) {
-                  if (dlRes.cached) {
-                    await appendLog(`⚡ Cached screenshot: ${mediaId}.png`, 'cache');
-                  } else {
-                    await appendLog(`✅ Downloaded screenshot: ${mediaId}.png`, 'success');
-                  }
-                  taskMediaList.push({
-                    type: 'image',
-                    webUrl,
-                    mediaId,
-                    localPath: relLocalPath,
-                  });
-                  screenshotCount++;
-                }
-              }
-            }
-          }
-
-          // 2. Parse & Download Streamable MP4 videos
-          const streamableMatches = desc.match(/https?:\/\/streamable\.com\/([a-zA-Z0-9_-]+)/g);
-          if (streamableMatches) {
-            for (const webUrl of streamableMatches) {
-              const mediaId = webUrl.split('/').pop()!;
-              if (taskMediaList.some((m) => m.mediaId === mediaId)) continue;
-
-              const targetVideoPath = `${activeWorktreePath}\\plane\\evidence\\${taskID}\\${mediaId}.mp4`;
-              const targetPosterPath = `${activeWorktreePath}\\plane\\evidence\\${taskID}\\${mediaId}_poster.jpg`;
-              const relVideoPath = `./evidence/${taskID}/${mediaId}.mp4`;
-              const relPosterPath = `./evidence/${taskID}/${mediaId}_poster.jpg`;
-
-              await appendLog(`🎥 Fetching Streamable full MP4 video for ${taskID}: ${mediaId}...`, 'video');
-
-              const { videoUrl, posterUrl } = await scrapeStreamableMediaURLs(mediaId, webUrl);
-              if (posterUrl) {
-                await window.api.downloadFile({ url: posterUrl, targetFilePath: targetPosterPath });
-              }
-
-              if (videoUrl) {
-                const dlRes = await window.api.downloadFile({ url: videoUrl, targetFilePath: targetVideoPath });
-                if (dlRes?.success) {
-                  if (dlRes.cached) {
-                    await appendLog(`⚡ Cached full video: ${mediaId}.mp4`, 'cache');
-                  } else {
-                    await appendLog(`✅ Downloaded full MP4 video: ${mediaId}.mp4`, 'success');
-                  }
-                  taskMediaList.push({
-                    type: 'video',
-                    webUrl,
-                    mediaId,
-                    localPath: relVideoPath,
-                    posterPath: relPosterPath,
-                  });
-                  videoCount++;
-                }
-              }
-            }
-          }
-
-          if (taskMediaList.length > 0) {
-            mediaMap.set(task.sequence_id, taskMediaList);
-          }
-
-          const progressPct = 15 + Math.round(((i + 1) / filteredForExport.length) * 70);
-          if ((i + 1) % 2 === 0 || i === filteredForExport.length - 1) {
-            await appendLog(`Processed evidence for ${i + 1}/${filteredForExport.length} tasks...`, 'info', progressPct);
-          }
-        }
-
-        await appendLog(`Download summary: ${screenshotCount} screenshot(s), ${videoCount} full MP4 video(s).`, 'info', 88);
-        await appendLog('📝 Generating comprehensive Markdown task checklist...', 'info', 92);
-
-        const cfg = getPlaneConfigForActiveProject();
-        const mdContent = generateTaskListMD(cfg, filteredForExport, planeTasksStore.stateMap, mediaMap, planeTasksStore.projectInfo);
-
-        await appendLog('💾 Writing plane/TASK_LIST.md...', 'info', 96);
-        await window.api.writeProjectFile({ worktreePath: activeWorktreePath, filename: 'plane/TASK_LIST.md', content: mdContent });
-
-        await appendLog('🎉 SUCCESS! All tasks & offline media references written to plane/TASK_LIST.md', 'success', 100);
-
-        const doneFooter = configureModalFooter([
-          { id: 'export-btn-open-dir', label: '📁 Open plane/ Folder', kind: 'secondary' },
-          { id: 'export-btn-done', label: 'Done', kind: 'primary' },
-        ]);
-        if (doneFooter['export-btn-open-dir']) {
-          doneFooter['export-btn-open-dir'].addEventListener('click', () => {
-            if (activeWorktreePath) {
-              window.api.openInExplorer(`${activeWorktreePath}\\plane`);
-            }
-          });
-        }
-        if (doneFooter['export-btn-done']) {
-          doneFooter['export-btn-done'].addEventListener('click', () => hideModal());
-        }
-      } catch (err: any) {
-        await appendLog(`❌ Export Error: ${err?.message || String(err)}`, 'error', 100);
-        const errFooter = configureModalFooter([
-          { id: 'export-btn-close', label: 'Close', kind: 'secondary' },
-        ]);
-        if (errFooter['export-btn-close']) {
-          errFooter['export-btn-close'].addEventListener('click', () => hideModal());
-        }
-      }
-    });
-  }
-}
-
-// ── Bind Plane Task Management Listeners ────────────────────
-if (dom.btnPlaneTasks) {
-  dom.btnPlaneTasks.addEventListener('click', showPlaneTaskScreen);
-}
-
-if (dom.btnClosePlaneTaskScreen) {
-  dom.btnClosePlaneTaskScreen.addEventListener('click', hidePlaneTaskScreen);
-}
-
-if (dom.btnSavePlaneProjectConfig) {
-  dom.btnSavePlaneProjectConfig.addEventListener('click', async () => {
-    const activeWorktreePath = state.activeWorktreePath;
-    if (!activeWorktreePath) {
-      showToast('Please select an active project worktree first', 'error');
-      return;
-    }
-
-    const projectId = dom.planeProjectIdInput ? dom.planeProjectIdInput.value.trim() : '';
-    const workspaceSlug = dom.planeWorkspaceSlugInput ? dom.planeWorkspaceSlugInput.value.trim() : '';
-
-    if (!projectId) {
-      showToast('Please enter a valid Plane Project ID', 'warning');
-      return;
-    }
-
-    const currentProjectIds = state.settings?.projectPlaneIds || {};
-    const nextProjectIds = {
-      ...currentProjectIds,
-      [activeWorktreePath]: projectId,
-    };
-
-    state.settings = await window.api.updateSettings({
-      ...state.settings,
-      planeWorkspaceSlug: workspaceSlug || state.settings?.planeWorkspaceSlug || 'product',
-      projectPlaneIds: nextProjectIds,
-    });
-
-    showToast('Saved Project ID config! Fetching tasks...', 'success');
-    await fetchAndRenderPlaneTasks();
-  });
-}
-
-if (dom.btnRefreshPlaneTasks) {
-  dom.btnRefreshPlaneTasks.addEventListener('click', async () => {
-    showToast('Fetching latest Plane tasks...', 'info');
-    await fetchAndRenderPlaneTasks();
-    showToast('Plane tasks updated!', 'success');
-  });
-}
-
-if (dom.btnExportPlaneTasks) {
-  dom.btnExportPlaneTasks.addEventListener('click', () => {
-    openExportPlaneTasksModal();
-  });
-}
-
-// Filter pills
-document.querySelectorAll('.plane-filter-pill').forEach((pill) => {
-  pill.addEventListener('click', (e) => {
-    document.querySelectorAll('.plane-filter-pill').forEach((p) => p.classList.remove('active'));
-    const target = e.currentTarget as HTMLElement;
-    target.classList.add('active');
-    planeTasksStore.filterCategory = target.dataset.category || 'all';
-    renderPlaneTasksTable();
-  });
-});
-
-// Search input
-if (dom.planeSearchInput) {
-  dom.planeSearchInput.addEventListener('input', (e) => {
-    planeTasksStore.searchQuery = (e.target as HTMLInputElement).value;
-    renderPlaneTasksTable();
-  });
-}
-
-// Sort select
-if (dom.planeSortSelect) {
-  dom.planeSortSelect.addEventListener('change', (e) => {
-    planeTasksStore.sortBy = (e.target as HTMLSelectElement).value;
-    renderPlaneTasksTable();
-  });
-}
-
-// Select All checkbox
-if (dom.planeSelectAllCheckbox) {
-  dom.planeSelectAllCheckbox.addEventListener('change', (e) => {
-    const isChecked = (e.target as HTMLInputElement).checked;
-    const filtered = getFilteredAndSortedIssues();
-    for (const issue of filtered) {
-      if (isChecked) {
-        planeTasksStore.selectedIds.add(issue.id);
-      } else {
-        planeTasksStore.selectedIds.delete(issue.id);
-      }
-    }
-    renderPlaneTasksTable();
-  });
-}
 
 const { showModal, hideModal, showToast, initializeModalPrimitives } = createModalPrimitives(dom);
 initializeModalPrimitives();
@@ -4485,5 +3664,43 @@ const reakitStudio = createReakitStudio({
   createToolTab,
   fitActiveTerminal,
   startAutoRefreshLoop,
+});
+
+// ── Global Keyboard Shortcuts ──────────────────────────
+window.addEventListener('keydown', (e) => {
+  // 1. Escape key closes open modals or screens
+  if (e.key === 'Escape') {
+    if (dom.modalOverlay && dom.modalOverlay.style.display !== 'none') {
+      dom.modalCloseBtn?.click();
+      return;
+    }
+    if (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) {
+      dom.btnCloseSettings?.click();
+      return;
+    }
+    if (dom.reakitScreen && !dom.reakitScreen.classList.contains('hidden')) {
+      dom.btnCloseReakitScreen?.click();
+      return;
+    }
+    if (dom.symlinkScreen && !dom.symlinkScreen.classList.contains('hidden')) {
+      dom.btnCloseSymlinkScreen?.click();
+      return;
+    }
+    if (dom.agentToolkitScreen && !dom.agentToolkitScreen.classList.contains('hidden')) {
+      dom.btnCloseAgentToolkitScreen?.click();
+      return;
+    }
+  }
+
+  // 2. Ctrl+, / Cmd+, opens/toggles Settings
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+    e.preventDefault();
+    if (dom.settingsScreen && dom.settingsScreen.classList.contains('hidden')) {
+      showSettingsScreen();
+    } else if (dom.settingsScreen) {
+      hideSettingsScreen();
+    }
+    return;
+  }
 });
 

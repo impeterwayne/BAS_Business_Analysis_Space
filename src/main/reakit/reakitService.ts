@@ -1,7 +1,8 @@
 import { spawn, execSync, execFileSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { app } from 'electron';
+import os from 'os';
+import { app, dialog } from 'electron';
 
 export interface ReaExecutableInfo {
   file: string;
@@ -33,13 +34,33 @@ export interface ReaTargetInfo {
 
 export interface ReaTargetStatus {
   exists: boolean;
+  worktreePath?: string;
   targetDir: string;
-  apks: { count: number; files: string[]; sizeBytes: number };
-  jadx: { exists: boolean; hasSource: boolean; fileCount: number };
+  apks: {
+    count: number;
+    files: string[];
+    items?: Array<{ name: string; path: string; size: number }>;
+    sizeBytes: number;
+    dir?: string;
+  };
+  jadx: {
+    exists: boolean;
+    hasSource: boolean;
+    fileCount: number;
+    sourceDir?: string;
+  };
   runtime: { exists: boolean; files: string[]; count: number };
   native: { exists: boolean; soFiles: string[]; archs: string[] };
   traffic: { exists: boolean; count: number };
   docs: { exists: boolean; files: string[] };
+}
+
+export interface ReaToolchainInfo {
+  exeInfo: ReaExecutableInfo;
+  reaDir: string;
+  apkdPath?: string;
+  jadxPath?: string;
+  jadxGuiPath?: string;
 }
 
 export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
@@ -77,6 +98,7 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
     path.join(process.resourcesPath || '', 'toolkits', 'ReaKit'),
     path.join(process.resourcesPath || '', 'ReaKit'),
     'D:\\Quest\\BA_Space\\ReaKit',
+    'D:\\Quest\\ReaKit',
     path.resolve(process.cwd(), 'ReaKit'),
   ];
 
@@ -116,6 +138,55 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
 
   // 4. Default fallback to global 'rea'
   return { file: 'rea', argsPrefix: [], sourceType: 'fallback' };
+}
+
+export function resolveToolchain(customPath?: string): ReaToolchainInfo {
+  const exeInfo = resolveReaExecutable(customPath);
+  const reaDir = exeInfo.reaDir || 'D:\\Quest\\BA_Space\\ReaKit';
+
+  const candidateApkd = [
+    path.join(reaDir, 'core', 'apkdgo', 'apkd.exe'),
+    path.join(reaDir, 'core', 'apkdgo', 'bin', 'apkd.exe'),
+    'D:\\Quest\\ReaKit\\core\\apkdgo\\apkd.exe',
+  ];
+  const apkdPath = candidateApkd.find(p => fs.existsSync(p));
+
+  const candidateJadx = [
+    path.join(reaDir, 'core', 'jadx', 'bin', process.platform === 'win32' ? 'jadx.bat' : 'jadx'),
+    'D:\\Tools\\jadx-cli\\bin\\jadx.bat',
+    'D:\\Quest\\ReaKit\\core\\jadx\\bin\\jadx.bat',
+  ];
+  const jadxPath = candidateJadx.find(p => fs.existsSync(p));
+
+  const candidateJadxGui = [
+    path.join(reaDir, 'core', 'jadx', 'bin', process.platform === 'win32' ? 'jadx-gui.bat' : 'jadx-gui'),
+    'D:\\Tools\\jadx-cli\\bin\\jadx-gui.bat',
+    'D:\\Quest\\ReaKit\\core\\jadx\\bin\\jadx-gui.bat',
+  ];
+  const jadxGuiPath = candidateJadxGui.find(p => fs.existsSync(p));
+
+  return {
+    exeInfo,
+    reaDir,
+    apkdPath,
+    jadxPath,
+    jadxGuiPath,
+  };
+}
+
+export function parsePackageTarget(input: string): string {
+  if (!input) return '';
+  const trimmed = input.trim();
+  if (trimmed.includes('id=')) {
+    const match = trimmed.match(/[?&]id=([a-zA-Z0-9_.]+)/);
+    if (match) return match[1];
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    const parts = trimmed.split('/');
+    const last = parts[parts.length - 1];
+    if (last && last.includes('.')) return last.split('?')[0];
+  }
+  return trimmed.replace(/\.apk$/i, '');
 }
 
 export function executeReaCommand(options: {
@@ -321,11 +392,12 @@ export function getTargets(worktreePath?: string, customPath?: string): ReaTarge
   return Array.from(targetsMap.values());
 }
 
-export function getTargetStatus(worktreePath: string, packageName: string, customPath?: string): ReaTargetStatus {
+export function getTargetStatus(worktreePath: string, packageName?: string, customPath?: string): ReaTargetStatus {
   const result: ReaTargetStatus = {
     exists: false,
-    targetDir: '',
-    apks: { count: 0, files: [], sizeBytes: 0 },
+    worktreePath: worktreePath || '',
+    targetDir: worktreePath || '',
+    apks: { count: 0, files: [], items: [], sizeBytes: 0 },
     jadx: { exists: false, hasSource: false, fileCount: 0 },
     runtime: { exists: false, files: [], count: 0 },
     native: { exists: false, soFiles: [], archs: [] },
@@ -333,135 +405,496 @@ export function getTargetStatus(worktreePath: string, packageName: string, custo
     docs: { exists: false, files: [] },
   };
 
-  if (!packageName) return result;
+  if (!worktreePath && !packageName) return result;
 
-  const roots = findWorkspaceRoots(worktreePath, customPath);
-  let resolvedDir = '';
+  const pkg = packageName ? parsePackageTarget(packageName) : '';
+  const searchRoots: string[] = [];
 
-  for (const root of roots) {
-    const candidate = path.join(root, packageName);
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-      resolvedDir = candidate;
-      break;
+  if (worktreePath && fs.existsSync(worktreePath)) {
+    result.exists = true;
+    searchRoots.push(worktreePath);
+    if (pkg) {
+      searchRoots.push(path.join(worktreePath, pkg));
+      searchRoots.push(path.join(worktreePath, 'workspaces', pkg));
     }
   }
 
-  // Fallback to expected default location even if not yet created
-  if (!resolvedDir && worktreePath) {
-    resolvedDir = path.join(worktreePath, 'workspaces', packageName);
+  const extraRoots = findWorkspaceRoots(worktreePath, customPath);
+  for (const r of extraRoots) {
+    if (pkg) {
+      const cand = path.join(r, pkg);
+      if (fs.existsSync(cand)) searchRoots.push(cand);
+    }
   }
 
-  result.targetDir = resolvedDir;
-  if (!fs.existsSync(resolvedDir)) {
-    return result;
+  // 1. Scan for APKs
+  const discoveredApkItems: Array<{ name: string; path: string; size: number }> = [];
+  const apkCandidateDirs: string[] = [];
+
+  for (const r of searchRoots) {
+    apkCandidateDirs.push(path.join(r, 'apks'));
+    apkCandidateDirs.push(r);
   }
 
-  result.exists = true;
+  const seenFiles = new Set<string>();
+  for (const dir of apkCandidateDirs) {
+    if (fs.existsSync(dir)) {
+      try {
+        const entries = fs.readdirSync(dir);
+        for (const entry of entries) {
+          if (/\.(apk|xapk|apks)$/i.test(entry)) {
+            const fullPath = path.join(dir, entry);
+            if (!seenFiles.has(fullPath)) {
+              seenFiles.add(fullPath);
+              let size = 0;
+              try { size = fs.statSync(fullPath).size; } catch (_) {}
+              discoveredApkItems.push({
+                name: entry,
+                path: fullPath,
+                size,
+              });
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
 
-  // 1. Check apks/
-  const apksDir = path.join(resolvedDir, 'apks');
-  if (fs.existsSync(apksDir)) {
-    try {
-      const files = fs.readdirSync(apksDir).filter(f => /\.(apk|xapk|apks)$/i.test(f));
-      result.apks.files = files;
-      result.apks.count = files.length;
-      let total = 0;
-      for (const f of files) {
+  result.apks.items = discoveredApkItems;
+  result.apks.files = discoveredApkItems.map(i => i.name);
+  result.apks.count = discoveredApkItems.length;
+  result.apks.sizeBytes = discoveredApkItems.reduce((acc, curr) => acc + curr.size, 0);
+  if (discoveredApkItems.length > 0) {
+    result.apks.dir = path.dirname(discoveredApkItems[0].path);
+  }
+
+  // 2. Scan for Decompiled JADX Source Code
+  const jadxCandidateDirs: string[] = [];
+  for (const r of searchRoots) {
+    jadxCandidateDirs.push(path.join(r, 'jadx_src'));
+    jadxCandidateDirs.push(path.join(r, 'sources'));
+    jadxCandidateDirs.push(path.join(r, 'src'));
+    // Also consider root itself if build.gradle or app/src exists
+    if (fs.existsSync(path.join(r, 'build.gradle')) || fs.existsSync(path.join(r, 'app', 'src'))) {
+      jadxCandidateDirs.push(r);
+    }
+  }
+
+  for (const dir of jadxCandidateDirs) {
+    if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+      let fileCount = 0;
+      let hasSource = false;
+
+      const walk = (d: string, depth = 0) => {
+        if (depth > 6) return;
         try {
-          total += fs.statSync(path.join(apksDir, f)).size;
+          const items = fs.readdirSync(d);
+          for (const item of items) {
+            const full = path.join(d, item);
+            try {
+              const stat = fs.statSync(full);
+              if (stat.isDirectory()) {
+                if (item === 'sources' || item === 'src' || item === 'java' || item === 'kotlin' || item === 'app') {
+                  hasSource = true;
+                }
+                walk(full, depth + 1);
+              } else if (/\.(java|kt|xml|gradle)$/i.test(item)) {
+                fileCount++;
+                hasSource = true;
+              }
+            } catch (_) {}
+          }
         } catch (_) {}
-      }
-      result.apks.sizeBytes = total;
-    } catch (_) {}
-  }
-
-  // 2. Check jadx_src/
-  const jadxDir = path.join(resolvedDir, 'jadx_src');
-  if (fs.existsSync(jadxDir)) {
-    result.jadx.exists = true;
-    try {
-      const items = fs.readdirSync(jadxDir);
-      result.jadx.fileCount = items.length;
-      result.jadx.hasSource = items.some(i => i === 'app' || i === 'sources' || i === 'src' || i === 'build.gradle');
-    } catch (_) {}
-  }
-
-  // 3. Check runtime/
-  const runtimeDir = path.join(resolvedDir, 'runtime');
-  if (fs.existsSync(runtimeDir)) {
-    result.runtime.exists = true;
-    try {
-      const walk = (d: string): string[] => {
-        let res: string[] = [];
-        for (const item of fs.readdirSync(d)) {
-          const full = path.join(d, item);
-          if (fs.statSync(full).isDirectory()) res = res.concat(walk(full));
-          else res.push(item);
-        }
-        return res;
       };
-      const files = walk(runtimeDir);
-      result.runtime.files = files.slice(0, 50);
-      result.runtime.count = files.length;
-    } catch (_) {}
-  }
 
-  // 4. Check native/
-  const nativeDir = path.join(resolvedDir, 'native');
-  if (fs.existsSync(nativeDir)) {
-    result.native.exists = true;
-    try {
-      const items = fs.readdirSync(nativeDir);
-      const archs: string[] = [];
-      const soFiles: string[] = [];
-      for (const item of items) {
-        const full = path.join(nativeDir, item);
-        if (fs.statSync(full).isDirectory()) {
-          archs.push(item);
-          try {
-            const sub = fs.readdirSync(full).filter(f => f.endsWith('.so'));
-            soFiles.push(...sub);
-          } catch (_) {}
-        } else if (item.endsWith('.so')) {
-          soFiles.push(item);
-        }
+      walk(dir);
+
+      if (fileCount > 0 || hasSource) {
+        result.jadx.exists = true;
+        result.jadx.hasSource = true;
+        result.jadx.fileCount = fileCount;
+        result.jadx.sourceDir = dir;
+        break;
       }
-      result.native.archs = archs;
-      result.native.soFiles = soFiles;
-    } catch (_) {}
-  }
-
-  // 5. Check traffic/
-  const trafficDir = path.join(resolvedDir, 'traffic');
-  if (fs.existsSync(trafficDir)) {
-    result.traffic.exists = true;
-    try {
-      result.traffic.count = fs.readdirSync(trafficDir).length;
-    } catch (_) {}
-  }
-
-  // 6. Check docs/
-  const docsDir = path.join(resolvedDir, 'docs');
-  if (fs.existsSync(docsDir)) {
-    result.docs.exists = true;
-    try {
-      result.docs.files = fs.readdirSync(docsDir);
-    } catch (_) {}
+    }
   }
 
   return result;
 }
 
+export async function downloadApk(options: {
+  target: string;
+  source?: string;
+  outputDir?: string;
+  worktreePath: string;
+  customPath?: string;
+}): Promise<{ success: boolean; stdout: string; stderr: string; downloadedFiles: string[]; outputDir: string }> {
+  const pkg = parsePackageTarget(options.target);
+  if (!pkg) {
+    return {
+      success: false,
+      stdout: '',
+      stderr: 'Invalid target package name or Play Store URL.',
+      downloadedFiles: [],
+      outputDir: '',
+    };
+  }
+
+  const outputDir = options.outputDir || path.join(options.worktreePath, 'apks');
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  const tools = resolveToolchain(options.customPath);
+  const source = options.source || 'apkcombo';
+  let stdout = '';
+  let stderr = '';
+  let success = false;
+
+  if (tools.apkdPath) {
+    const res = await new Promise<{ success: boolean; stdout: string; stderr: string }>((resolve) => {
+      try {
+        const proc = spawn(tools.apkdPath!, ['-p', pkg, '-O', outputDir, '-s', source], {
+          cwd: path.dirname(tools.apkdPath!),
+          env: process.env,
+          shell: false,
+        });
+        let out = '';
+        let err = '';
+        proc.stdout?.on('data', (c) => { out += c.toString('utf-8'); });
+        proc.stderr?.on('data', (c) => { err += c.toString('utf-8'); });
+        proc.on('close', (code) => {
+          resolve({ success: code === 0, stdout: out, stderr: err });
+        });
+        proc.on('error', (e) => {
+          resolve({ success: false, stdout: out, stderr: err + `\n${e.message}` });
+        });
+      } catch (err: any) {
+        resolve({ success: false, stdout: '', stderr: err?.message || 'Failed to spawn apkd' });
+      }
+    });
+    stdout = res.stdout;
+    stderr = res.stderr;
+    success = res.success;
+  } else {
+    // Fallback to rea dl
+    const res = await executeReaCommand({
+      args: ['dl', pkg, '-s', source, '-w', options.worktreePath],
+      cwd: options.worktreePath,
+      customPath: options.customPath,
+    });
+    stdout = res.stdout;
+    stderr = res.stderr;
+    success = res.success;
+  }
+
+  // Find all downloaded apk/xapk files in outputDir
+  const downloadedFiles: string[] = [];
+  if (fs.existsSync(outputDir)) {
+    try {
+      const files = fs.readdirSync(outputDir).filter(f => /\.(apk|xapk|apks)$/i.test(f));
+      for (const f of files) {
+        downloadedFiles.push(path.join(outputDir, f));
+      }
+    } catch (_) {}
+  }
+
+  if (downloadedFiles.length > 0) {
+    success = true;
+  }
+
+  return {
+    success,
+    stdout,
+    stderr,
+    downloadedFiles,
+    outputDir,
+  };
+}
+
+export async function decompileApk(options: {
+  apkPath?: string;
+  packageName?: string;
+  outputDir?: string;
+  worktreePath: string;
+  heap?: string;
+  threads?: string | number;
+  exportGradle?: boolean;
+  deobf?: boolean;
+  showBadCode?: boolean;
+  customPath?: string;
+}): Promise<{ success: boolean; stdout: string; stderr: string; outputDir: string; fileCount: number }> {
+  let targetApk = options.apkPath;
+
+  // If no apkPath specified, search in workspace
+  if (!targetApk || !fs.existsSync(targetApk)) {
+    const searchDirs = [
+      path.join(options.worktreePath, 'apks'),
+      options.worktreePath,
+    ];
+    if (options.packageName) {
+      searchDirs.push(path.join(options.worktreePath, options.packageName, 'apks'));
+      searchDirs.push(path.join(options.worktreePath, 'workspaces', options.packageName, 'apks'));
+    }
+    for (const d of searchDirs) {
+      if (fs.existsSync(d)) {
+        try {
+          const files = fs.readdirSync(d).filter(f => /\.(apk|xapk|apks)$/i.test(f));
+          if (files.length > 0) {
+            targetApk = path.join(d, files[0]);
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  if (!targetApk || !fs.existsSync(targetApk)) {
+    return {
+      success: false,
+      stdout: '',
+      stderr: 'No APK package found to decompile. Please download an APK or select a local APK file first.',
+      outputDir: '',
+      fileCount: 0,
+    };
+  }
+
+  const outputDir = options.outputDir || path.join(options.worktreePath, 'jadx_src');
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  const tools = resolveToolchain(options.customPath);
+  let stdout = '';
+  let stderr = '';
+  let success = false;
+
+  if (tools.jadxPath) {
+    const threadCount = options.threads && options.threads !== 'auto'
+      ? String(options.threads)
+      : String(os.cpus().length || 8);
+    const heapMemory = options.heap || '8g';
+
+    const args = [
+      '-d', outputDir,
+      '-j', threadCount,
+    ];
+    if (options.exportGradle !== false) args.push('--export-gradle');
+    if (options.deobf !== false) {
+      args.push('--deobf');
+      args.push('--deobf-res-name-source', 'auto');
+      args.push('--use-source-name-as-class-name-alias', 'if-better');
+    }
+    if (options.showBadCode !== false) args.push('--show-bad-code');
+
+    // Handle split APK archives (.xapk, .apks, .zip)
+    const ext = path.extname(targetApk).toLowerCase();
+    const inputFiles: string[] = [];
+
+    if (ext === '.xapk' || ext === '.apks' || ext === '.zip') {
+      const extractDir = path.join(path.dirname(targetApk), `${path.basename(targetApk)}_extracted`);
+      if (!fs.existsSync(extractDir)) {
+        fs.mkdirSync(extractDir, { recursive: true });
+        try {
+          execSync(`powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${targetApk}' -DestinationPath '${extractDir}' -Force"`, {
+            stdio: 'ignore',
+            timeout: 60000,
+          });
+        } catch (_) {}
+      }
+      if (fs.existsSync(extractDir)) {
+        const walk = (d: string) => {
+          for (const item of fs.readdirSync(d)) {
+            const full = path.join(d, item);
+            if (fs.statSync(full).isDirectory()) walk(full);
+            else if (item.endsWith('.apk')) inputFiles.push(full);
+          }
+        };
+        walk(extractDir);
+      }
+    }
+
+    if (inputFiles.length === 0) {
+      inputFiles.push(targetApk);
+    }
+
+    args.push(...inputFiles);
+
+    const jadxEnv = {
+      ...process.env,
+      JADX_OPTS: `-Xmx${heapMemory} -Xms2g -XX:+UseG1GC`,
+      JADX_ZIP_MAX_ENTRIES_COUNT: '1000000',
+      JADX_DISABLE_ZIP_SECURITY: 'true',
+      JADX_DISABLE_XML_SECURITY: 'true',
+    };
+
+    const res = await new Promise<{ success: boolean; stdout: string; stderr: string }>((resolve) => {
+      try {
+        const proc = spawn(tools.jadxPath!, args, {
+          cwd: outputDir,
+          env: jadxEnv,
+          shell: false,
+        });
+        let out = '';
+        let err = '';
+        proc.stdout?.on('data', (c) => { out += c.toString('utf-8'); });
+        proc.stderr?.on('data', (c) => { err += c.toString('utf-8'); });
+        proc.on('close', (code) => {
+          resolve({ success: code === 0, stdout: out, stderr: err });
+        });
+        proc.on('error', (e) => {
+          resolve({ success: false, stdout: out, stderr: err + `\n${e.message}` });
+        });
+      } catch (e: any) {
+        resolve({ success: false, stdout: '', stderr: e?.message || 'Failed to start JADX process' });
+      }
+    });
+
+    stdout = res.stdout;
+    stderr = res.stderr;
+    success = res.success;
+  } else {
+    // Fallback to rea decode
+    const targetArg = options.packageName || targetApk;
+    const res = await executeReaCommand({
+      args: ['decode', targetArg, '--heap', options.heap || '8g', '-w', options.worktreePath],
+      cwd: options.worktreePath,
+      customPath: options.customPath,
+    });
+    stdout = res.stdout;
+    stderr = res.stderr;
+    success = res.success;
+  }
+
+  // Count decompiled source files
+  let fileCount = 0;
+  if (fs.existsSync(outputDir)) {
+    const countFiles = (d: string) => {
+      try {
+        for (const item of fs.readdirSync(d)) {
+          const full = path.join(d, item);
+          const stat = fs.statSync(full);
+          if (stat.isDirectory()) {
+            countFiles(full);
+          } else if (/\.(java|kt|xml)$/i.test(item)) {
+            fileCount++;
+          }
+        }
+      } catch (_) {}
+    };
+    countFiles(outputDir);
+  }
+
+  if (fileCount > 0) {
+    success = true;
+  }
+
+  return {
+    success,
+    stdout,
+    stderr,
+    outputDir,
+    fileCount,
+  };
+}
+
+export async function pipelineApk(options: {
+  target: string;
+  source?: string;
+  outputDir?: string;
+  worktreePath: string;
+  heap?: string;
+  threads?: string | number;
+  exportGradle?: boolean;
+  deobf?: boolean;
+  showBadCode?: boolean;
+  customPath?: string;
+}): Promise<{ success: boolean; stdout: string; stderr: string; downloadedFiles: string[]; outputDir: string; fileCount: number }> {
+  const dlRes = await downloadApk({
+    target: options.target,
+    source: options.source,
+    worktreePath: options.worktreePath,
+    customPath: options.customPath,
+  });
+
+  let fullStdout = `[Download Step]\n${dlRes.stdout}\n`;
+  let fullStderr = dlRes.stderr ? `[Download Step Stderr]\n${dlRes.stderr}\n` : '';
+
+  if (!dlRes.success || dlRes.downloadedFiles.length === 0) {
+    return {
+      success: false,
+      stdout: fullStdout,
+      stderr: fullStderr + '\nDownload step completed without output APK files.',
+      downloadedFiles: [],
+      outputDir: '',
+      fileCount: 0,
+    };
+  }
+
+  const downloadedApk = dlRes.downloadedFiles[0];
+
+  const decRes = await decompileApk({
+    apkPath: downloadedApk,
+    packageName: parsePackageTarget(options.target),
+    outputDir: options.outputDir,
+    worktreePath: options.worktreePath,
+    heap: options.heap,
+    threads: options.threads,
+    exportGradle: options.exportGradle,
+    deobf: options.deobf,
+    showBadCode: options.showBadCode,
+    customPath: options.customPath,
+  });
+
+  fullStdout += `\n[Decompilation Step]\n${decRes.stdout}\n`;
+  if (decRes.stderr) {
+    fullStderr += `\n[Decompilation Step Stderr]\n${decRes.stderr}\n`;
+  }
+
+  return {
+    success: decRes.success,
+    stdout: fullStdout,
+    stderr: fullStderr,
+    downloadedFiles: dlRes.downloadedFiles,
+    outputDir: decRes.outputDir,
+    fileCount: decRes.fileCount,
+  };
+}
+
 export function launchJadxGui(options: {
   target?: string;
+  apkPath?: string;
   worktreePath?: string;
   customPath?: string;
 }): { success: boolean; error?: string } {
   try {
+    const tools = resolveToolchain(options.customPath);
+    let targetArg = options.apkPath || options.target || '';
+
+    // If no target arg given but worktree has an APK, default to opening it
+    if (!targetArg && options.worktreePath) {
+      const status = getTargetStatus(options.worktreePath, undefined, options.customPath);
+      if (status.apks.items && status.apks.items.length > 0) {
+        targetArg = status.apks.items[0].path;
+      }
+    }
+
+    if (tools.jadxGuiPath) {
+      const args = targetArg ? [targetArg] : [];
+      const proc = spawn(tools.jadxGuiPath, args, {
+        cwd: options.worktreePath || tools.reaDir || process.cwd(),
+        detached: true,
+        stdio: 'ignore',
+        shell: false,
+      });
+      proc.unref();
+      return { success: true };
+    }
+
     const exeInfo = resolveReaExecutable(options.customPath);
     const args = [...exeInfo.argsPrefix, 'jadx-gui'];
-    if (options.target && options.target.trim()) {
-      args.push(options.target.trim());
+    if (targetArg) {
+      args.push(targetArg);
     }
     const proc = spawn(exeInfo.file, args, {
       cwd: options.worktreePath || exeInfo.reaDir || process.cwd(),
@@ -507,7 +940,19 @@ export function launchMirror(options: {
   }
 }
 
-export function registerReakitIpc({ ipcMain, workspaceService }: { ipcMain: any; workspaceService: any }) {
+export function registerReakitIpc({
+  ipcMain,
+  workspaceService,
+  dialog: customDialog,
+  mainWindow,
+}: {
+  ipcMain: any;
+  workspaceService: any;
+  dialog?: any;
+  mainWindow?: any;
+}) {
+  const dlg = customDialog || dialog;
+
   ipcMain.handle('reakit:run-command', async (_: any, { args, cwd }: { args: string[]; cwd?: string }) => {
     const settings = workspaceService.getSettings();
     return executeReaCommand({
@@ -527,14 +972,14 @@ export function registerReakitIpc({ ipcMain, workspaceService }: { ipcMain: any;
     return getTargets(worktreePath, settings.reakitPath);
   });
 
-  ipcMain.handle('reakit:get-target-status', async (_: any, { worktreePath, packageName }: { worktreePath: string; packageName: string }) => {
+  ipcMain.handle('reakit:get-target-status', async (_: any, { worktreePath, packageName }: { worktreePath: string; packageName?: string }) => {
     const settings = workspaceService.getSettings();
     return getTargetStatus(worktreePath, packageName, settings.reakitPath);
   });
 
-  ipcMain.handle('reakit:launch-jadx-gui', async (_: any, { target, worktreePath }: { target?: string; worktreePath?: string } = {}) => {
+  ipcMain.handle('reakit:launch-jadx-gui', async (_: any, { target, apkPath, worktreePath }: { target?: string; apkPath?: string; worktreePath?: string } = {}) => {
     const settings = workspaceService.getSettings();
-    return launchJadxGui({ target, worktreePath, customPath: settings.reakitPath });
+    return launchJadxGui({ target, apkPath, worktreePath, customPath: settings.reakitPath });
   });
 
   ipcMain.handle('reakit:launch-mirror', async (_: any, opts: { serial?: string; maxSize?: number; fps?: number } = {}) => {
@@ -591,5 +1036,68 @@ export function registerReakitIpc({ ipcMain, workspaceService }: { ipcMain: any;
     } catch (err: any) {
       return { success: false, error: err.message };
     }
+  });
+
+  // ── New APK Downloader & Decompiler Handlers ──
+  ipcMain.handle('reakit:download-apk', async (_: any, opts: { target: string; source?: string; outputDir?: string; worktreePath: string }) => {
+    const settings = workspaceService.getSettings();
+    return downloadApk({
+      ...opts,
+      customPath: settings.reakitPath,
+    });
+  });
+
+  ipcMain.handle('reakit:decompile-apk', async (_: any, opts: {
+    apkPath?: string;
+    packageName?: string;
+    outputDir?: string;
+    worktreePath: string;
+    heap?: string;
+    threads?: string | number;
+    exportGradle?: boolean;
+    deobf?: boolean;
+    showBadCode?: boolean;
+  }) => {
+    const settings = workspaceService.getSettings();
+    return decompileApk({
+      ...opts,
+      heap: opts.heap || settings.reakitHeapSize,
+      customPath: settings.reakitPath,
+    });
+  });
+
+  ipcMain.handle('reakit:pipeline-apk', async (_: any, opts: {
+    target: string;
+    source?: string;
+    outputDir?: string;
+    worktreePath: string;
+    heap?: string;
+    threads?: string | number;
+    exportGradle?: boolean;
+    deobf?: boolean;
+    showBadCode?: boolean;
+  }) => {
+    const settings = workspaceService.getSettings();
+    return pipelineApk({
+      ...opts,
+      source: opts.source || settings.reakitDefaultSource,
+      heap: opts.heap || settings.reakitHeapSize,
+      customPath: settings.reakitPath,
+    });
+  });
+
+  ipcMain.handle('reakit:select-apk-file', async () => {
+    if (!dlg) return null;
+    const parentWin = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+    const result = await dlg.showOpenDialog(parentWin, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'Android Packages (*.apk, *.xapk, *.apks, *.zip)', extensions: ['apk', 'xapk', 'apks', 'zip'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+      title: 'Select APK or Split XAPK Package to Decompile',
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    return result.filePaths[0];
   });
 }

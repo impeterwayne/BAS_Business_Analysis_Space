@@ -35,18 +35,30 @@
   --text-secondary: #b2afd2;
   --text-muted: #83809e;
   --text-accent: var(--accent-light);
+  --text-default: var(--text-primary);
+  --text-tertiary: var(--text-muted);
+
+  --bg-default: var(--bg-surface);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-hover-danger: rgba(255, 107, 107, 0.12);
+
+  --accent-color: var(--accent);
+  --accent-default: var(--accent);
+  --danger-default: var(--red);
 
   --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-default: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --border-accent: rgba(108, 92, 231, 0.25);
-  --border-contrast-white: rgba(255, 255, 255, 0.25);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-accent: rgba(108, 92, 231, 0.28);
+  --border-accent-strong: rgba(108, 92, 231, 0.45);
+  --border-contrast-white: rgba(255, 255, 255, 0.08);
 
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
+  --radius-full: 9999px;
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -183,6 +195,54 @@ body {
   letter-spacing: 0.4px;
   text-transform: uppercase;
 }
+.titlebar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  user-select: none;
+  z-index: 101;
+}
+.titlebar-crumb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  max-width: 480px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+.titlebar-crumb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(0, 210, 160, 0.6);
+  flex-shrink: 0;
+}
+.titlebar-crumb-project {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.titlebar-crumb-sep {
+  opacity: 0.35;
+  margin: 0 2px;
+}
+.titlebar-crumb-branch {
+  color: var(--accent-light);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
 .titlebar-right {
   display: flex; align-items: center; gap: 2px;
   -webkit-app-region: no-drag;
@@ -211,7 +271,8 @@ img[src*="antigravity"],
 img[src*="code"],
 img[src*="claude"],
 img[src*="opencode"],
-img[src*="windows-terminal"] {
+img[src*="windows-terminal"],
+img[src*="obsidian"] {
   filter: none;
 }
 
@@ -1270,45 +1331,252 @@ img[src*="windows-terminal"] {
   background-clip: padding-box;
 }
 
-/* Welcome state */
+/* ══════════════════════════════════════════
+   WELCOME / DASHBOARD STATE
+   ══════════════════════════════════════════ */
 .terminal-welcome {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
+  justify-content: flex-start;
+  padding: 40px 28px 28px;
+  overflow-y: auto;
   z-index: 5;
+  background: radial-gradient(circle at 50% 15%, rgba(108, 92, 231, 0.06) 0%, transparent 65%), #000000;
 }
 .terminal-welcome.hidden {
   display: none;
 }
 .welcome-glow {
   position: absolute;
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(108,92,231,0.05) 0%, transparent 70%);
+  top: 5%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: 540px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(108, 92, 231, 0.08) 0%, rgba(0, 210, 160, 0.03) 40%, transparent 70%);
   border-radius: 50%;
   pointer-events: none;
+  filter: blur(40px);
 }
-.welcome-icon {
-  color: var(--accent-light);
-  opacity: 0.3;
-  margin-bottom: 4px;
+.welcome-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 640px;
+  margin-bottom: 28px;
+  position: relative;
+  z-index: 2;
 }
-.terminal-welcome h2 {
-  font-size: 22px;
+.welcome-logo-badge {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.22), rgba(162, 155, 254, 0.12));
+  border: 1px solid rgba(108, 92, 231, 0.35);
+  border-radius: 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 24px rgba(108, 92, 231, 0.2);
+}
+.welcome-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 10px;
   font-weight: 700;
-  background: linear-gradient(135deg, #e8e8e8 30%, var(--accent-light));
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-light);
+  background: rgba(108, 92, 231, 0.12);
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+.welcome-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  background: linear-gradient(135deg, #ffffff 40%, var(--accent-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  margin-bottom: 6px;
 }
-.terminal-welcome p {
+.welcome-subtitle {
   font-size: 13px;
-  color: #666;
-  text-align: center;
-  line-height: 1.7;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  max-width: 540px;
+  margin-bottom: 14px;
+}
+.welcome-status-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  font-size: 11.5px;
+}
+.welcome-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  flex-shrink: 0;
+}
+.welcome-status-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.welcome-status-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Bento Grid */
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  width: 100%;
+  max-width: 920px;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 2;
+}
+@media (max-width: 900px) {
+  .welcome-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .welcome-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.welcome-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+.welcome-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-md), 0 0 20px rgba(108, 92, 231, 0.08);
+  transform: translateY(-2px);
+}
+.welcome-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+.welcome-card-icon.terminal-bg { background: rgba(108, 92, 231, 0.15); color: var(--accent-light); border-color: rgba(108, 92, 231, 0.3); }
+.welcome-card-icon.reakit-bg { background: rgba(61, 220, 132, 0.15); color: #3ddc84; border-color: rgba(61, 220, 132, 0.3); }
+.welcome-card-icon.scrcpy-bg { background: rgba(245, 166, 35, 0.15); color: #f5a623; border-color: rgba(245, 166, 35, 0.3); }
+.welcome-card-icon.capture-bg { background: rgba(236, 72, 153, 0.15); color: #f472b6; border-color: rgba(236, 72, 153, 0.3); }
+.welcome-card-icon.toolkit-bg { background: rgba(0, 206, 201, 0.15); color: #00cec9; border-color: rgba(0, 206, 201, 0.3); }
+
+.welcome-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.welcome-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.welcome-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.welcome-card-shortcut {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+.welcome-card-tag {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent-light);
+}
+.welcome-card-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.welcome-card-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: auto;
+  padding: 6px 10px;
+}
+
+/* Shortcuts Ribbon */
+.welcome-shortcuts {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-muted);
+  position: relative;
+  z-index: 2;
+}
+.welcome-shortcut-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: var(--text-secondary);
 }
 
 /* ══════════════════════════════════════════
@@ -1671,19 +1939,21 @@ img[src*="windows-terminal"] {
 .toast {
   display: flex; align-items: center; gap: 10px;
   padding: 11px 16px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
+  background: rgba(20, 20, 25, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 12.5px; font-weight: 500;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), 0 4px 20px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
   animation: toastIn 0.25s ease-out;
-  max-width: 360px;
+  max-width: 380px;
 }
-.toast.success { border-left: 3px solid var(--green); }
-.toast.error   { border-left: 3px solid var(--red); }
-.toast.info    { border-left: 3px solid var(--blue); }
+.toast.success { border-left: 3px solid var(--green); background: linear-gradient(90deg, rgba(0, 210, 160, 0.08), rgba(20, 20, 25, 0.95) 40%); }
+.toast.error   { border-left: 3px solid var(--red); background: linear-gradient(90deg, rgba(255, 107, 107, 0.08), rgba(20, 20, 25, 0.95) 40%); }
+.toast.warning { border-left: 3px solid var(--orange); background: linear-gradient(90deg, rgba(245, 166, 35, 0.08), rgba(20, 20, 25, 0.95) 40%); }
+.toast.info    { border-left: 3px solid var(--blue); background: linear-gradient(90deg, rgba(79, 195, 247, 0.08), rgba(20, 20, 25, 0.95) 40%); }
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(12px) scale(0.96); }
@@ -1717,7 +1987,7 @@ img[src*="windows-terminal"] {
   display: none !important;
 }
 
-#settings-screen, #symlink-screen, #agent-toolkit-screen, #plane-task-screen, #reakit-screen {
+#settings-screen, #symlink-screen, #agent-toolkit-screen, #reakit-screen {
   position: absolute;
   top: 0;
   left: 0;
@@ -1774,6 +2044,10 @@ img[src*="windows-terminal"] {
 .btn-close-settings {
   width: 32px;
   height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   color: var(--text-muted);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -1785,7 +2059,7 @@ img[src*="windows-terminal"] {
   background: var(--control-bg-ghost-hover);
   color: var(--text-primary);
   border-color: var(--border-strong);
-  transform: scale(1.04);
+  transform: scale(1.05);
 }
 
 /* Settings Grid Layout */
@@ -2172,8 +2446,8 @@ img[src*="windows-terminal"] {
   background: var(--bg-hover-danger);
 }
 
-/* ─── Plane Task Management Screen Styles ─── */
-.plane-setup-card {
+/* ─── ReaKit Setup Card & Primitives ─── */
+.reakit-setup-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg, 12px);
@@ -2188,11 +2462,11 @@ img[src*="windows-terminal"] {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.plane-setup-card:hover {
+.reakit-setup-card:hover {
   border-color: var(--border-default);
 }
 
-.plane-setup-content {
+.reakit-setup-content {
   display: flex;
   align-items: center;
   gap: 24px;
@@ -2201,14 +2475,14 @@ img[src*="windows-terminal"] {
   min-width: 300px;
 }
 
-.plane-setup-worktree {
+.reakit-setup-worktree {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 160px;
 }
 
-.plane-setup-label {
+.reakit-setup-label {
   font-size: 11px;
   text-transform: uppercase;
   color: var(--text-tertiary);
@@ -2219,7 +2493,7 @@ img[src*="windows-terminal"] {
   gap: 6px;
 }
 
-.plane-setup-sublabel {
+.reakit-setup-sublabel {
   font-size: 10px;
   text-transform: none;
   font-weight: 400;
@@ -2227,7 +2501,7 @@ img[src*="windows-terminal"] {
   letter-spacing: normal;
 }
 
-.plane-worktree-badge {
+.reakit-worktree-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2240,7 +2514,7 @@ img[src*="windows-terminal"] {
   color: var(--accent-color, #6366f1);
 }
 
-.plane-setup-input-group {
+.reakit-setup-input-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2248,37 +2522,21 @@ img[src*="windows-terminal"] {
   min-width: 260px;
 }
 
-.plane-input-wrapper {
+.reakit-input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
 }
 
-.plane-project-id-field {
-  height: 34px;
-  font-size: 12.5px;
-  width: 100%;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  border-radius: var(--radius-md, 8px);
-  padding: 0 12px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.plane-project-id-field:focus {
-  border-color: var(--accent-default, #6366f1);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
-}
-
-.plane-setup-actions {
+.reakit-setup-actions {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.plane-action-btn {
+.reakit-action-btn {
   height: 34px;
   padding: 0 14px;
   font-size: 12px;
@@ -2292,154 +2550,71 @@ img[src*="windows-terminal"] {
   transition: all 0.15s ease;
 }
 
-.plane-action-btn:hover {
+.reakit-action-btn:hover {
   transform: translateY(-1px);
 }
 
-.plane-action-btn:active {
+.reakit-action-btn:active {
   transform: translateY(0);
 }
 
-.plane-action-btn-primary {
-  font-weight: 600;
-}
-
-.plane-filter-pill {
+/* ─── ReaKit APK Decompiler Screen Styles ─── */
+.reakit-workspace-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  border-radius: var(--radius-full, 9999px);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.plane-filter-pill:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-default);
-  color: var(--text-default);
-}
-.plane-filter-pill.active {
-  background: var(--accent-default, #6366f1);
-  border-color: var(--accent-default, #6366f1);
-  color: #ffffff;
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 18px;
+  flex-wrap: wrap;
 }
 
-#plane-tasks-table tbody tr {
-  border-bottom: 1px solid var(--border-subtle);
-  transition: background-color 0.15s ease;
-}
-#plane-tasks-table tbody tr:hover {
-  background: var(--bg-hover);
-}
-#plane-tasks-table td {
-  padding: 10px 14px;
-  vertical-align: middle;
-}
-
-.plane-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-}
-.plane-badge.badge-success {
-  background: rgba(16, 185, 129, 0.15);
-  color: rgb(52, 211, 153);
-}
-.plane-badge.badge-danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: rgb(248, 113, 113);
-}
-.plane-badge.badge-warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: rgb(251, 191, 36);
-}
-.plane-badge.badge-info {
-  background: rgba(59, 130, 246, 0.15);
-  color: rgb(96, 165, 250);
-}
-.plane-badge.badge-neutral {
-  background: rgba(107, 114, 128, 0.15);
-  color: rgb(156, 163, 175);
-}
-
-/* ── Export Log Terminal & Progress Console ── */
-.export-progress-container {
+.reakit-ws-left {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 4px;
+  min-width: 260px;
+  flex: 1;
 }
 
-.export-progress-bar-track {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
+.reakit-ws-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
 }
 
-.export-progress-bar-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #3b82f6, #10b981);
-  border-radius: 4px;
-  transition: width 0.2s ease-out;
-}
-
-.export-progress-status-row {
+.reakit-ws-title-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  color: var(--text-secondary, #94a3b8);
-  font-weight: 500;
+  gap: 8px;
 }
 
-.export-log-terminal {
-  background: #070a11;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  padding: 10px 14px;
-  height: 220px;
-  overflow-y: auto;
-  font-family: 'Consolas', 'Fira Code', monospace;
+.reakit-ws-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-default);
+}
+
+.reakit-ws-path {
   font-size: 11.5px;
-  line-height: 1.6;
-  color: #cbd5e1;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 620px;
 }
 
-.export-log-entry {
+.reakit-ws-actions {
   display: flex;
   gap: 8px;
-  word-break: break-all;
-  margin-bottom: 2px;
+  align-items: center;
 }
 
-.export-log-entry.info { color: #38bdf8; }
-.export-log-entry.screenshot { color: #c084fc; }
-.export-log-entry.video { color: #f472b6; }
-.export-log-entry.cache { color: #facc15; }
-.export-log-entry.success { color: #4ade80; font-weight: 600; }
-.export-log-entry.error { color: #f87171; font-weight: 600; }
-
-.modal.export-modal {
-  width: 720px;
-  max-width: 92vw;
-}
-
-.modal.export-modal .export-log-terminal {
-  height: 320px;
-  font-size: 12px;
-}
-
-/* ─── ReaKit Studio Screen Styles ─── */
 .reakit-badge {
   display: inline-flex;
   align-items: center;
@@ -2660,6 +2835,17 @@ img[src*="windows-terminal"] {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.reakit-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.reakit-tab-content.hidden {
+  display: none !important;
 }
 
 

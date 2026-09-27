@@ -1,30 +1,28 @@
 # BA Space
 
-BA Space is an AI-augmented Business Analyst workspace and requirement orchestration platform built with Electron, TypeScript, and xterm.js. Tailored specifically for Business Analysts, Product Managers, and Solution Architects, BA Space bridges the gap between requirements, live application screens, Figma specifications, Plane project tasks, and AI Agent harnesses.
+BA Space is an AI-augmented Business Analyst workspace and requirement orchestration platform built with Electron, TypeScript, and xterm.js. Tailored specifically for Business Analysts, Product Managers, and Solution Architects, BA Space bridges the gap between requirements, live application screens, Figma specifications, and AI Agent harnesses.
 
 ---
 
 ## Key Features
 
-### 1. Plane Task & Requirement Management
-- **Integrated Plane Board**: View, filter, and manage project tasks directly within BA Space.
-- **Worktree-Task Binding**: Seamlessly link active Git worktrees and specification branches to Plane task IDs.
-- **Workflow Transitions**: Update issue states, track progress, and coordinate requirements without leaving the workspace.
-
-### 2. Live Device Inspection & UI Capture
+### 1. Live Device Inspection & UI Capture
 - **Real-Time Mirroring (`scrcpy-cli`)**: Launch low-latency Android device screen mirroring with a single click.
 - **Black-box UI Capture**: Capture both high-resolution screenshots and XML UI hierarchy dumps (`uiautomator dump`) directly from connected devices for rapid UX documentation and agent visual context.
 
-### 3. POKit Business Analyst Agent Harness
-- **BA Agent Roster**: Deploy specialized agents (`orchestrator`, `business-analyst`, `screen-analyst`) into any active worktree.
-- **Skills & Tooling**: Equip agents with goal ledger tracking, ultrawork execution, and device control skills.
-- **Automated Guard Hooks**: Deploy enforcement scripts and guardrails (`device_guard`, `scrcpy_daemon`, `stop_verifier`, `loop.py`) with automatic `.git/info/exclude` exclusion.
+### 2. BAKit — Antigravity BA Toolkit
+- **BA Agent Roster**: `ba-lead`, `competitor-analyst`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer`.
+- **Template Catalog**: FSD, use case, user stories, feature brief, test cases, readiness review, competitor analysis and gap analysis — deliverables in Vietnamese.
+- **Competitor App Analysis**: drives a competitor Android app through the `mobilerun` MCP server (registered in Antigravity's global MCP config) and writes evidence-backed BA documents.
+- **Batch Toolkit Deployment**: One-click "Apply Selected Toolkits" to provision worktrees with BAKit and ReaKit harnesses.
 
-### 4. OpenSpec Specification Toolkit
-- **Multi-Agent Specs**: Deploy specification workflows and slash commands for Antigravity, Claude, Codex, and OpenCode.
-- **Batch Toolkit Deployment**: One-click "Apply All" to provision worktrees with both POKit BA Harness and OpenSpec toolkits.
+### 3. ReaKit — APK Downloader & Decompiler
+- **Online APK Acquisition**: Download APK and split XAPK packages from store repositories (apkcombo, fdroid, rustore, nashstore) directly into the active workspace.
+- **Direct Workspace Decompilation**: Decompile Java/Kotlin source code using bundled JADX into your workspace root, `jadx_src/`, or target subfolder.
+- **Local APK Support**: Select and decompile local `.apk` or `.xapk` files with one click.
+- **Workspace-Aware Inspection**: Automatically scans the active workspace for APK files and decompiled sources with instant "Open in Editor" and "Launch JADX GUI" actions.
 
-### 5. BA Quick Launchers & External Integrations
+### 4. BA Quick Launchers & External Integrations
 - **Antigravity IDE & Agent Manager**: Jump straight into Antigravity with your current worktree context.
 - **Figma Integration**: Launch Figma desktop app or navigate to custom project design URLs.
 - **Spec Editor**: Open markdown specs, user stories, and acceptance criteria in your preferred editor (VS Code or custom spec editor).
@@ -74,13 +72,12 @@ All distribution artifacts are generated into the `release/` directory.
 - **Preload Bridge**: [`src/main/preload.ts`](file:///D:/Quest/BA_Space/src/main/preload.ts)
   - Exposes typed IPC methods to the renderer context.
 - **Renderer Frontend**:
-  - [`src/renderer/index.html`](file:///D:/Quest/BA_Space/src/renderer/index.html): Semantic layout, sidebar launchers, Plane task board, and settings modal.
-  - [`src/renderer/app.ts`](file:///D:/Quest/BA_Space/src/renderer/app.ts): Workspace state, xterm.js terminals, Plane integration, POKit & OpenSpec toolkit management, device mirror/capture handlers.
+  - [`src/renderer/index.html`](file:///D:/Quest/BA_Space/src/renderer/index.html): Semantic layout, sidebar launchers, ReaKit studio, and settings modal.
+  - [`src/renderer/app.ts`](file:///D:/Quest/BA_Space/src/renderer/app.ts): Workspace state, xterm.js terminals, BAKit & ReaKit toolkit management, device mirror/capture handlers.
   - [`src/renderer/styles.css`](file:///D:/Quest/BA_Space/src/renderer/styles.css): High-contrast dark theme optimized for analytical density and multi-tab workflows.
 - **Domain & Services**:
   - [`src/application/workspaceService.ts`](file:///D:/Quest/BA_Space/src/application/workspaceService.ts): Git worktree manipulation and repository state.
-  - [`src/application/workspaceConfigStore.ts`](file:///D:/Quest/BA_Space/src/application/workspaceConfigStore.ts): Workspace settings persistence, tool paths (Figma, Scrcpy, Antigravity, POKit), and symlink rules.
+  - [`src/application/workspaceConfigStore.ts`](file:///D:/Quest/BA_Space/src/application/workspaceConfigStore.ts): Workspace settings persistence, tool paths (Figma, Scrcpy, Antigravity, ReaKit), and symlink rules.
   - [`src/domain/settings/index.js`](file:///D:/Quest/BA_Space/src/domain/settings/index.js): Settings normalization and defaults.
 - **Bundled Toolkits**:
-  - `toolkits/POKit/`: BA Agent roster, ultrawork skills, hooks, and scripts.
-  - `toolkits/openspec/`: OpenSpec core, workflows, and multi-agent skill packs.
+  - `toolkits/BAKit/`: BA agents, skills, template catalog, rules, slash workflows, and mobilerun MCP registration.

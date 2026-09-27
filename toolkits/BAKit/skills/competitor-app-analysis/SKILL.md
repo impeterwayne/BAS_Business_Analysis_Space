@@ -1,0 +1,120 @@
+---
+name: competitor-app-analysis
+description: >-
+  Explores a competitor (opponent) Android app on a connected device through the `mobilerun` MCP server,
+  captures a screenshot and accessibility tree at every screen, and writes BA deliverables from templates:
+  app profile, screen inventory, per-flow analysis, and a feature comparison / gap analysis with candidate
+  requirements. Use when the user asks to analyse, benchmark, survey, or document a competitor app, or runs
+  /ba-competitor.
+---
+
+# Competitor App Analysis
+
+You produce a black-box, evidence-backed picture of what a competitor app does, then turn it into
+requirements input for our product. You work from the screen only: every claim cites a screenshot or UI
+tree you captured. You operate the app; you never modify it, script it, or decompile it.
+
+Tools: the `mobilerun` MCP server (see the `mobilerun` skill for the full tool list) plus file writes.
+Templates: `ba-templates` catalog keys `competitor-profile`, `competitor-screens`, `competitor-flow`,
+`comparison-gap`.
+
+## Inputs (ask for anything missing before touching the device)
+
+| Input | Example | Required |
+| :--- | :--- | :--- |
+| App | `"MoMo"` or `com.mservice.momotransfer` | Yes |
+| Flows in scope | onboarding, login, transfer money, search | Yes (default: onboarding + primary navigation) |
+| Account | guest / test account provided by user | Yes — never create a real account yourself |
+| Our product reference | `docs/project-fsd.md`, a Figma link, or "none" | Only for the comparison step |
+
+Also read `.agents/config/ba-project-config.md` → **Competitor Apps** table; it may already hold the
+package, device serial and account notes.
+
+## Output Layout
+
+```
+docs/BA/competitor/
+  {app-slug}/
+    screens/{flow}-{NN}-{slug}.png         screenshot per state
+    screens/{flow}-{NN}-{slug}.tree.txt    accessibility tree per state
+    {app-slug}_profile_{YYYYMMDD}_v1.md
+    {app-slug}_screens_{YYYYMMDD}_v1.md
+    {app-slug}_flow-{flow}_{YYYYMMDD}_v1.md
+  {topic}_comparison_{YYYYMMDD}_v1.md      when comparing against our product / other apps
+```
+
+`{app-slug}` is lowercase-kebab (for example `momo`). Versions follow `ba-naming-convention`: never overwrite,
+write `v2` instead.
+
+## Procedure
+
+### Phase 0 — Pre-flight
+
+1. `ping_device` then `get_device_status`. Confirm the screen is `awake` and note the serial and
+   resolution. If the device is unreachable, stop and tell the user to run `/ba-device-check`.
+2. Resolve the package: `lookup_app(app_name=...)`. If several candidates match, ask the user.
+3. Record the app version with a shell command:
+   `adb -s <serial> shell dumpsys package <package> | findstr versionName` (Windows) — or `grep` on POSIX.
+4. Create `docs/BA/competitor/{app-slug}/screens/`.
+5. `set_plan(steps=[one step per flow], goal="Survey <app> flows", deliverable="BA competitor docs")`.
+
+### Phase 1 — Explore and capture (per flow)
+
+1. `mark_step(index=i, status="in_progress")`. Start the app with `open_and_settle` (or `launch_app`).
+2. **At every new state, capture before you act:**
+   - `screenshot_path` → copy the returned file to `screens/{flow}-{NN}-{slug}.png` with a shell copy
+     (`Copy-Item <path> <dest>` on Windows).
+   - `get_ui_tree` → write the `tree` text to `screens/{flow}-{NN}-{slug}.tree.txt`.
+   - Number states in visit order (`01`, `02`, …). `{slug}` names the screen in 1–3 kebab words.
+3. **Read the screen:** `read_screen` for text and layout; `perceive_screen` when you need to see icons,
+   visual state, or `read_screen` ends with ESCALATE. Use `detail="full"` only for icon-only controls the
+   tree does not label, and treat its red boxes as guesses.
+4. **Keep a coverage frontier.** For each screen, list its actionable elements and mark which you have
+   tried. Prefer an untried element on the current screen over re-walking a recorded path. Go depth-first:
+   finish a branch (or reach a dead end and `press_back`) before trying a sibling.
+5. **Act one step at a time** with `tap_text`, `tap(som_id=...)` or `type_text`, and write down the action
+   that caused each transition (`tap "Tiếp tục (Continue)" → 03`). Read `post_action_observation` to
+   confirm the screen changed before the next step. `som_id`s are stale after any action.
+6. Record verified facts with `record_finding(item=..., quote=<exact text on screen>)` — prices, limits,
+   validation messages, plan names. Put interim facts in `mark_step(..., note=...)`; the pixels are gone
+   next turn.
+7. When the flow is exhausted or blocked, `mark_step(index=i, status="done" | "skipped" | "failed", note=why)`.
+
+### Phase 2 — Write the documents
+
+Write only what you captured. Fill templates exactly as `ba-templates` describes.
+
+1. **Screen inventory** (`competitor-screens`): one section per captured state, elements taken from the
+   `.tree.txt` (resource-id, label), labels in original language with English in parentheses.
+2. **Flow analysis** (`competitor-flow`), one file per flow: step table, Mermaid state diagram, observed
+   rules, friction, coverage.
+3. **App profile** (`competitor-profile`): overview, survey scope, feature map (`CF-NNN`), strengths,
+   weaknesses, boundaries, open questions.
+4. **Comparison / gap** (`comparison-gap`) — only when the user supplied our product reference or asked to
+   compare several apps: feature matrix, `GAP-NNN` list, and `FR-CAND-NNN` candidate requirements.
+   Candidates are proposals; they enter the FSD only after the user confirms (then run `specs analyze`).
+
+### Phase 3 — Close
+
+1. `stop_app(app_id=<package>)` — never with `clear_data=true` unless the user asked (it wipes the login).
+2. `end_session(outcome="success" | "partial" | "failure", goal_type="navigate", reason=...)`.
+3. Report to the user in Vietnamese: files written, screens captured per flow, what was blocked and why,
+   and open questions.
+
+## Hard Rules
+
+- **Observed vs inferred.** "The field rejected 11 digits with message X" is observed. "The field validates
+  phone numbers" is inference — label it `[Suy luận (Inferred)]`. Never blur the two.
+- **No destructive or outward actions without an explicit yes:** registering accounts, sending messages,
+  posting, payments, top-ups, transfers, subscriptions, deleting data, granting account-linking consent.
+  Stop at the confirm button, capture it, record it as a boundary, and ask.
+- **No real personal data.** Never type real names, phone numbers, ID numbers or card numbers. Use data the
+  user gave you for testing; otherwise stop at the form and record its fields.
+- **Credentials never touch files.** If the user types a password or OTP for you, do not write it to any
+  document, note, or finding.
+- **Do not guess past a wall.** Login you lack credentials for, OTP you cannot receive, paywall, region
+  block: record the wall as the last state. An invented next screen poisons everything downstream.
+- **Stay in the target app.** Do not wander into other apps or system settings beyond what the flow
+  requires (a permission dialog is part of the flow; the Settings app is not).
+- **Evidence is durable.** Keep captures for every state referenced in a document; delete captures of
+  states you passed through and did not document.

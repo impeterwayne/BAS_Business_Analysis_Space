@@ -3,12 +3,14 @@ const path = require('path');
 const { execSync, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const pty = require('node-pty');
 const { getWorktrees: readWorktrees, getGitInfo: readGitInfo } = require('./git/gitInfo');
 const { createWorkspaceConfigStore } = require('../application/workspaceConfigStore');
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
 const { registerReakitIpc } = require('./reakit/reakitService');
+const { registerBakitIpc } = require('./bakit/bakitService');
 const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
 
 // ── State ──────────────────────────────────────────────
@@ -296,7 +298,11 @@ app.whenReady().then(() => {
   registerReakitIpc({
     ipcMain,
     workspaceService,
+    dialog,
+    mainWindow,
   });
+
+  registerBakitIpc({ ipcMain });
 
   ipcMain.handle('get-git-info', (_, dirPath) => getGitInfo(dirPath));
   ipcMain.handle('get-recent-commits', (_, dirPath) => getRecentCommits(dirPath));
@@ -629,9 +635,7 @@ app.whenReady().then(() => {
     const rootReakit = path.join(app.getAppPath(), 'ReaKit');
     const toolkitsReakit = path.join(toolkitsDir, 'ReaKit');
     return {
-      openspecPath: path.join(toolkitsDir, 'OpenSpec'),
-      pokitPath: path.join(toolkitsDir, 'POKit'),
-      bmadPath: path.join(toolkitsDir, 'BMAD-METHOD'),
+      bakitPath: path.join(toolkitsDir, 'BAKit'),
       reakitPath: fs.existsSync(rootReakit) ? rootReakit : (fs.existsSync(toolkitsReakit) ? toolkitsReakit : 'D:\\Quest\\BA_Space\\ReaKit')
     };
   });
@@ -668,7 +672,8 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('toolkit:deploy', (_, { worktreePath, name, sourcePath }) => {
+  // preserveExisting: keep items already present in the worktree (user-edited files such as a filled-in project config).
+  ipcMain.handle('toolkit:deploy', (_, { worktreePath, name, sourcePath, preserveExisting }) => {
     const destPath = path.join(worktreePath, name);
     try {
       if (!fs.existsSync(sourcePath)) {
@@ -684,6 +689,7 @@ app.whenReady().then(() => {
           const itemSrc = path.join(sourcePath, item);
           const itemDest = path.join(destPath, item);
           if (fs.existsSync(itemDest)) {
+            if (preserveExisting) continue;
             safeRmSync(itemDest);
           }
           copyFolderSync(itemSrc, itemDest);
@@ -973,6 +979,13 @@ app.whenReady().then(() => {
         path.join(os.homedir(), 'AppData', 'Local', 'Figma', 'Figma.exe'),
         path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Figma', 'Figma.exe'),
       ]),
+      obsidianPath: detectPath('obsidian', [
+        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Obsidian', 'Obsidian.exe'),
+        path.join(os.homedir(), 'AppData', 'Local', 'Obsidian', 'Obsidian.exe'),
+        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Obsidian', 'Obsidian.exe'),
+        path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Obsidian', 'Obsidian.exe'),
+      ]),
+      obsidianVault: findDefaultObsidianVault(),
       reakitPath: detectPath('rea', [
         'C:\\Users\\admin\\Miniforge3\\Scripts\\rea.exe',
         path.join(app.getAppPath(), 'ReaKit', 'rea.py'),
@@ -1103,6 +1116,102 @@ app.whenReady().then(() => {
     }
   }
 
+  function getObsidianVaultsFromConfig(): Array<{ id: string; path: string; name: string; open?: boolean }> {
+    try {
+      const configPath = path.join(
+        process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
+        'obsidian',
+        'obsidian.json'
+      );
+      if (!fs.existsSync(configPath)) return [];
+      const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (!parsed || typeof parsed.vaults !== 'object') return [];
+      return Object.entries(parsed.vaults).map(([id, item]: [string, any]) => ({
+        id,
+        path: item.path,
+        name: path.basename(item.path),
+        open: !!item.open,
+      }));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function findDefaultObsidianVault(): string | null {
+    const vaults = getObsidianVaultsFromConfig();
+    if (vaults.length === 0) return null;
+    const openVault = vaults.find((v) => v.open);
+    return openVault ? openVault.name : vaults[0].name;
+  }
+
+  function findObsidianExecutable() {
+    const possiblePaths = [
+      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Obsidian', 'Obsidian.exe'),
+      path.join(os.homedir(), 'AppData', 'Local', 'Obsidian', 'Obsidian.exe'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Obsidian', 'Obsidian.exe'),
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Obsidian', 'Obsidian.exe'),
+    ];
+
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        return p;
+      }
+    }
+
+    try {
+      return resolveToolLaunch('obsidian').file;
+    } catch (_) {
+      return 'obsidian';
+    }
+  }
+
+  function ensureObsidianVaultRegistered(folderPath: string): { registered: boolean; vaultName: string } {
+    const vaultName = path.basename(folderPath);
+    try {
+      const configPath = path.join(
+        process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
+        'obsidian',
+        'obsidian.json'
+      );
+      const configDir = path.dirname(configPath);
+      if (!fs.existsSync(configDir)) {
+        fs.mkdirSync(configDir, { recursive: true });
+      }
+
+      let parsed: any = { vaults: {} };
+      if (fs.existsSync(configPath)) {
+        try {
+          parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8')) || { vaults: {} };
+        } catch {
+          parsed = { vaults: {} };
+        }
+      }
+      if (!parsed.vaults || typeof parsed.vaults !== 'object') {
+        parsed.vaults = {};
+      }
+
+      const normalized = path.normalize(folderPath).toLowerCase();
+      for (const item of Object.values(parsed.vaults) as any[]) {
+        if (item && item.path && path.normalize(item.path).toLowerCase() === normalized) {
+          return { registered: true, vaultName: path.basename(item.path) };
+        }
+      }
+
+      const vaultId = crypto.createHash('md5').update(folderPath).digest('hex').slice(0, 16);
+      parsed.vaults[vaultId] = {
+        path: path.normalize(folderPath),
+        ts: Date.now(),
+        open: true,
+      };
+
+      fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2), 'utf-8');
+      return { registered: true, vaultName };
+    } catch (e) {
+      console.error('Failed to register Obsidian vault:', e);
+      return { registered: false, vaultName };
+    }
+  }
+
   ipcMain.handle('open-in-antigravity', (_, dirPath) => {
     try {
       const settings = workspaceService.getSettings();
@@ -1176,6 +1285,84 @@ app.whenReady().then(() => {
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('open-in-obsidian', async (_, dirPathOrVault) => {
+    try {
+      const settings = workspaceService.getSettings();
+      const exe = settings.obsidianPath || findObsidianExecutable();
+      const configuredVault = (settings.obsidianVault || '').trim();
+
+      let targetVaultNameOrPath = '';
+
+      if (typeof dirPathOrVault === 'string' && dirPathOrVault.trim()) {
+        const candidate = dirPathOrVault.trim();
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+          if (configuredVault && !fs.existsSync(path.join(candidate, '.obsidian'))) {
+            targetVaultNameOrPath = configuredVault;
+          } else {
+            ensureObsidianVaultRegistered(candidate);
+            targetVaultNameOrPath = candidate;
+          }
+        } else {
+          targetVaultNameOrPath = candidate;
+        }
+      } else if (configuredVault) {
+        targetVaultNameOrPath = configuredVault;
+      } else {
+        const defaultVault = findDefaultObsidianVault();
+        if (defaultVault) {
+          targetVaultNameOrPath = defaultVault;
+        }
+      }
+
+      if (targetVaultNameOrPath) {
+        let uri = '';
+        if (path.isAbsolute(targetVaultNameOrPath) || /^[a-zA-Z]:[\\/]/.test(targetVaultNameOrPath)) {
+          uri = `obsidian://open?path=${encodeURIComponent(targetVaultNameOrPath)}`;
+        } else {
+          uri = `obsidian://open?vault=${encodeURIComponent(targetVaultNameOrPath)}`;
+        }
+
+        try {
+          await shell.openExternal(uri);
+          return { success: true };
+        } catch (_) {}
+      }
+
+      if (exe && (fs.existsSync(exe) || !path.isAbsolute(exe))) {
+        const ext = path.extname(exe).toLowerCase();
+        let spawnFile;
+        let spawnArgs: string[] = [];
+
+        if (ext === '.cmd' || ext === '.bat') {
+          spawnFile = 'cmd.exe';
+          spawnArgs = ['/d', '/c', exe];
+        } else {
+          spawnFile = exe;
+        }
+
+        if (targetVaultNameOrPath) {
+          if (path.isAbsolute(targetVaultNameOrPath) || /^[a-zA-Z]:[\\/]/.test(targetVaultNameOrPath)) {
+            spawnArgs.push(`obsidian://open?path=${encodeURIComponent(targetVaultNameOrPath)}`);
+          } else {
+            spawnArgs.push(`obsidian://open?vault=${encodeURIComponent(targetVaultNameOrPath)}`);
+          }
+        }
+
+        spawn(spawnFile, spawnArgs, {
+          shell: !path.isAbsolute(exe),
+          detached: true,
+          stdio: 'ignore'
+        });
+        return { success: true };
+      }
+
+      await shell.openExternal('obsidian://open');
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || String(e) };
     }
   });
 

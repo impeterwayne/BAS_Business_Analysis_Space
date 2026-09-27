@@ -16,9 +16,17 @@
   <header id="titlebar">
     <div class="titlebar-left">
       <div class="app-logo">
-        <img src="icons/pokit.svg" width="18" height="18" alt="" />
+        <img src="icons/app-logo.svg" width="18" height="18" alt="" />
       </div>
       <span class="app-title">BA Space</span>
+    </div>
+    <div class="titlebar-center" id="titlebar-center">
+      <div class="titlebar-crumb-pill" id="titlebar-crumb-pill">
+        <span class="titlebar-crumb-dot"></span>
+        <span class="titlebar-crumb-project" id="titlebar-crumb-project">BA Space</span>
+        <span class="titlebar-crumb-sep">/</span>
+        <span class="titlebar-crumb-branch" id="titlebar-crumb-branch">Workspace</span>
+      </div>
     </div>
     <div class="titlebar-right">
       <button type="button" class="titlebar-btn" id="btn-minimize" aria-label="Minimize">
@@ -98,17 +106,117 @@
         <!-- Welcome screen (shown when no terminal is active) -->
         <div id="terminal-welcome" class="terminal-welcome">
           <div class="welcome-glow"></div>
-          <div class="welcome-icon">
-            <img src="icons/pokit.svg" width="48" height="48" alt="" />
+          <div class="welcome-hero">
+            <div class="welcome-logo-badge">
+              <img src="icons/app-logo.svg" width="32" height="32" alt="" />
+            </div>
+            <div class="welcome-badge-tag">Workspace Studio</div>
+            <h2 class="welcome-title">Business Analyst Space</h2>
+            <p class="welcome-subtitle">Integrated workspace with Git worktrees, screen inspection, APK decompilation, and AI agent harnesses.</p>
+            <div class="welcome-status-card" id="welcome-status-card">
+              <span class="welcome-status-dot"></span>
+              <span class="welcome-status-label">Active Worktree:</span>
+              <span class="welcome-status-value" id="welcome-status-name">Select a project to begin</span>
+            </div>
           </div>
-          <h2>BA Space</h2>
-          <p class="welcome-subtitle" style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">Business Analyst & Product Specification Workspace</p>
-          <div class="welcome-quick-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-            <button type="button" class="btn-secondary btn-small" id="welcome-btn-plane" title="Open Plane Tasks"><img src="icons/task.svg" width="12" height="12" alt="" /> Plane Tasks</button>
-            <button type="button" class="btn-secondary btn-small" id="welcome-btn-reakit" title="Open ReaKit Studio"><img src="icons/android.svg" width="12" height="12" alt="" /> ReaKit Studio</button>
-            <button type="button" class="btn-secondary btn-small" id="welcome-btn-mirror" title="Launch Android Screen Mirror"><img src="icons/screen.svg" width="12" height="12" alt="" /> Screen Mirror</button>
-            <button type="button" class="btn-secondary btn-small" id="welcome-btn-capture" title="Capture Screenshot and UI Dump"><img src="icons/capture.svg" width="12" height="12" alt="" /> Capture UI</button>
-            <button type="button" class="btn-secondary btn-small" id="welcome-btn-toolkit" title="Setup BA Agent Toolkits"><img src="icons/agent-toolkit.svg" width="12" height="12" alt="" /> Toolkit Setup</button>
+
+          <div class="welcome-grid">
+            <!-- Bento Card 1: Terminal -->
+            <div class="welcome-card" id="welcome-card-terminal">
+              <div class="welcome-card-icon terminal-bg">
+                <img src="icons/terminal.svg" width="18" height="18" alt="" />
+              </div>
+              <div class="welcome-card-body">
+                <div class="welcome-card-title-row">
+                  <span class="welcome-card-title">Interactive Terminal</span>
+                  <span class="welcome-card-shortcut">Ctrl+N</span>
+                </div>
+                <p class="welcome-card-desc">Open a terminal shell session inside your active workspace directory.</p>
+              </div>
+              <button type="button" class="btn-primary btn-small welcome-card-btn" id="welcome-btn-terminal">
+                <img src="icons/plus.svg" width="12" height="12" alt="" />
+                <span>New Terminal</span>
+              </button>
+            </div>
+
+            <!-- Bento Card 2: APK Decompiler -->
+            <div class="welcome-card" id="welcome-card-reakit">
+              <div class="welcome-card-icon reakit-bg">
+                <img src="icons/android.svg" width="18" height="18" alt="" />
+              </div>
+              <div class="welcome-card-body">
+                <div class="welcome-card-title-row">
+                  <span class="welcome-card-title">APK Decompiler</span>
+                  <span class="welcome-card-tag">ReaKit</span>
+                </div>
+                <p class="welcome-card-desc">Download app packages and decompile Java/Kotlin source directly into workspace.</p>
+              </div>
+              <button type="button" class="btn-secondary btn-small welcome-card-btn" id="welcome-btn-reakit">
+                <img src="icons/android.svg" width="12" height="12" alt="" />
+                <span>APK Decompile</span>
+              </button>
+            </div>
+
+            <!-- Bento Card 4: Screen Mirror -->
+            <div class="welcome-card" id="welcome-card-mirror">
+              <div class="welcome-card-icon scrcpy-bg">
+                <img src="icons/screen.svg" width="18" height="18" alt="" />
+              </div>
+              <div class="welcome-card-body">
+                <div class="welcome-card-title-row">
+                  <span class="welcome-card-title">Screen Mirror</span>
+                  <span class="welcome-card-tag">Scrcpy</span>
+                </div>
+                <p class="welcome-card-desc">Stream and control live connected Android screen with hardware acceleration.</p>
+              </div>
+              <button type="button" class="btn-secondary btn-small welcome-card-btn" id="welcome-btn-mirror">
+                <img src="icons/screen.svg" width="12" height="12" alt="" />
+                <span>Launch Mirror</span>
+              </button>
+            </div>
+
+            <!-- Bento Card 5: Capture UI -->
+            <div class="welcome-card" id="welcome-card-capture">
+              <div class="welcome-card-icon capture-bg">
+                <img src="icons/capture.svg" width="18" height="18" alt="" />
+              </div>
+              <div class="welcome-card-body">
+                <div class="welcome-card-title-row">
+                  <span class="welcome-card-title">Capture UI Evidence</span>
+                  <span class="welcome-card-tag">Evidence</span>
+                </div>
+                <p class="welcome-card-desc">Capture screenshots and export XML UI hierarchy directly into workspace.</p>
+              </div>
+              <button type="button" class="btn-secondary btn-small welcome-card-btn" id="welcome-btn-capture">
+                <img src="icons/capture.svg" width="12" height="12" alt="" />
+                <span>Capture UI</span>
+              </button>
+            </div>
+
+            <!-- Bento Card 6: BA Agent Toolkits -->
+            <div class="welcome-card" id="welcome-card-toolkit">
+              <div class="welcome-card-icon toolkit-bg">
+                <img src="icons/agent-toolkit.svg" width="18" height="18" alt="" />
+              </div>
+              <div class="welcome-card-body">
+                <div class="welcome-card-title-row">
+                  <span class="welcome-card-title">BA Agent Toolkits</span>
+                  <span class="welcome-card-tag">BAKit</span>
+                </div>
+                <p class="welcome-card-desc">Deploy BA analyst rosters, prompt skills, and reverse engineering harnesses.</p>
+              </div>
+              <button type="button" class="btn-secondary btn-small welcome-card-btn" id="welcome-btn-toolkit">
+                <img src="icons/agent-toolkit.svg" width="12" height="12" alt="" />
+                <span>Toolkit Setup</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="welcome-shortcuts">
+            <span class="welcome-shortcut-item"><kbd>Ctrl+N</kbd> New Terminal</span>
+            <span class="welcome-shortcut-item"><kbd>Ctrl+W</kbd> Close Tab</span>
+            <span class="welcome-shortcut-item"><kbd>Ctrl+,</kbd> Settings</span>
+            <span class="welcome-shortcut-item"><kbd>Esc</kbd> Close Overlay</span>
           </div>
         </div>
       </div>
@@ -199,6 +307,24 @@
                 <input type="text" id="settings-figma-url" class="settings-input" placeholder="https://www.figma.com" autocomplete="off" spellcheck="false" />
               </div>
 
+              <!-- Obsidian -->
+              <div class="form-group-col">
+                <label class="form-label">Obsidian path or command</label>
+                <div class="input-browse-group">
+                  <input type="text" id="settings-obsidian-path" class="settings-input" placeholder="e.g. path to Obsidian.exe" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="btn-browse" id="btn-browse-obsidian" title="Browse executable">Browse</button>
+                </div>
+              </div>
+
+              <div class="form-group-col">
+                <label class="form-label">Obsidian Vault Name or Path (Optional)</label>
+                <div class="input-browse-group">
+                  <input type="text" id="settings-obsidian-vault" class="settings-input" placeholder="e.g. ClaireV1 or path to vault folder" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="btn-browse" id="btn-browse-obsidian-vault" title="Browse vault folder">Browse</button>
+                </div>
+                <span class="form-hint">Leave empty to open active workspace as vault, or configure an existing Obsidian vault.</span>
+              </div>
+
               <!-- Scrcpy Executable -->
               <div class="form-group-col">
                 <label class="form-label">Scrcpy path or command (for screen mirror & UI capture)</label>
@@ -215,39 +341,6 @@
                   <input type="text" id="settings-vscode-path" class="settings-input" placeholder="e.g. code or path to Code.exe" autocomplete="off" spellcheck="false" />
                   <button type="button" class="btn-browse" id="btn-browse-vscode" title="Browse executable">Browse</button>
                 </div>
-              </div>
-
-              <!-- POKit / BA Harness Source Path -->
-              <div class="form-group-col">
-                <label class="form-label">Custom POKit BA Harness source folder (Optional)</label>
-                <div class="input-browse-group">
-                  <input type="text" id="settings-pokit-source-path" class="settings-input" placeholder="Defaults to bundled toolkits/POKit" autocomplete="off" spellcheck="false" />
-                  <button type="button" class="btn-browse" id="btn-browse-pokit" title="Browse folder">Browse</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Plane Integration Card (Global) -->
-          <div class="settings-card">
-            <div class="settings-card-header">
-              <div class="settings-card-icon">
-                <img src="icons/task.svg" width="16" height="16" alt="" />
-              </div>
-              <h3 class="settings-card-title">Plane Integration (Global)</h3>
-            </div>
-            <div class="settings-card-body">
-              <div class="form-group-col">
-                <label class="form-label">Plane API Key</label>
-                <input type="password" id="settings-plane-api-key" class="settings-input" placeholder="plane_api_..." autocomplete="off" spellcheck="false" />
-              </div>
-              <div class="form-group-col">
-                <label class="form-label">Plane Base URL</label>
-                <input type="text" id="settings-plane-base-url" class="settings-input" placeholder="https://plane.itgproduct.com" autocomplete="off" spellcheck="false" />
-              </div>
-              <div class="form-group-col">
-                <label class="form-label">Default Workspace Slug</label>
-                <input type="text" id="settings-plane-workspace-slug" class="settings-input" placeholder="product" autocomplete="off" spellcheck="false" />
               </div>
             </div>
           </div>
@@ -381,8 +474,8 @@
         <div class="settings-container">
           <header class="settings-header">
             <div class="settings-title-group">
-              <h2 class="settings-title">BA Agent & Specification Toolkits</h2>
-              <p class="settings-subtitle">Deploy BA agent rosters (POKit business-analyst, screen-analyst, loop.py) and specification workflows (OpenSpec) to your active project.</p>
+              <h2 class="settings-title">BA Agent Toolkits</h2>
+              <p class="settings-subtitle">Deploy BA agent rosters and templates (BAKit) and reverse-engineering harness (ReaKit) to your active project.</p>
             </div>
             <button type="button" class="btn-close-settings" id="btn-close-agent-toolkit-screen" title="Close toolkit setup" aria-label="Close toolkit setup">
               <img src="icons/close.svg" width="16" height="16" alt="" />
@@ -422,143 +515,30 @@
         </div>
       </div>
 
-      <!-- ═══ Center — Plane Task Management Screen ═══ -->
-      <div id="plane-task-screen" class="hidden">
-        <div class="settings-container">
-          <header class="settings-header">
-            <div class="settings-title-group">
-              <h2 class="settings-title" style="display: flex; align-items: center; gap: 10px;">
-                <span>Plane Task Management</span>
-                <span id="plane-status-badge" class="plane-badge badge-success" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 12px;">Connected 🟢</span>
-              </h2>
-              <p class="settings-subtitle">Preview, filter, sort, and export Plane project tasks directly to your project workspace.</p>
-            </div>
-            <button type="button" class="btn-close-settings" id="btn-close-plane-task-screen" title="Close Plane Tasks" aria-label="Close Plane Tasks">
-              <img src="icons/close.svg" width="16" height="16" alt="" />
-            </button>
-          </header>
-
-          <!-- Plane Project Setup & Actions Toolbar -->
-          <div class="plane-setup-card">
-            <div class="plane-setup-content">
-              <!-- Active Worktree Info -->
-              <div class="plane-setup-worktree">
-                <span class="plane-setup-label">Active Worktree</span>
-                <div class="plane-worktree-badge">
-                  <img src="icons/folder.svg" width="14" height="14" alt="" />
-                  <span id="plane-active-worktree-name">No active project</span>
-                </div>
-              </div>
-
-              <!-- Plane Project ID Field -->
-              <div class="plane-setup-input-group">
-                <label for="plane-project-id-input" class="plane-setup-label">
-                  <span>Plane Project ID</span>
-                  <span class="plane-setup-sublabel">(Per-project UUID)</span>
-                </label>
-                <div class="plane-input-wrapper">
-                  <input type="text" id="plane-project-id-input" class="settings-input plane-project-id-field" placeholder="Paste Plane Project UUID here..." value="" autocomplete="off" spellcheck="false" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Action Buttons Toolbar -->
-            <div class="plane-setup-actions">
-              <button type="button" class="btn-secondary plane-action-btn" id="btn-save-plane-project-config" title="Save Project ID for active worktree">
-                <img src="icons/check.svg" width="14" height="14" alt="" />
-                <span>Save Config</span>
-              </button>
-              <button type="button" class="btn-secondary plane-action-btn" id="btn-refresh-plane-tasks" title="Fetch latest tasks from Plane REST API">
-                <img src="icons/refresh.svg" width="14" height="14" alt="" />
-                <span>Fetch Tasks</span>
-              </button>
-              <button type="button" class="btn-primary plane-action-btn plane-action-btn-primary" id="btn-export-plane-tasks" title="Export tasks to plane/TASK_LIST.md">
-                <img src="icons/download.svg" width="14" height="14" alt="" />
-                <span>Export</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Filter Pills & Search Bar -->
-          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
-            <!-- Category Filter Pills -->
-            <div class="plane-filter-group" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-              <button type="button" class="plane-filter-pill active" data-category="all">All (<span id="count-all">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="backlog">🔴 Backlog (<span id="count-backlog">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="todo">🟡 Todo (<span id="count-todo">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="in_progress">🔵 In Progress (<span id="count-in-progress">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="done">🟢 Done (<span id="count-done">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="cancelled">⚪ Cancelled (<span id="count-cancelled">0</span>)</button>
-            </div>
-
-            <!-- Search & Sorting Toolbar -->
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-              <input type="text" id="plane-search-input" class="settings-input" placeholder="🔍 Search tasks by ID, name, or keywords..." style="flex: 1; min-width: 260px; height: 34px; font-size: 13px;" />
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <label style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">Sort By:</label>
-                <select id="plane-sort-select" class="settings-input" style="height: 34px; font-size: 12px; padding: 0 10px; cursor: pointer;">
-                  <option value="priority-desc">Priority (High ➔ Low)</option>
-                  <option value="priority-asc">Priority (Low ➔ High)</option>
-                  <option value="id-asc">Sequence ID (1 ➔ N)</option>
-                  <option value="id-desc">Sequence ID (N ➔ 1)</option>
-                  <option value="title-asc">Title (A ➔ Z)</option>
-                  <option value="updated-desc">Recently Updated</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Table Toolbar & Interactive Table -->
-          <div class="settings-card" style="width: 100%; margin: 0; padding: 0; overflow: hidden;">
-            <div style="padding: 12px 16px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">📋 Task List Preview</span>
-              </div>
-              <div id="plane-table-loading" class="spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
-            </div>
-
-            <div style="overflow-x: auto; max-height: calc(100vh - 280px); min-height: 350px; overflow-y: auto;">
-              <table id="plane-tasks-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-                <thead>
-                  <tr style="background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.05em; sticky: top; top: 0;">
-                    <th style="padding: 10px 14px; width: 110px;">ID</th>
-                    <th style="padding: 10px 14px;">Task Name</th>
-                    <th style="padding: 10px 14px; width: 130px;">Status</th>
-                    <th style="padding: 10px 14px; width: 110px;">Priority</th>
-                    <th style="padding: 10px 14px; width: 110px;">Start Date</th>
-                    <th style="padding: 10px 14px; width: 130px;">Updated</th>
-                  </tr>
-                </thead>
-                <tbody id="plane-tasks-tbody">
-                  <!-- Dynamically populated in app.ts -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- ═══ Center — ReaKit Studio Screen ═══ -->
+      <!-- ═══ Center — ReaKit Studio (Unified Reverse Engineering Suite) ═══ -->
       <div id="reakit-screen" class="hidden">
         <div class="settings-container" style="gap: 20px;">
+          <!-- Header -->
           <header class="settings-header" style="padding-bottom: 16px;">
             <div class="settings-title-group">
               <h2 class="settings-title" style="display: flex; align-items: center; gap: 10px;">
-                <span>ReaKit Studio</span>
+                <span style="display: flex; align-items: center; gap: 8px;">
+                  <img src="icons/android.svg" width="22" height="22" alt="" />
+                  <span>ReaKit Studio</span>
+                </span>
                 <span id="reakit-env-badge" class="reakit-badge badge-info">Checking ⏳</span>
                 <span id="reakit-device-badge" class="reakit-badge badge-warning">No Device ⚠️</span>
               </h2>
               <p class="settings-subtitle">Unified Android reverse engineering, APK acquisition, JADX decompilation, runtime extraction, native binary analysis, and AI agent harnesses.</p>
             </div>
             <div style="display: flex; gap: 10px; align-items: center;">
-              <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-terminal" title="Open ReaKit CLI interactive terminal">
-                <img src="icons/terminal.svg" width="12" height="12" alt="" />
-                <span>Rea Terminal</span>
-              </button>
               <button type="button" class="btn-secondary btn-small" id="btn-reakit-refresh-env" title="Run environment diagnostics (rea env)">
                 <img src="icons/refresh.svg" width="12" height="12" alt="" />
                 <span>Diagnostics</span>
+              </button>
+              <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-terminal" title="Open ReaKit CLI interactive terminal">
+                <img src="icons/terminal.svg" width="12" height="12" alt="" />
+                <span>Rea Terminal</span>
               </button>
               <button type="button" class="btn-close-settings" id="btn-close-reakit-screen" title="Close ReaKit Studio" aria-label="Close ReaKit Studio">
                 <img src="icons/close.svg" width="16" height="16" alt="" />
@@ -567,69 +547,94 @@
           </header>
 
           <!-- Top Context & Target Setup Card -->
-          <div class="plane-setup-card" style="margin-bottom: 0;">
-            <div class="plane-setup-content" style="gap: 20px;">
+          <div class="reakit-setup-card" style="margin-bottom: 0;">
+            <div class="reakit-setup-content" style="gap: 20px;">
               <!-- Active Worktree Info -->
-              <div class="plane-setup-worktree">
-                <span class="plane-setup-label">Active Worktree</span>
-                <div class="plane-worktree-badge">
+              <div class="reakit-setup-worktree" style="min-width: 220px;">
+                <span class="reakit-setup-label">Active Worktree Target</span>
+                <div class="reakit-worktree-badge">
                   <img src="icons/folder.svg" width="14" height="14" alt="" />
                   <span id="reakit-active-worktree-name">No active project</span>
+                  <span id="reakit-ws-branch-badge" class="reakit-badge badge-info" style="font-size: 10px; padding: 2px 6px;">main</span>
+                </div>
+                <div id="reakit-active-worktree-path" style="font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); margin-top: 4px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  Please select a project worktree.
                 </div>
               </div>
 
               <!-- Target Package / URL -->
-              <div class="plane-setup-input-group" style="flex: 2; min-width: 280px;">
-                <label for="reakit-target-input" class="plane-setup-label">
+              <div class="reakit-setup-input-group" style="flex: 2; min-width: 240px;">
+                <label for="reakit-target-input" class="reakit-setup-label">
                   <span>Target Package or Play Store URL</span>
-                  <span class="plane-setup-sublabel">(e.g. com.example.app)</span>
+                  <span class="reakit-setup-sublabel">(e.g. com.example.app)</span>
                 </label>
-                <div class="plane-input-wrapper">
+                <div class="reakit-input-wrapper">
                   <input type="text" id="reakit-target-input" class="settings-input" placeholder="com.example.app or https://play.google.com/..." autocomplete="off" spellcheck="false" />
                 </div>
               </div>
 
               <!-- Friendly Alias -->
-              <div class="plane-setup-input-group" style="flex: 1; min-width: 140px;">
-                <label for="reakit-alias-input" class="plane-setup-label">
+              <div class="reakit-setup-input-group" style="flex: 1; min-width: 120px;">
+                <label for="reakit-alias-input" class="reakit-setup-label">
                   <span>Alias (Optional)</span>
                 </label>
-                <div class="plane-input-wrapper">
+                <div class="reakit-input-wrapper">
                   <input type="text" id="reakit-alias-input" class="settings-input" placeholder="Friendly name" autocomplete="off" spellcheck="false" />
                 </div>
               </div>
 
               <!-- Quick Target Selector Dropdown -->
-              <div class="plane-setup-input-group" style="flex: 1; min-width: 160px;">
-                <label for="reakit-target-select" class="plane-setup-label">
+              <div class="reakit-setup-input-group" style="flex: 1; min-width: 150px;">
+                <label for="reakit-target-select" class="reakit-setup-label">
                   <span>Known Targets</span>
                 </label>
-                <select id="reakit-target-select" class="settings-input" style="height: 34px; font-size: 12px; cursor: pointer;">
+                <select id="reakit-target-select" class="settings-input" style="height: 34px; font-size: 12px; cursor: pointer; width: 100%;">
                   <option value="">(Select target)</option>
                 </select>
+              </div>
+
+              <!-- Local APK / XAPK Picker -->
+              <div class="reakit-setup-input-group" style="flex: 2; min-width: 240px;">
+                <label class="reakit-setup-label">
+                  <span>Local APK / XAPK (Optional)</span>
+                </label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" id="reakit-local-apk-path" class="settings-input" placeholder="No local file selected" readonly style="flex: 1; font-size: 11px; height: 34px; font-family: var(--font-mono);" />
+                  <button type="button" class="btn-secondary btn-small" id="btn-reakit-browse-apk" title="Browse for local .apk or .xapk file" style="height: 34px; white-space: nowrap;">
+                    <img src="icons/folder.svg" width="12" height="12" alt="" />
+                    <span>Browse</span>
+                  </button>
+                  <button type="button" class="btn-secondary btn-small" id="btn-reakit-clear-local-apk" title="Clear local file" style="height: 34px; padding: 0 8px; display: none;">
+                    <img src="icons/close.svg" width="12" height="12" alt="" />
+                  </button>
+                </div>
               </div>
             </div>
 
             <!-- Actions Toolbar -->
-            <div class="plane-setup-actions" style="margin-left: auto;">
-              <button type="button" class="btn-secondary plane-action-btn" id="btn-reakit-save-target" title="Save target to workspace config">
+            <div class="reakit-setup-actions" style="margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn-secondary reakit-action-btn" id="btn-reakit-save-target" title="Save target to workspace config">
                 <img src="icons/check.svg" width="14" height="14" alt="" />
                 <span>Save</span>
               </button>
-              <button type="button" class="btn-secondary plane-action-btn" id="btn-reakit-refresh-target" title="Inspect target artifacts">
+              <button type="button" class="btn-secondary reakit-action-btn" id="btn-reakit-refresh-target" title="Inspect target artifacts">
                 <img src="icons/refresh.svg" width="14" height="14" alt="" />
                 <span>Inspect</span>
               </button>
-              <button type="button" class="btn-secondary plane-action-btn" id="btn-reakit-open-folder" title="Open target folder in Windows Explorer">
+              <button type="button" class="btn-secondary reakit-action-btn" id="btn-reakit-open-folder" title="Open target folder in Windows Explorer">
                 <img src="icons/folder.svg" width="14" height="14" alt="" />
                 <span>Explore</span>
+              </button>
+              <button type="button" class="btn-secondary reakit-action-btn" id="btn-reakit-open-ws-folder" title="Open active workspace folder in Explorer">
+                <img src="icons/folder.svg" width="14" height="14" alt="" />
+                <span>Workspace</span>
               </button>
             </div>
           </div>
 
-          <!-- Target Artifacts Visual Dashboard -->
+          <!-- Target Artifacts Visual Dashboard (5 Tiles) -->
           <div class="reakit-artifacts-grid" id="reakit-artifacts-container">
-            <!-- 1. APKs -->
+            <!-- 1. APK Packages -->
             <div class="reakit-artifact-tile" id="tile-apks">
               <div class="reakit-artifact-tile-header">
                 <div class="reakit-artifact-icon">📦</div>
@@ -639,11 +644,14 @@
               <div class="reakit-artifact-desc" id="desc-apks-status">No APK or Split XAPK downloaded yet.</div>
               <div class="reakit-artifact-footer">
                 <span id="label-apks-count" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary);">0 files</span>
-                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-apks" title="Open apks/ folder" style="padding: 3px 8px; font-size: 11px;">Open</button>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-apks" title="Open apks/ folder" style="padding: 3px 8px; font-size: 11px;">Folder</button>
+                  <button type="button" class="btn-secondary btn-small" id="btn-reakit-gui-from-tile" title="Open in JADX GUI" style="padding: 3px 8px; font-size: 11px;">JADX GUI</button>
+                </div>
               </div>
             </div>
 
-            <!-- 2. JADX Source -->
+            <!-- 2. JADX Decompilation -->
             <div class="reakit-artifact-tile" id="tile-jadx">
               <div class="reakit-artifact-tile-header">
                 <div class="reakit-artifact-icon">☕</div>
@@ -652,8 +660,11 @@
               <div class="reakit-artifact-title">JADX Decompilation</div>
               <div class="reakit-artifact-desc" id="desc-jadx-status">Java Gradle project not yet decompiled.</div>
               <div class="reakit-artifact-footer">
-                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-source-code" title="Open source in Spec Editor" style="padding: 3px 8px; font-size: 11px;">Open in Editor</button>
-                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-jadx" title="Open jadx_src/ folder" style="padding: 3px 8px; font-size: 11px;">Folder</button>
+                <span id="label-jadx-count" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary);">0 sources</span>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn-primary btn-small" id="btn-reakit-open-source-code" title="Open decompiled project in Spec Editor" style="padding: 3px 10px; font-size: 11px;">Open in Editor</button>
+                  <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-jadx" title="Open jadx_src/ folder" style="padding: 3px 8px; font-size: 11px;">Folder</button>
+                </div>
               </div>
             </div>
 
@@ -667,7 +678,7 @@
               <div class="reakit-artifact-desc" id="desc-runtime-status">App SQLite DBs, SharedPrefs & caches.</div>
               <div class="reakit-artifact-footer">
                 <span id="label-runtime-count" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary);">0 files</span>
-                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-runtime" title="Open runtime/ folder" style="padding: 3px 8px; font-size: 11px;">Open</button>
+                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-runtime" title="Open runtime/ folder" style="padding: 3px 8px; font-size: 11px;">Folder</button>
               </div>
             </div>
 
@@ -681,7 +692,7 @@
               <div class="reakit-artifact-desc" id="desc-native-status">ARM/x86 compiled ELF libraries.</div>
               <div class="reakit-artifact-footer">
                 <span id="label-native-count" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary);">0 .so</span>
-                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-native" title="Open native/ folder" style="padding: 3px 8px; font-size: 11px;">Open</button>
+                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-native" title="Open native/ folder" style="padding: 3px 8px; font-size: 11px;">Folder</button>
               </div>
             </div>
 
@@ -695,12 +706,12 @@
               <div class="reakit-artifact-desc" id="desc-traffic-status">HTTP Toolkit captured requests & responses.</div>
               <div class="reakit-artifact-footer">
                 <span id="label-traffic-count" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary);">0 events</span>
-                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-traffic" title="Open traffic/ folder" style="padding: 3px 8px; font-size: 11px;">Open</button>
+                <button type="button" class="btn-secondary btn-small" id="btn-reakit-open-traffic" title="Open traffic/ folder" style="padding: 3px 8px; font-size: 11px;">Folder</button>
               </div>
             </div>
           </div>
 
-          <!-- Navigation Tab Pills -->
+          <!-- Navigation Tab Bar (6 Tabs) -->
           <div class="reakit-tab-bar">
             <button type="button" class="reakit-tab-pill active" data-tab="static">
               <span>⚡ Static Pipeline & JADX</span>
@@ -725,7 +736,7 @@
           <!-- Tab 1: Static Pipeline & JADX -->
           <div class="reakit-tab-content" id="reakit-pane-static">
             <div class="reakit-grid-2col">
-              <!-- Automated Pipeline Card -->
+              <!-- One-Click Automated Pipeline Card -->
               <div class="reakit-action-card">
                 <div class="reakit-action-card-header">
                   <div class="reakit-action-card-title">
@@ -733,60 +744,110 @@
                   </div>
                   <span class="reakit-badge badge-info">Automated</span>
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Runs workspace setup, downloads package via apkd, and decompiles to clean Java via JADX.</p>
-                <div class="reakit-form-inline">
-                  <label class="form-label" style="font-size: 12px;">JVM Heap:</label>
-                  <select id="reakit-pipeline-heap" class="settings-input" style="width: 100px; height: 32px; font-size: 12px;">
-                    <option value="8g">8 GB</option>
-                    <option value="16g" selected>16 GB</option>
-                    <option value="4g">4 GB</option>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Downloads package via store provider or uses local APK, and decompiles to clean Java/Kotlin Gradle project directly into workspace.</p>
+
+                <!-- Destination Selector -->
+                <div class="form-group" style="margin-top: 4px;">
+                  <label for="reakit-dest-select" class="reakit-setup-label">Workspace Destination</label>
+                  <select id="reakit-dest-select" class="settings-input" style="height: 32px; font-size: 12px; cursor: pointer; width: 100%;">
+                    <option value="jadx_src">Subfolder: jadx_src/ (Recommended - keeps workspace clean)</option>
+                    <option value="root">Workspace Root: ./ (Export project directly into root)</option>
+                    <option value="package">Subfolder: [package_name]/ (Multi-target structure)</option>
                   </select>
-                  <label class="switch-toggle" style="margin-left: 12px;" title="Skip JADX decompilation">
-                    <input type="checkbox" id="reakit-pipeline-skip-decode" />
-                    <span class="switch-slider"></span>
-                  </label>
-                  <span style="font-size: 12px; color: var(--text-secondary);">Skip Decode</span>
+                  <p style="font-size: 11px; color: var(--text-tertiary); margin: 4px 0 0 0;" id="reakit-dest-preview">
+                    Target directory: <code id="reakit-dest-path-preview" style="font-family: var(--font-mono); color: var(--accent-default);">...</code>
+                  </p>
                 </div>
-                <button type="button" class="btn-primary" id="btn-reakit-run-pipeline" style="padding: 10px 18px; margin-top: 6px;">
-                  <img src="icons/refresh.svg" width="14" height="14" alt="" />
-                  <span>Execute Full Pipeline (rea pipeline)</span>
+
+                <!-- JVM Memory & Options -->
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                  <div style="flex: 1; min-width: 120px;">
+                    <label for="reakit-pipeline-heap" class="reakit-setup-label">JVM Heap</label>
+                    <select id="reakit-pipeline-heap" class="settings-input" style="height: 32px; font-size: 12px; cursor: pointer; width: 100%;">
+                      <option value="8g" selected>8 GB (Standard)</option>
+                      <option value="16g">16 GB (Heavy apps)</option>
+                      <option value="4g">4 GB (Low memory)</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1; min-width: 120px;">
+                    <label for="reakit-pipeline-threads" class="reakit-setup-label">JADX Threads</label>
+                    <select id="reakit-pipeline-threads" class="settings-input" style="height: 32px; font-size: 12px; cursor: pointer; width: 100%;">
+                      <option value="auto" selected>Auto (All CPU Cores)</option>
+                      <option value="4">4 Threads</option>
+                      <option value="8">8 Threads</option>
+                      <option value="16">16 Threads</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Feature Toggles -->
+                <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="reakit-opt-export-gradle" checked />
+                    <span>Export Gradle</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="reakit-opt-deobf" checked />
+                    <span>Deobfuscate</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="reakit-opt-show-bad-code" checked />
+                    <span>Show Bad Code</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="reakit-pipeline-skip-decode" />
+                    <span>Skip Decode</span>
+                  </label>
+                </div>
+
+                <button type="button" class="btn-primary" id="btn-reakit-run-pipeline" style="padding: 10px 18px; margin-top: 4px; font-weight: 600;">
+                  <span>⚡ Download & Decompile (rea pipeline)</span>
                 </button>
               </div>
 
-              <!-- Step-by-Step Actions Card -->
+              <!-- Granular Pipeline Steps Card -->
               <div class="reakit-action-card">
                 <div class="reakit-action-card-header">
                   <div class="reakit-action-card-title">
                     <span>📦 Granular Pipeline Steps</span>
                   </div>
+                  <span class="reakit-badge badge-info">Granular</span>
                 </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Execute individual reverse-engineering phases separately as needed.</p>
+
                 <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <!-- Step 1: Download Only -->
                   <div style="display: flex; gap: 10px; align-items: center;">
-                    <select id="reakit-dl-source" class="settings-input" style="width: 130px; height: 34px; font-size: 12px;">
+                    <select id="reakit-dl-source" class="settings-input" style="width: 140px; height: 34px; font-size: 12px; cursor: pointer;">
                       <option value="apkcombo">apkcombo</option>
                       <option value="fdroid">fdroid</option>
                       <option value="rustore">rustore</option>
                       <option value="nashstore">nashstore</option>
                     </select>
                     <button type="button" class="btn-secondary" id="btn-reakit-run-dl" style="flex: 1; height: 34px; font-size: 12px;">
-                      <img src="icons/download.svg" width="12" height="12" alt="" /> Download APK (rea dl)
+                      <img src="icons/download.svg" width="13" height="13" alt="" />
+                      <span>Download APK Only (rea dl)</span>
                     </button>
                   </div>
 
+                  <!-- Step 2: Decompile / Launch GUI -->
                   <div style="display: flex; gap: 10px; align-items: center;">
                     <button type="button" class="btn-secondary" id="btn-reakit-run-decode" style="flex: 1; height: 34px; font-size: 12px;">
-                      <img src="icons/code.svg" width="12" height="12" alt="" /> Decompile with JADX (rea decode)
+                      <img src="icons/code.svg" width="13" height="13" alt="" />
+                      <span>Decompile Only (rea decode)</span>
                     </button>
                     <button type="button" class="btn-primary" id="btn-reakit-launch-jadx-gui" style="flex: 1; height: 34px; font-size: 12px;" title="Open graphical interactive JADX window">
-                      <img src="icons/android.svg" width="12" height="12" alt="" /> Launch JADX GUI
+                      <img src="icons/android.svg" width="13" height="13" alt="" />
+                      <span>Launch JADX GUI</span>
                     </button>
                   </div>
 
+                  <!-- Step 3: APKTool Disassemble & Rebuild -->
                   <div style="display: flex; gap: 10px; align-items: center;">
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-run-apktool-d" style="flex: 1; height: 30px; font-size: 11px;">
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-run-apktool-d" style="flex: 1; height: 32px; font-size: 11px;">
                       APKTool Disassemble (rea apktool d)
                     </button>
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-run-apktool-b" style="flex: 1; height: 30px; font-size: 11px;">
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-run-apktool-b" style="flex: 1; height: 32px; font-size: 11px;">
                       APKTool Rebuild (rea apktool b)
                     </button>
                   </div>
@@ -804,21 +865,26 @@
                   <div class="reakit-action-card-title">
                     <span>📱 Live Device & Sandbox Extraction</span>
                   </div>
+                  <span class="reakit-badge badge-info">ADB Device</span>
                 </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Connect to USB or wireless Android device via ADB to mirror screen and pull application databases.</p>
+
                 <div style="display: flex; gap: 10px; align-items: center;">
                   <select id="reakit-device-select" class="settings-input" style="flex: 1; height: 34px; font-size: 12px;">
                     <option value="">(Auto-detect connected device)</option>
                   </select>
                   <button type="button" class="btn-secondary" id="btn-reakit-refresh-devices" title="Scan ADB devices" style="height: 34px; padding: 0 12px;">
-                    <img src="icons/refresh.svg" width="12" height="12" alt="" />
+                    <img src="icons/refresh.svg" width="13" height="13" alt="" />
                   </button>
                 </div>
+
                 <div style="display: flex; gap: 10px;">
                   <button type="button" class="btn-primary" id="btn-reakit-mirror" style="flex: 1; height: 36px; font-size: 12.5px;">
                     <img src="icons/screen.svg" width="14" height="14" alt="" />
                     <span>Launch Screen Mirror (rea mirror)</span>
                   </button>
                 </div>
+
                 <div style="display: flex; gap: 10px;">
                   <button type="button" class="btn-secondary" id="btn-reakit-pull-runtime" style="flex: 1; height: 34px; font-size: 12px;" title="Extract sandbox SQLite databases and XML preferences">
                     <img src="icons/download.svg" width="12" height="12" alt="" />
@@ -826,7 +892,7 @@
                   </button>
                   <button type="button" class="btn-secondary" id="btn-reakit-capture-ui" style="flex: 1; height: 34px; font-size: 12px;" title="Capture screenshot and hierarchical XML layout">
                     <img src="icons/capture.svg" width="12" height="12" alt="" />
-                    <span>Capture Screenshot + UI Dump</span>
+                    <span>Capture UI + Layout Dump</span>
                   </button>
                 </div>
               </div>
@@ -837,22 +903,27 @@
                   <div class="reakit-action-card-title">
                     <span>🎮 Automation Input & Gestures (rea scrcpy)</span>
                   </div>
+                  <span class="reakit-badge badge-info">Control</span>
                 </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Send touchscreen coordinate taps, hardware key events, and text directly into the running device.</p>
+
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                   <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="number" id="reakit-tap-x" class="settings-input" placeholder="X (540)" style="width: 80px; height: 30px; font-size: 11px;" />
-                    <input type="number" id="reakit-tap-y" class="settings-input" placeholder="Y (1200)" style="width: 80px; height: 30px; font-size: 11px;" />
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-tap" style="height: 30px;">Tap</button>
+                    <input type="number" id="reakit-tap-x" class="settings-input" placeholder="X (540)" style="width: 85px; height: 32px; font-size: 11.5px;" />
+                    <input type="number" id="reakit-tap-y" class="settings-input" placeholder="Y (1200)" style="width: 85px; height: 32px; font-size: 11.5px;" />
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-tap" style="height: 32px;">Tap Coords</button>
                   </div>
+
                   <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" id="reakit-text-input" class="settings-input" placeholder="Type text into focused field..." style="flex: 1; height: 30px; font-size: 11px;" />
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-type-text" style="height: 30px;">Send Text</button>
+                    <input type="text" id="reakit-text-input" class="settings-input" placeholder="Type text into focused field..." style="flex: 1; height: 32px; font-size: 11.5px;" />
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-type-text" style="height: 32px;">Send Text</button>
                   </div>
+
                   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-key-home" style="height: 28px; font-size: 11px;">HOME</button>
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-key-back" style="height: 28px; font-size: 11px;">BACK</button>
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-key-appswitch" style="height: 28px; font-size: 11px;">RECENTS</button>
-                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-daemon-status" style="height: 28px; font-size: 11px;">Daemon Status</button>
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-key-home" style="height: 30px; font-size: 11px;">HOME</button>
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-key-back" style="height: 30px; font-size: 11px;">BACK</button>
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-key-appswitch" style="height: 30px; font-size: 11px;">RECENTS</button>
+                    <button type="button" class="btn-secondary btn-small" id="btn-reakit-daemon-status" style="height: 30px; font-size: 11px;">Daemon Status</button>
                   </div>
                 </div>
               </div>
@@ -867,11 +938,13 @@
                   <div class="reakit-action-card-title">
                     <span>🔬 Native Library (.so) Analysis</span>
                   </div>
+                  <span class="reakit-badge badge-info">ELF Binaries</span>
                 </div>
                 <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Extracts compiled ELF shared libraries (`lib/<abi>/*.so`) from downloaded APKs and prepares them for disassembly.</p>
                 <div style="display: flex; gap: 10px;">
                   <button type="button" class="btn-primary" id="btn-reakit-native-extract" style="flex: 1; height: 36px; font-size: 12px;">
-                    <img src="icons/folder.svg" width="12" height="12" alt="" /> Extract .so Libraries (rea native extract)
+                    <img src="icons/folder.svg" width="12" height="12" alt="" />
+                    <span>Extract .so Libraries (rea native extract)</span>
                   </button>
                   <button type="button" class="btn-secondary" id="btn-reakit-native-doctor" style="height: 36px; font-size: 12px;">
                     Ghidra Doctor
@@ -890,26 +963,28 @@
                 <div style="display: flex; gap: 10px; align-items: center;">
                   <input type="text" id="reakit-native-lib-input" class="settings-input" placeholder="Library name (e.g. libapp.so)" style="flex: 1; height: 34px; font-size: 12px;" />
                   <button type="button" class="btn-primary" id="btn-reakit-native-serve" style="height: 34px; font-size: 12px;">
-                    Start Ghidra Server (rea native serve)
+                    Serve GhidraMCP
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Tab 4: Traffic & Network -->
+          <!-- Tab 4: Traffic & HTTP -->
           <div class="reakit-tab-content hidden" id="reakit-pane-traffic">
             <div class="reakit-grid-2col">
               <div class="reakit-action-card">
                 <div class="reakit-action-card-header">
                   <div class="reakit-action-card-title">
-                    <span>🌐 HTTP Toolkit Live Traffic Capture</span>
+                    <span>🌐 Live Traffic Interception</span>
                   </div>
+                  <span class="reakit-badge badge-info">mitmproxy</span>
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Intercepts API traffic, auth headers, and tokens directly from Android apps with live streaming.</p>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Inspect raw HTTP/HTTPS API payloads, query parameters, authentication headers, and WebSocket frames.</p>
+                <div style="display: flex; gap: 10px;">
                   <button type="button" class="btn-primary" id="btn-reakit-http-stream" style="flex: 1; height: 36px; font-size: 12px;">
-                    <img src="icons/terminal.svg" width="12" height="12" alt="" /> Stream Traffic (rea http)
+                    <img src="icons/terminal.svg" width="12" height="12" alt="" />
+                    <span>Stream Live Logs (rea http log)</span>
                   </button>
                   <button type="button" class="btn-secondary" id="btn-reakit-export-cert" style="height: 36px; font-size: 12px;">
                     Export CA Cert
@@ -920,10 +995,11 @@
               <div class="reakit-action-card">
                 <div class="reakit-action-card-header">
                   <div class="reakit-action-card-title">
-                    <span>🔌 Android Device Proxy Routing</span>
+                    <span>⚙️ Device Proxy Routing</span>
                   </div>
+                  <span class="reakit-badge badge-info">ADB Proxy</span>
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Toggle Android device Wi-Fi proxy settings automatically via ADB.</p>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Configure global HTTP proxy on connected Android device via ADB settings without root.</p>
                 <div style="display: flex; gap: 10px;">
                   <button type="button" class="btn-secondary" id="btn-reakit-proxy-on" style="flex: 1; height: 34px; font-size: 12px;">
                     Enable Proxy (rea http proxy on)
@@ -946,10 +1022,10 @@
                 <span class="reakit-badge badge-success">Google Antigravity Standard</span>
               </div>
               <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Inject senior-analyst guardrails, 8 specialist agents (orchestrator, explore, oracle, native-analyst, traffic-analyst, ba, worker-deep, worker-quick), 14 domain skills, and 5 safety hooks into your project.</p>
-              
+
               <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                 <label class="form-label" style="font-size: 12px; margin: 0;">Harness Profile:</label>
-                <select id="reakit-harness-profile-select" class="settings-input" style="width: 180px; height: 34px; font-size: 12px; cursor: pointer;">
+                <select id="reakit-harness-profile-select" class="settings-input" style="width: 200px; height: 34px; font-size: 12px; cursor: pointer;">
                   <option value="full">full (All 14 skills, 8 agents, 3 rules)</option>
                   <option value="static">static (Bytecode + .so)</option>
                   <option value="native">native (Ghidra & JNI)</option>
@@ -1023,8 +1099,8 @@
             </div>
           </div>
 
-          <!-- Live Output Console -->
-          <div class="reakit-console-box">
+          <!-- Live Output Console Box -->
+          <div class="reakit-console-box" style="margin-top: 0;">
             <div class="reakit-console-header">
               <div class="reakit-console-title">
                 <img src="icons/terminal.svg" width="12" height="12" alt="" />
@@ -1036,7 +1112,7 @@
                 <button type="button" class="btn-secondary btn-small" id="btn-reakit-clear-console" style="padding: 2px 8px; font-size: 11px;">Clear</button>
               </div>
             </div>
-            <pre class="reakit-console-pre" id="reakit-console-output">Ready. Select a target and execute commands from the tabs above.</pre>
+            <pre class="reakit-console-pre" id="reakit-console-output">Ready. Provide a target package or local APK, then execute commands from the tabs above.</pre>
           </div>
 
         </div>
@@ -1070,7 +1146,7 @@
         </section>
 
         <section class="workspace-section">
-          <h3 class="workspace-section-title">BA Tools</h3>
+          <h3 class="workspace-section-title">Spec & Agents</h3>
           <div class="workspace-tool-list">
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-antigravity" title="Open in Antigravity" aria-label="Open in Antigravity">
               <span class="workspace-tool-icon"><img src="icons/antigravity.svg" width="16" height="16" alt="" /></span>
@@ -1080,11 +1156,20 @@
               <span class="workspace-tool-icon"><img src="icons/antigravity.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Agent Manager</span>
             </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-plane-tasks" title="Plane Task Management" aria-label="Plane Task Management">
-              <span class="workspace-tool-icon"><img src="icons/task.svg" width="16" height="16" alt="" /></span>
-              <span class="workspace-tool-text">Plane Tasks</span>
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-figma" title="Open in Figma" aria-label="Open in Figma">
+              <span class="workspace-tool-icon"><img src="icons/figma.svg" width="16" height="16" alt="" /></span>
+              <span class="workspace-tool-text">Figma</span>
             </button>
-            <div class="workspace-tool-separator"></div>
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-obsidian" title="Open in Obsidian" aria-label="Open in Obsidian">
+              <span class="workspace-tool-icon"><img src="icons/obsidian.svg" width="16" height="16" alt="" /></span>
+              <span class="workspace-tool-text">Obsidian</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="workspace-section">
+          <h3 class="workspace-section-title">Screen & Device</h3>
+          <div class="workspace-tool-list">
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-scrcpy-mirror" title="Launch Android Screen Mirror" aria-label="Screen Mirror">
               <span class="workspace-tool-icon"><img src="icons/screen.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Screen Mirror</span>
@@ -1093,11 +1178,12 @@
               <span class="workspace-tool-icon"><img src="icons/capture.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Capture UI</span>
             </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-figma" title="Open in Figma" aria-label="Open in Figma">
-              <span class="workspace-tool-icon"><img src="icons/figma.svg" width="16" height="16" alt="" /></span>
-              <span class="workspace-tool-text">Figma</span>
-            </button>
-            <div class="workspace-tool-separator"></div>
+          </div>
+        </section>
+
+        <section class="workspace-section">
+          <h3 class="workspace-section-title">Dev & Toolkits</h3>
+          <div class="workspace-tool-list">
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-vscode" title="Open in Spec Editor / VS Code" aria-label="Spec Editor">
               <span class="workspace-tool-icon"><img src="icons/code.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Spec Editor</span>
@@ -1106,22 +1192,20 @@
               <span class="workspace-tool-icon"><img src="icons/folder.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Explorer</span>
             </button>
-            <div class="workspace-tool-separator"></div>
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-manage-symlinks" title="Manage Symlinks" aria-label="Manage Symlinks">
               <span class="workspace-tool-icon"><img src="icons/link.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Symlinks</span>
             </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-agent-toolkit" title="BA Agent Toolkit Setup (POKit, OpenSpec)" aria-label="Agent Toolkit Setup">
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-agent-toolkit" title="BA Agent Toolkit Setup (BAKit, ReaKit)" aria-label="Agent Toolkit Setup">
               <span class="workspace-tool-icon"><img src="icons/agent-toolkit.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Toolkit Setup</span>
             </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-reakit" title="ReaKit Studio - Reverse Engineering & Automation" aria-label="ReaKit Studio">
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-reakit" title="ReaKit — Download APK & Decompile to Workspace" aria-label="ReaKit APK Decompiler">
               <span class="workspace-tool-icon"><img src="icons/android.svg" width="16" height="16" alt="" /></span>
-              <span class="workspace-tool-text">ReaKit Studio</span>
+              <span class="workspace-tool-text">APK Decompile</span>
             </button>
           </div>
         </section>
-
       </div>
     </aside>
   </div>

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mobilerun": {
+      "command": "${MOBILERUN_PYTHON}",
+      "args": ["-m", "mobilerun_mcp.server"]
+    }
+  }
+}
