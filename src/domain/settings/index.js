@@ -21,10 +21,6 @@ function normalizeSettings(settings) {
     scrcpyPath: typeof nextSettings.scrcpyPath === 'string' ? nextSettings.scrcpyPath.trim() : '',
     autoRefreshCurrentProject: typeof nextSettings.autoRefreshCurrentProject === 'boolean' ? nextSettings.autoRefreshCurrentProject : true,
     autoRefreshInterval: typeof nextSettings.autoRefreshInterval === 'number' && nextSettings.autoRefreshInterval >= 1 ? nextSettings.autoRefreshInterval : 10,
-    reakitPath: typeof nextSettings.reakitPath === 'string' ? nextSettings.reakitPath.trim() : '',
-    reakitDefaultSource: typeof nextSettings.reakitDefaultSource === 'string' && nextSettings.reakitDefaultSource.trim() ? nextSettings.reakitDefaultSource.trim() : 'apkcombo',
-    reakitHeapSize: typeof nextSettings.reakitHeapSize === 'string' && nextSettings.reakitHeapSize.trim() ? nextSettings.reakitHeapSize.trim() : '8g',
-    reakitHarnessProfile: typeof nextSettings.reakitHarnessProfile === 'string' && nextSettings.reakitHarnessProfile.trim() ? nextSettings.reakitHarnessProfile.trim() : 'full',
   };
 }
 

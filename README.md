@@ -14,15 +14,9 @@ BA Space is an AI-augmented Business Analyst workspace and requirement orchestra
 - **BA Agent Roster**: `ba-lead`, `competitor-analyst`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer`.
 - **Template Catalog**: FSD, use case, user stories, feature brief, test cases, readiness review, competitor analysis and gap analysis — deliverables in Vietnamese.
 - **Competitor App Analysis**: drives a competitor Android app through the `mobilerun` MCP server (registered in Antigravity's global MCP config) and writes evidence-backed BA documents.
-- **Batch Toolkit Deployment**: One-click "Apply Selected Toolkits" to provision worktrees with BAKit and ReaKit harnesses.
+- **Batch Toolkit Deployment**: One-click "Apply Selected Toolkits" to provision worktrees with BAKit harnesses.
 
-### 3. ReaKit — APK Downloader & Decompiler
-- **Online APK Acquisition**: Download APK and split XAPK packages from store repositories (apkcombo, fdroid, rustore, nashstore) directly into the active workspace.
-- **Direct Workspace Decompilation**: Decompile Java/Kotlin source code using bundled JADX into your workspace root, `jadx_src/`, or target subfolder.
-- **Local APK Support**: Select and decompile local `.apk` or `.xapk` files with one click.
-- **Workspace-Aware Inspection**: Automatically scans the active workspace for APK files and decompiled sources with instant "Open in Editor" and "Launch JADX GUI" actions.
-
-### 4. BA Quick Launchers & External Integrations
+### 3. BA Quick Launchers & External Integrations
 - **Antigravity IDE & Agent Manager**: Jump straight into Antigravity with your current worktree context.
 - **Figma Integration**: Launch Figma desktop app or navigate to custom project design URLs.
 - **Spec Editor**: Open markdown specs, user stories, and acceptance criteria in your preferred editor (VS Code or custom spec editor).
@@ -72,12 +66,12 @@ All distribution artifacts are generated into the `release/` directory.
 - **Preload Bridge**: [`src/main/preload.ts`](file:///D:/Quest/BA_Space/src/main/preload.ts)
   - Exposes typed IPC methods to the renderer context.
 - **Renderer Frontend**:
-  - [`src/renderer/index.html`](file:///D:/Quest/BA_Space/src/renderer/index.html): Semantic layout, sidebar launchers, ReaKit studio, and settings modal.
-  - [`src/renderer/app.ts`](file:///D:/Quest/BA_Space/src/renderer/app.ts): Workspace state, xterm.js terminals, BAKit & ReaKit toolkit management, device mirror/capture handlers.
+  - [`src/renderer/index.html`](file:///D:/Quest/BA_Space/src/renderer/index.html): Semantic layout, sidebar launchers, and settings modal.
+  - [`src/renderer/app.ts`](file:///D:/Quest/BA_Space/src/renderer/app.ts): Workspace state, xterm.js terminals, BAKit toolkit management, device mirror/capture handlers.
   - [`src/renderer/styles.css`](file:///D:/Quest/BA_Space/src/renderer/styles.css): High-contrast dark theme optimized for analytical density and multi-tab workflows.
 - **Domain & Services**:
   - [`src/application/workspaceService.ts`](file:///D:/Quest/BA_Space/src/application/workspaceService.ts): Git worktree manipulation and repository state.
-  - [`src/application/workspaceConfigStore.ts`](file:///D:/Quest/BA_Space/src/application/workspaceConfigStore.ts): Workspace settings persistence, tool paths (Figma, Scrcpy, Antigravity, ReaKit), and symlink rules.
+  - [`src/application/workspaceConfigStore.ts`](file:///D:/Quest/BA_Space/src/application/workspaceConfigStore.ts): Workspace settings persistence, tool paths (Figma, Scrcpy, Antigravity), and symlink rules.
   - [`src/domain/settings/index.js`](file:///D:/Quest/BA_Space/src/domain/settings/index.js): Settings normalization and defaults.
 - **Bundled Toolkits**:
   - `toolkits/BAKit/`: BA agents, skills, template catalog, rules, slash workflows, and mobilerun MCP registration.

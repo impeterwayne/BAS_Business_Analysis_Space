@@ -72,10 +72,6 @@ declare global {
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
-        reakitPath?: string;
-        reakitDefaultSource?: string;
-        reakitHeapSize?: string;
-        reakitHarnessProfile?: string;
       }>;
       updateSettings: (settings: {
         subworktreeBranchParents?: Record<string, string>;
@@ -91,10 +87,6 @@ declare global {
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
-        reakitPath?: string;
-        reakitDefaultSource?: string;
-        reakitHeapSize?: string;
-        reakitHarnessProfile?: string;
       }) => Promise<{
         subworktreeBranchParents?: Record<string, string>;
         vscodePath?: string;
@@ -109,10 +101,6 @@ declare global {
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
-        reakitPath?: string;
-        reakitDefaultSource?: string;
-        reakitHeapSize?: string;
-        reakitHarnessProfile?: string;
       }>;
       selectExecutable: () => Promise<string | null>;
       detectIntegrationPaths: () => Promise<{
@@ -144,7 +132,7 @@ declare global {
       checkToolkitStatus: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ exists: boolean }>;
       deployToolkit: (opts: { worktreePath: string; name: string; sourcePath: string; preserveExisting?: boolean }) => Promise<{ success: boolean; error?: string }>;
       removeToolkit: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ success: boolean; error?: string }>;
-      getDefaultToolkitSources: () => Promise<{ bmadPath: string; bakitPath: string; reakitPath?: string }>;
+      getDefaultToolkitSources: () => Promise<{ bakitPath: string }>;
 
       // ── BAKit: mobilerun MCP registration in Antigravity's global MCP config ──
       getMobilerunMcpStatus: () => Promise<{ registered: boolean; configPath: string; entry?: any; pythonPath: string | null; error?: string }>;
@@ -152,89 +140,6 @@ declare global {
       unregisterMobilerunMcp: () => Promise<{ success: boolean; configPath?: string; error?: string }>;
       writeProjectFile: (opts: { projectPath: string; relativeFilePath: string; content: string }) => Promise<any>;
       downloadFile: (opts: { url: string; destinationPath: string }) => Promise<any>;
-
-      // ── ReaKit Operations ──
-      reakitRunCommand: (opts: { args: string[]; cwd?: string }) => Promise<{
-        success: boolean;
-        stdout: string;
-        stderr: string;
-        exitCode: number;
-      }>;
-      reakitGetEnv: () => Promise<{
-        success: boolean;
-        output: string;
-        components: Array<{ name: string; status: 'READY' | 'WARN' | 'ERROR' | 'UNKNOWN'; details: string }>;
-        devices: string[];
-        error?: string;
-      }>;
-      reakitGetTargets: (opts?: { worktreePath?: string }) => Promise<Array<{
-        packageName: string;
-        alias?: string;
-        existsOnDisk: boolean;
-        targetDir?: string;
-      }>>;
-      reakitGetTargetStatus: (opts: { worktreePath: string; packageName?: string }) => Promise<{
-        exists: boolean;
-        targetDir: string;
-        apks: { count: number; files: string[]; items?: Array<{ name: string; path: string; size: number }>; sizeBytes: number; dir?: string };
-        jadx: { exists: boolean; hasSource: boolean; fileCount: number; sourceDir?: string };
-        runtime: { exists: boolean; files: string[]; count: number };
-        native: { exists: boolean; soFiles: string[]; archs: string[] };
-        traffic: { exists: boolean; count: number };
-        docs: { exists: boolean; files: string[] };
-      }>;
-      reakitLaunchJadxGui: (opts?: { target?: string; apkPath?: string; worktreePath?: string }) => Promise<{ success: boolean; error?: string }>;
-      reakitLaunchMirror: (opts?: { serial?: string; maxSize?: number; fps?: number }) => Promise<{ success: boolean; error?: string }>;
-      reakitHarnessAction: (opts: { action: string; targetPath: string; profile?: string }) => Promise<{
-        success: boolean;
-        stdout: string;
-        stderr: string;
-        exitCode: number;
-      }>;
-      reakitSaveTarget: (opts: { worktreePath: string; packageName: string; alias?: string }) => Promise<{ success: boolean; error?: string }>;
-      reakitSelectApkFile: () => Promise<string | null>;
-      reakitDownloadApk: (opts: { target: string; source?: string; outputDir?: string; worktreePath: string }) => Promise<{
-        success: boolean;
-        stdout: string;
-        stderr: string;
-        downloadedFiles: string[];
-        outputDir: string;
-      }>;
-      reakitDecompileApk: (opts: {
-        apkPath?: string;
-        packageName?: string;
-        outputDir?: string;
-        worktreePath: string;
-        heap?: string;
-        threads?: string | number;
-        exportGradle?: boolean;
-        deobf?: boolean;
-        showBadCode?: boolean;
-      }) => Promise<{
-        success: boolean;
-        stdout: string;
-        stderr: string;
-        outputDir: string;
-        fileCount: number;
-      }>;
-      reakitPipelineApk: (opts: {
-        target: string;
-        source?: string;
-        outputDir?: string;
-        worktreePath: string;
-        heap?: string;
-        threads?: string | number;
-        exportGradle?: boolean;
-        deobf?: boolean;
-        showBadCode?: boolean;
-      }) => Promise<{
-        success: boolean;
-        stdout: string;
-        stderr: string;
-        downloadedFiles: string[];
-        outputDir: string;
-        fileCount: number;
-      }>;
     };
   }
 }

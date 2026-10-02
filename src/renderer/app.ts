@@ -22,7 +22,6 @@ const { openCreateBranchModal } = require('./modals/createBranchModal');
 const { openAddWorktreeModal, openAddSubWorktreeModal, openMergeWorktreeModal, openForceRemoveWorktreeModal } = require('./modals/worktreeModals');
 const { createModalHelpers } = require('./ui/modalHelpers');
 const { createModalPrimitives } = require('./ui/modalPrimitives');
-import { createReakitStudio } from './ui/reakitStudio';
 
 type TerminalBehavior = {
   forceMouseMode: boolean;
@@ -78,9 +77,12 @@ const state: {
     antigravityAgentPath?: string;
     figmaPath?: string;
     figmaUrl?: string;
+    obsidianPath?: string;
+    obsidianVault?: string;
     scrcpyPath?: string;
     autoRefreshCurrentProject?: boolean;
     autoRefreshInterval?: number;
+    symlinkTargets?: Array<{ name: string; targetPath: string }>;
   };
   useExternalWt: boolean;
   workspaceSidebarCollapsed: boolean;
@@ -208,106 +210,6 @@ const dom = {
   agentToolkitActiveName: $('#agent-toolkit-active-name'),
   agentToolkitActivePath: $('#agent-toolkit-active-path'),
   agentToolkitListContainer: $('#agent-toolkit-list-container'),
-
-  // ── ReaKit Elements ──
-  btnReakit: $('#btn-reakit'),
-  welcomeBtnReakit: $('#welcome-btn-reakit'),
-  reakitScreen: $('#reakit-screen'),
-  btnCloseReakitScreen: $('#btn-close-reakit-screen'),
-  btnReakitOpenTerminal: $('#btn-reakit-open-terminal'),
-  btnReakitRefreshEnv: $('#btn-reakit-refresh-env'),
-  reakitEnvBadge: $('#reakit-env-badge'),
-  reakitDeviceBadge: $('#reakit-device-badge'),
-  reakitActiveWorktreeName: $('#reakit-active-worktree-name'),
-  reakitActiveWorktreePath: $('#reakit-active-worktree-path'),
-  reakitWsBranchBadge: $('#reakit-ws-branch-badge'),
-  btnReakitOpenWsFolder: $('#btn-reakit-open-ws-folder'),
-  btnReakitOpenWsEditor: $('#btn-reakit-open-ws-editor'),
-  reakitTargetInput: $('#reakit-target-input'),
-  reakitAliasInput: $('#reakit-alias-input'),
-  reakitTargetSelect: $('#reakit-target-select'),
-  btnReakitSaveTarget: $('#btn-reakit-save-target'),
-  btnReakitRefreshTarget: $('#btn-reakit-refresh-target'),
-  btnReakitOpenFolder: $('#btn-reakit-open-folder'),
-  reakitDlSource: $('#reakit-dl-source'),
-  reakitLocalApkPath: $('#reakit-local-apk-path'),
-  btnReakitBrowseApk: $('#btn-reakit-browse-apk'),
-  btnReakitClearLocalApk: $('#btn-reakit-clear-local-apk'),
-  reakitDestSelect: $('#reakit-dest-select'),
-  reakitDestPathPreview: $('#reakit-dest-path-preview'),
-  reakitPipelineHeap: $('#reakit-pipeline-heap'),
-  reakitPipelineThreads: $('#reakit-pipeline-threads'),
-  reakitPipelineSkipDecode: $('#reakit-pipeline-skip-decode'),
-  reakitOptExportGradle: $('#reakit-opt-export-gradle'),
-  reakitOptDeobf: $('#reakit-opt-deobf'),
-  reakitOptShowBadCode: $('#reakit-opt-show-bad-code'),
-  btnReakitRunPipeline: $('#btn-reakit-run-pipeline'),
-  btnReakitRunDl: $('#btn-reakit-run-dl'),
-  btnReakitRunDecode: $('#btn-reakit-run-decode'),
-  btnReakitLaunchJadxGui: $('#btn-reakit-launch-jadx-gui'),
-  btnReakitRunApktoolD: $('#btn-reakit-run-apktool-d'),
-  btnReakitRunApktoolB: $('#btn-reakit-run-apktool-b'),
-  badgeApksStatus: $('#badge-apks-status'),
-  descApksStatus: $('#desc-apks-status'),
-  labelApksCount: $('#label-apks-count'),
-  btnReakitOpenApks: $('#btn-reakit-open-apks'),
-  btnReakitGuiFromTile: $('#btn-reakit-gui-from-tile'),
-  badgeJadxStatus: $('#badge-jadx-status'),
-  descJadxStatus: $('#desc-jadx-status'),
-  labelJadxCount: $('#label-jadx-count'),
-  btnReakitOpenSourceCode: $('#btn-reakit-open-source-code'),
-  btnReakitOpenJadx: $('#btn-reakit-open-jadx'),
-  badgeRuntimeStatus: $('#badge-runtime-status'),
-  descRuntimeStatus: $('#desc-runtime-status'),
-  labelRuntimeCount: $('#label-runtime-count'),
-  btnReakitOpenRuntime: $('#btn-reakit-open-runtime'),
-  badgeNativeStatus: $('#badge-native-status'),
-  descNativeStatus: $('#desc-native-status'),
-  labelNativeCount: $('#label-native-count'),
-  btnReakitOpenNative: $('#btn-reakit-open-native'),
-  badgeTrafficStatus: $('#badge-traffic-status'),
-  descTrafficStatus: $('#desc-traffic-status'),
-  labelTrafficCount: $('#label-traffic-count'),
-  btnReakitOpenTraffic: $('#btn-reakit-open-traffic'),
-  reakitDeviceSelect: $('#reakit-device-select'),
-  btnReakitRefreshDevices: $('#btn-reakit-refresh-devices'),
-  btnReakitMirror: $('#btn-reakit-mirror'),
-  btnReakitPullRuntime: $('#btn-reakit-pull-runtime'),
-  btnReakitCaptureUi: $('#btn-reakit-capture-ui'),
-  reakitTapX: $('#reakit-tap-x'),
-  reakitTapY: $('#reakit-tap-y'),
-  btnReakitTap: $('#btn-reakit-tap'),
-  reakitTextInput: $('#reakit-text-input'),
-  btnReakitTypeText: $('#btn-reakit-type-text'),
-  btnReakitKeyHome: $('#btn-reakit-key-home'),
-  btnReakitKeyBack: $('#btn-reakit-key-back'),
-  btnReakitKeyAppswitch: $('#btn-reakit-key-appswitch'),
-  btnReakitDaemonStatus: $('#btn-reakit-daemon-status'),
-  btnReakitNativeExtract: $('#btn-reakit-native-extract'),
-  btnReakitNativeDoctor: $('#btn-reakit-native-doctor'),
-  reakitNativeLibInput: $('#reakit-native-lib-input'),
-  btnReakitNativeServe: $('#btn-reakit-native-serve'),
-  btnReakitHttpStream: $('#btn-reakit-http-stream'),
-  btnReakitProxyOn: $('#btn-reakit-proxy-on'),
-  btnReakitProxyOff: $('#btn-reakit-proxy-off'),
-  btnReakitExportCert: $('#btn-reakit-export-cert'),
-  reakitHarnessProfileSelect: $('#reakit-harness-profile-select'),
-  btnReakitHarnessInit: $('#btn-reakit-harness-init'),
-  btnReakitHarnessStatus: $('#btn-reakit-harness-status'),
-  btnReakitHarnessUpdate: $('#btn-reakit-harness-update'),
-  btnReakitHarnessRemove: $('#btn-reakit-harness-remove'),
-  btnReakitDiagnosticsRun: $('#btn-reakit-diagnostics-run'),
-  btnReakitDiagnosticsInstall: $('#btn-reakit-diagnostics-install'),
-  reakitDiagnosticsTbody: $('#reakit-diagnostics-tbody'),
-  reakitConsoleOutput: $('#reakit-console-output'),
-  reakitConsoleSpinner: $('#reakit-console-spinner'),
-  btnReakitCopyConsole: $('#btn-reakit-copy-console'),
-  btnReakitClearConsole: $('#btn-reakit-clear-console'),
-  settingsReakitPath: $('#settings-reakit-path'),
-  btnBrowseReakit: $('#btn-browse-reakit'),
-  settingsReakitSource: $('#settings-reakit-source'),
-  settingsReakitHeap: $('#settings-reakit-heap'),
-  settingsReakitProfile: $('#settings-reakit-profile'),
 };
 
 const WORKSPACE_SIDEBAR_COLLAPSED_KEY = 'codingspace.workspaceSidebarCollapsed';
@@ -360,16 +262,6 @@ if (dom.btnBrowseObsidianVault && dom.settingsObsidianVault) {
   });
 }
 
-if (dom.btnBrowseReakit && dom.settingsReakitPath) {
-  dom.btnBrowseReakit.addEventListener('click', async () => {
-    const selected = await window.api.selectDirectory('Select ReaKit Root Folder or Executable Directory');
-    if (selected) {
-      dom.settingsReakitPath.value = selected;
-      await saveSettingsFromUI();
-    }
-  });
-}
-
 const settingsInputs = [
   dom.settingsAntigravityPath,
   dom.settingsAntigravityAgentPath,
@@ -380,10 +272,6 @@ const settingsInputs = [
   dom.settingsObsidianPath,
   dom.settingsObsidianVault,
   dom.settingsScrcpyPath,
-  dom.settingsReakitPath,
-  dom.settingsReakitSource,
-  dom.settingsReakitHeap,
-  dom.settingsReakitProfile,
 ];
 for (const input of settingsInputs) {
   if (input) {
@@ -570,7 +458,6 @@ const iconRaw = {
   capture: loadIcon('capture'),
   figma: loadIcon('figma'),
   task: loadIcon('task'),
-  reakit: loadIcon('reakit'),
 };
 
 // Pre-sized icon strings matching original inline sizes
@@ -600,7 +487,6 @@ const icons = {
   capture: iconSvg(iconRaw.capture, 14),
   figma: iconSvg(iconRaw.figma, 14),
   task: iconSvg(iconRaw.task, 14),
-  reakit: iconSvg(iconRaw.reakit, 14),
 };
 
 const TOOL_TABS: Record<string, ToolTab> = {
@@ -671,20 +557,6 @@ const TOOL_TABS: Record<string, ToolTab> = {
     launchArgs: ['--dangerously-skip-permissions'],
     title: 'Open Claude with --dangerously-skip-permissions. Only use this in isolated/sandboxed environments.',
     warningBadge: 'danger',
-    behavior: {
-      forceMouseMode: false,
-    },
-  },
-
-  rea: {
-    key: 'rea',
-    action: 'new-rea',
-    command: 'rea',
-    label: 'ReaKit CLI',
-    iconKey: 'reakit',
-    prewarm: false,
-    launchArgs: [],
-    title: 'Open ReaKit Reverse Engineering CLI in a new terminal tab',
     behavior: {
       forceMouseMode: false,
     },
@@ -1433,7 +1305,6 @@ function switchWorktreeContext(wtPath) {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
 
   if (state.activeWorktreePath === wtPath) return;
 
@@ -1515,7 +1386,6 @@ function switchToTerminal(id) {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
 
   const termInfo = state.terminals.get(id);
   if (!termInfo) return;
@@ -2057,11 +1927,6 @@ if (dom.welcomeBtnTerminal) {
     }
   });
 }
-if (dom.welcomeBtnReakit) {
-  dom.welcomeBtnReakit.addEventListener('click', () => {
-    if (dom.btnReakit) dom.btnReakit.click();
-  });
-}
 if (dom.welcomeBtnMirror) {
   dom.welcomeBtnMirror.addEventListener('click', () => {
     if (dom.btnScrcpyMirror) dom.btnScrcpyMirror.click();
@@ -2586,10 +2451,6 @@ async function saveSettingsFromUI() {
     scrcpyPath: dom.settingsScrcpyPath ? cleanVal(dom.settingsScrcpyPath.value) : '',
     autoRefreshCurrentProject: dom.settingsAutoRefresh ? dom.settingsAutoRefresh.checked : true,
     autoRefreshInterval: isNaN(intervalVal) || intervalVal < 1 ? 10 : intervalVal,
-    reakitPath: dom.settingsReakitPath ? cleanVal(dom.settingsReakitPath.value) : (state.settings?.reakitPath || ''),
-    reakitDefaultSource: dom.settingsReakitSource ? dom.settingsReakitSource.value : (state.settings?.reakitDefaultSource || 'apkcombo'),
-    reakitHeapSize: dom.settingsReakitHeap ? dom.settingsReakitHeap.value : (state.settings?.reakitHeapSize || '8g'),
-    reakitHarnessProfile: dom.settingsReakitProfile ? dom.settingsReakitProfile.value : (state.settings?.reakitHarnessProfile || 'standard'),
   };
   state.settings = await window.api.updateSettings(nextSettings);
 }
@@ -2605,17 +2466,12 @@ async function showSettingsScreen() {
     if (dom.settingsObsidianPath) dom.settingsObsidianPath.value = state.settings.obsidianPath || 'detecting...';
     if (dom.settingsObsidianVault) dom.settingsObsidianVault.value = state.settings.obsidianVault || '';
     if (dom.settingsScrcpyPath) dom.settingsScrcpyPath.value = state.settings.scrcpyPath || 'detecting...';
-    if (dom.settingsReakitPath) dom.settingsReakitPath.value = state.settings.reakitPath || 'detecting...';
-    if (dom.settingsReakitSource) dom.settingsReakitSource.value = state.settings.reakitDefaultSource || 'apkcombo';
-    if (dom.settingsReakitHeap) dom.settingsReakitHeap.value = state.settings.reakitHeapSize || '8g';
-    if (dom.settingsReakitProfile) dom.settingsReakitProfile.value = state.settings.reakitHarnessProfile || 'standard';
     if (dom.settingsAutoRefresh) dom.settingsAutoRefresh.checked = !!state.settings.autoRefreshCurrentProject;
     if (dom.settingsAutoRefreshInterval) dom.settingsAutoRefreshInterval.value = String(state.settings.autoRefreshInterval || 10);
   }
 
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   dom.settingsScreen.classList.remove('hidden');
 
   try {
@@ -2645,9 +2501,6 @@ async function showSettingsScreen() {
       if (dom.settingsObsidianVault) {
         dom.settingsObsidianVault.value = state.settings.obsidianVault || detected.obsidianVault || '';
       }
-      if (dom.settingsReakitPath) {
-        dom.settingsReakitPath.value = state.settings.reakitPath || detected.reakitPath || 'not detected';
-      }
     }
   } catch (err) {
     console.error('Failed to detect integration paths:', err);
@@ -2676,9 +2529,6 @@ async function showSettingsScreen() {
       if (dom.settingsObsidianVault) {
         dom.settingsObsidianVault.value = state.settings.obsidianVault || '';
       }
-      if (dom.settingsReakitPath) {
-        dom.settingsReakitPath.value = state.settings.reakitPath || 'not detected';
-      }
     }
   }
 }
@@ -2701,7 +2551,6 @@ async function showSymlinkScreen() {
 
   dom.settingsScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.remove('hidden');
 
   if (dom.symlinkScreenNewPath) dom.symlinkScreenNewPath.value = '';
@@ -3090,7 +2939,6 @@ async function showAgentToolkitScreen() {
 
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.reakitScreen) dom.reakitScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.remove('hidden');
 
   await refreshAgentToolkitStatus();
@@ -3103,54 +2951,6 @@ function hideAgentToolkitScreen() {
 }
 
 // Toolkit components to link/manage
-const REAKIT_COMPONENTS = [
-  {
-    id: 'reakit_agents',
-    toolkit: 'reakit',
-    name: 'ReaKit RE Agent Roster',
-    folderName: '.agents\\agents',
-    sourceFolder: 'agents',
-    description: 'Deploy ba, orchestrator, native-analyst, traffic-analyst, oracle, and explore agents.',
-    gitExcludePatterns: [
-      '.agents/agents/ba.md',
-      '.agents/agents/native-analyst.md',
-      '.agents/agents/traffic-analyst.md',
-      '.agents/agents/oracle.md',
-      '.agents/agents/explore.md',
-      '.agents/agents/worker-deep.md',
-      '.agents/agents/worker-quick.md'
-    ]
-  },
-  {
-    id: 'reakit_skills',
-    toolkit: 'reakit',
-    name: 'ReaKit RE Skills (pipeline, decomp, native, traffic)',
-    folderName: '.agents\\skills',
-    sourceFolder: 'skills',
-    description: 'Decompilation, runtime-extraction, jni-reversing, protocol-reversing, and apk-acquisition.',
-    gitExcludePatterns: [
-      '.agents/skills/static-pipeline/',
-      '.agents/skills/decompilation/',
-      '.agents/skills/native-analysis/',
-      '.agents/skills/traffic-capture/',
-      '.agents/skills/jni-reversing/',
-      '.agents/skills/protocol-reversing/'
-    ]
-  },
-  {
-    id: 'reakit_hooks_rules',
-    toolkit: 'reakit',
-    name: 'ReaKit Hooks & RE Analysis Rules',
-    isMulti: true,
-    folders: [
-      { name: '.agents\\hooks', source: 'hooks', pattern: '.agents/hooks/' },
-      { name: '.agents\\rules', source: 'rules', pattern: '.agents/rules/' }
-    ],
-    description: 'Reverse engineering hooks, state ledger, and methodology rules.',
-    gitExcludePatterns: ['.agents/hooks/', '.agents/rules/', '.agents/hooks.json']
-  }
-];
-
 const BAKIT_COMPONENTS = [
   {
     id: 'bakit_agents',
@@ -3220,7 +3020,7 @@ const BAKIT_COMPONENTS = [
   }
 ];
 
-const TOOLKIT_COMPONENTS = [...BAKIT_COMPONENTS, ...REAKIT_COMPONENTS];
+const TOOLKIT_COMPONENTS = [...BAKIT_COMPONENTS];
 
 async function refreshAgentToolkitStatus() {
   const activeWorktreePath = state.activeWorktreePath;
@@ -3239,39 +3039,12 @@ async function refreshAgentToolkitStatus() {
   // 1. Determine toolkit source directories
   const defaultSources = await window.api.getDefaultToolkitSources();
 
-  let reakitPath = state.settings.reakitPath || '';
-  if (!reakitPath || reakitPath.toLowerCase().endsWith('.exe')) {
-    if (await window.api.pathExists(defaultSources.reakitPath)) {
-      reakitPath = defaultSources.reakitPath;
-    } else {
-      const reakitCandidates = [
-        pPath + '\\ReaKit',
-        pPath + '\\toolkits\\ReaKit',
-        'D:\\Quest\\BA_Space\\ReaKit',
-        'D:\\Quest\\ReaKit',
-      ];
-      for (const cand of reakitCandidates) {
-        if (await window.api.pathExists(cand)) {
-          reakitPath = cand;
-          break;
-        }
-      }
-    }
-  }
-  if (!reakitPath) {
-    reakitPath = defaultSources.reakitPath || 'D:\\Quest\\BA_Space\\ReaKit';
-  }
-  const reakitAgentsBase = reakitPath + '\\.agents';
-
   let bakitPath = defaultSources.bakitPath;
   if (!(await window.api.pathExists(bakitPath)) && (await window.api.pathExists(pPath + '\\toolkits\\BAKit'))) {
     bakitPath = pPath + '\\toolkits\\BAKit';
   }
 
-  const srcBaseFor = (comp: any) => {
-    if (comp.toolkit === 'reakit') return reakitAgentsBase;
-    return bakitPath;
-  };
+  const srcBaseFor = (_comp: any) => bakitPath;
 
   const listContainer = dom.agentToolkitListContainer;
   if (!listContainer) return;
@@ -3372,8 +3145,6 @@ async function refreshAgentToolkitStatus() {
       let compIcon = '';
       if (compItem.kind === 'mcp') {
         compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.android}</span>`;
-      } else if (compItem.id.includes('reakit')) {
-        compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.reakit}</span>`;
       } else if (compItem.id.includes('antigravity')) {
         compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.antigravity}</span>`;
       } else if (compItem.id.includes('claude')) {
@@ -3430,37 +3201,9 @@ async function refreshAgentToolkitStatus() {
       </div>
     `;
 
-    // Generate ReaKit HTML Group
-    const reakitItemsHtml = REAKIT_COMPONENTS.map(r => renderComponentItem(r)).join('');
-    const reakitActive = REAKIT_COMPONENTS.some(r => getStatus(r.id).exists);
-    const reakitBadge = reakitActive
-      ? `<span class="symlink-status-badge symlink-status-linked" style="background: rgba(16, 185, 129, 0.15); color: rgb(52, 211, 153); font-size: 10px; padding: 2px 6px;">Harness Active</span>`
-      : `<span class="symlink-status-badge symlink-status-unlinked" style="font-size: 10px; padding: 2px 6px;">Idle</span>`;
-
-    const reakitHtml = `
-      <div style="display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px 20px; background: var(--bg-default); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="color: var(--accent-default); display: flex; align-items: center; font-size: 18px;">
-              ${icons.reakit}
-            </div>
-            <div class="symlink-info">
-              <span class="symlink-name" style="font-size: 15px; font-weight: 700; color: var(--text-default);">ReaKit RE Harness</span>
-              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Reverse engineering multi-agent roster with decompilation, runtime, and Ghidra workflows.</div>
-            </div>
-          </div>
-          ${reakitBadge}
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-subtle); padding-top: 14px; margin-top: 6px;">
-          ${reakitItemsHtml}
-        </div>
-      </div>
-    `;
-
     listContainer.innerHTML = `
       <div style="display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%;">
         ${bakitHtml}
-        ${reakitHtml}
       </div>
     `;
 
@@ -3655,17 +3398,6 @@ initializeRendererLifecycle({
 
 startAutoRefreshLoop();
 
-// ── ReaKit Studio ──────────────────────────────────────
-const reakitStudio = createReakitStudio({
-  dom,
-  state,
-  icons,
-  showToast,
-  createToolTab,
-  fitActiveTerminal,
-  startAutoRefreshLoop,
-});
-
 // ── Global Keyboard Shortcuts ──────────────────────────
 window.addEventListener('keydown', (e) => {
   // 1. Escape key closes open modals or screens
@@ -3676,10 +3408,6 @@ window.addEventListener('keydown', (e) => {
     }
     if (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) {
       dom.btnCloseSettings?.click();
-      return;
-    }
-    if (dom.reakitScreen && !dom.reakitScreen.classList.contains('hidden')) {
-      dom.btnCloseReakitScreen?.click();
       return;
     }
     if (dom.symlinkScreen && !dom.symlinkScreen.classList.contains('hidden')) {

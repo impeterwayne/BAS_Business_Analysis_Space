@@ -91,19 +91,5 @@ contextBridge.exposeInMainWorld('api', {
   // ── Project File Operations ──
   writeProjectFile: (opts) => ipcRenderer.invoke('project:write-file', opts),
   downloadFile: (opts) => ipcRenderer.invoke('project:download-file', opts),
-
-  // ── ReaKit Operations ──
-  reakitRunCommand: (opts: { args: string[]; cwd?: string }) => ipcRenderer.invoke('reakit:run-command', opts),
-  reakitGetEnv: () => ipcRenderer.invoke('reakit:get-env'),
-  reakitGetTargets: (opts?: { worktreePath?: string }) => ipcRenderer.invoke('reakit:get-targets', opts),
-  reakitGetTargetStatus: (opts: { worktreePath: string; packageName?: string }) => ipcRenderer.invoke('reakit:get-target-status', opts),
-  reakitLaunchJadxGui: (opts?: { target?: string; apkPath?: string; worktreePath?: string }) => ipcRenderer.invoke('reakit:launch-jadx-gui', opts),
-  reakitLaunchMirror: (opts?: { serial?: string; maxSize?: number; fps?: number }) => ipcRenderer.invoke('reakit:launch-mirror', opts),
-  reakitHarnessAction: (opts: { action: string; targetPath: string; profile?: string }) => ipcRenderer.invoke('reakit:harness-action', opts),
-  reakitSaveTarget: (opts: { worktreePath: string; packageName: string; alias?: string }) => ipcRenderer.invoke('reakit:save-target', opts),
-  reakitSelectApkFile: () => ipcRenderer.invoke('reakit:select-apk-file'),
-  reakitDownloadApk: (opts: { target: string; source?: string; outputDir?: string; worktreePath: string }) => ipcRenderer.invoke('reakit:download-apk', opts),
-  reakitDecompileApk: (opts: { apkPath?: string; packageName?: string; outputDir?: string; worktreePath: string; heap?: string; threads?: string | number; exportGradle?: boolean; deobf?: boolean; showBadCode?: boolean }) => ipcRenderer.invoke('reakit:decompile-apk', opts),
-  reakitPipelineApk: (opts: { target: string; source?: string; outputDir?: string; worktreePath: string; heap?: string; threads?: string | number; exportGradle?: boolean; deobf?: boolean; showBadCode?: boolean }) => ipcRenderer.invoke('reakit:pipeline-apk', opts),
 });
 

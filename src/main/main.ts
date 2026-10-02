@@ -9,7 +9,6 @@ const { getWorktrees: readWorktrees, getGitInfo: readGitInfo } = require('./git/
 const { createWorkspaceConfigStore } = require('../application/workspaceConfigStore');
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
-const { registerReakitIpc } = require('./reakit/reakitService');
 const { registerBakitIpc } = require('./bakit/bakitService');
 const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
 
@@ -294,12 +293,6 @@ app.whenReady().then(() => {
     dialog,
     mainWindow,
     workspaceService,
-  });
-  registerReakitIpc({
-    ipcMain,
-    workspaceService,
-    dialog,
-    mainWindow,
   });
 
   registerBakitIpc({ ipcMain });
@@ -632,11 +625,8 @@ app.whenReady().then(() => {
     const toolkitsDir = app.isPackaged
       ? path.join(process.resourcesPath, 'toolkits')
       : path.join(app.getAppPath(), 'toolkits');
-    const rootReakit = path.join(app.getAppPath(), 'ReaKit');
-    const toolkitsReakit = path.join(toolkitsDir, 'ReaKit');
     return {
       bakitPath: path.join(toolkitsDir, 'BAKit'),
-      reakitPath: fs.existsSync(rootReakit) ? rootReakit : (fs.existsSync(toolkitsReakit) ? toolkitsReakit : 'D:\\Quest\\BA_Space\\ReaKit')
     };
   });
 
@@ -971,7 +961,6 @@ app.whenReady().then(() => {
         path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Microsoft VS Code', 'bin', 'code.cmd'),
       ]),
       scrcpyPath: detectPath('scrcpy', [
-        'D:\\Quest\\ReaKit\\core\\scrcpy_cli\\vendor\\scrcpy\\scrcpy.exe',
         path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
         path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'scrcpy', 'scrcpy.exe'),
       ]),
@@ -986,12 +975,6 @@ app.whenReady().then(() => {
         path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Obsidian', 'Obsidian.exe'),
       ]),
       obsidianVault: findDefaultObsidianVault(),
-      reakitPath: detectPath('rea', [
-        'C:\\Users\\admin\\Miniforge3\\Scripts\\rea.exe',
-        path.join(app.getAppPath(), 'ReaKit', 'rea.py'),
-        'D:\\Quest\\BA_Space\\ReaKit\\rea.py',
-        'D:\\Quest\\ReaKit\\rea.py',
-      ]),
     };
   });
 
@@ -1098,7 +1081,6 @@ app.whenReady().then(() => {
 
   function findScrcpyExecutable() {
     const possiblePaths = [
-      'D:\\Quest\\ReaKit\\core\\scrcpy_cli\\vendor\\scrcpy\\scrcpy.exe',
       path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
       path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'scrcpy', 'scrcpy.exe'),
     ];
