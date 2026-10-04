@@ -10,6 +10,7 @@ const { createWorkspaceConfigStore } = require('../application/workspaceConfigSt
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
 const { registerBakitIpc } = require('./bakit/bakitService');
+const { registerReakitIpc } = require('./reakit/reakitService');
 const { DeviceService } = require('./device/deviceService');
 const { registerDeviceIpc } = require('./ipc/deviceIpc');
 const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
@@ -301,6 +302,7 @@ app.whenReady().then(() => {
 
   registerBakitIpc({ ipcMain });
   registerDeviceIpc({ ipcMain, deviceService });
+  registerReakitIpc({ ipcMain, workspaceService, shell });
 
   ipcMain.handle('get-git-info', (_, dirPath) => getGitInfo(dirPath));
   ipcMain.handle('get-recent-commits', (_, dirPath) => getRecentCommits(dirPath));
@@ -980,6 +982,14 @@ app.whenReady().then(() => {
         path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Obsidian', 'Obsidian.exe'),
       ]),
       obsidianVault: findDefaultObsidianVault(),
+      reakitPath: detectPath('rea', [
+        path.join(process.cwd(), 'toolkits', 'ReaKit'),
+        path.join(process.resourcesPath || '', 'toolkits', 'ReaKit'),
+        'D:\\Quest\\BA_Space\\toolkits\\ReaKit',
+        'D:\\Quest\\ReaKit',
+        path.join(process.cwd(), '..', 'ReaKit'),
+        path.join(process.cwd(), 'ReaKit'),
+      ]),
     };
   });
 

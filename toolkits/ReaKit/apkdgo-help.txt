@@ -1,0 +1,23 @@
+apkd is a tool for downloading APKs from multiple sources
+
+Usage:
+  apkd [flags]
+
+Flags:
+      --config string              path to YAML config file (defaults to ~/.config/apkd/config.yml if present)
+      --dev                        download all apps from developer
+  -f, --file string                file containing package names
+  -F, --force                      force download even if the file already exists
+  -h, --help                       help for apkd
+  -l, --list-sources               list available sources
+      --only-apk                   download only APK files, skip other types (e.g. XAPK, APKs)
+  -O, --output-dir string          output directory for downloaded APKs
+  -o, --output-file string         output file name for downloaded APKs
+  -p, --package stringArray        package name of the app
+      --proxy string               global proxy URL for all traffic
+      --proxy-insecure             skip TLS certificate verification for requests sent through proxy
+  -s, --source stringArray         specify source(s) for downloading
+      --source-proxy stringArray   source proxy mapping in format source=proxy-url (can be repeated)
+  -v, --verbose count              set verbosity level. Use -v or -vv for more verbosity
+  -V, --version                    print version and exit
+      --workers int                number of worker goroutines (default 3)

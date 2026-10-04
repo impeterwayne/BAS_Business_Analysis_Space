@@ -8,6 +8,7 @@ const {
   getDomainFavicon,
   getCompetitorInitials,
   formatBytes,
+  cleanApkAppName,
   normalizeProjectMetadata,
   parseFigmaUrl,
   formatDisplayUrl,
@@ -136,7 +137,18 @@ test('formatBytes formats file sizes correctly', () => {
   assert.strictEqual(formatBytes(47448064), '45.3 MB');
 });
 
-test('normalizeProjectMetadata validates and normalizes figmaUrl, apkFiles, and competitors strictly as Android', () => {
+test('cleanApkAppName extracts clean readable app names from apk filenames and packages', () => {
+  assert.strictEqual(cleanApkAppName('com.mservice.momotransaction.apk'), 'MoMo');
+  assert.strictEqual(cleanApkAppName('vn.vnpay.wallet_v12.0.apk'), 'Vnpay');
+  assert.strictEqual(cleanApkAppName('grab-release.apk'), 'Grab');
+  assert.strictEqual(cleanApkAppName('D:\\builds\\Shopee_v2.3_arm64.apk'), 'Shopee v2.3');
+  assert.strictEqual(cleanApkAppName('tikivn-universal-signed.apk'), 'Tikivn');
+  assert.strictEqual(cleanApkAppName('com.supercell.clashofclans.xapk'), 'Supercell');
+  assert.strictEqual(cleanApkAppName('D:\\Downloads\\Free_Fire_MAX_v2.100.xapk'), 'Free Fire MAX v2.100');
+  assert.strictEqual(cleanApkAppName(''), '');
+});
+
+test('normalizeProjectMetadata validates and normalizes figmaUrl, apkFiles, and competitors strictly as Android with APK support', () => {
   const normalized = normalizeProjectMetadata({
     figmaUrl: '  https://www.figma.com/design/test/Design  ',
     apkFiles: [
@@ -149,6 +161,9 @@ test('normalizeProjectMetadata validates and normalizes figmaUrl, apkFiles, and 
         url: 'https://play.google.com/store/apps/details?id=com.mservice.momotransaction',
         packageName: '',
         platform: 'iOS', // Should be forced to Android!
+        apkPath: 'D:\\builds\\momo-v4.apk',
+        apkName: 'momo-v4.apk',
+        apkSize: 45000000,
         notes: 'Payment & Onboarding',
       },
       { name: '   ' }, // invalid, should be filtered
@@ -163,6 +178,11 @@ test('normalizeProjectMetadata validates and normalizes figmaUrl, apkFiles, and 
   assert.strictEqual(normalized.competitors[0].name, 'MoMo');
   assert.strictEqual(normalized.competitors[0].packageName, 'com.mservice.momotransaction');
   assert.strictEqual(normalized.competitors[0].platform, 'Android');
+  assert.strictEqual(normalized.competitors[0].apkPath, 'D:\\builds\\momo-v4.apk');
+  assert.strictEqual(normalized.competitors[0].apkName, 'momo-v4.apk');
+  assert.strictEqual(normalized.competitors[0].apkSize, 45000000);
+  assert.strictEqual(normalized.competitors[0].jadxSourcePath, '');
+  assert.strictEqual(normalized.competitors[0].jadxStatus, '');
 });
 
 test('parseFigmaUrl extracts file type, key, title and node-id', () => {

@@ -21,8 +21,83 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     return configStore.getConfig();
   }
 
+  function enrichCompetitorFromDisk(projectPath, comp) {
+    let changed = false;
+    if (!comp) return changed;
+
+    // 1. Detect JADX source directory
+    if (comp.jadxStatus !== 'ready' || !comp.jadxSourcePath) {
+      const candidateJadx = [
+        comp.jadxSourcePath,
+        comp.apkPath ? path.join(path.dirname(path.dirname(comp.apkPath)), 'jadx_src') : '',
+        comp.apkPath ? path.join(path.dirname(comp.apkPath), '..', 'jadx_src') : '',
+        comp.apkPath ? path.join(path.dirname(comp.apkPath), 'jadx_src') : '',
+        projectPath && comp.packageName ? path.join(projectPath, 'workspaces', comp.packageName, 'jadx_src') : '',
+        projectPath && comp.packageName ? path.join(projectPath, '.reakit', 'workspaces', comp.packageName, 'jadx_src') : '',
+        projectPath && comp.packageName ? path.join(projectPath, comp.packageName, 'jadx_src') : '',
+      ].filter(Boolean);
+
+      for (const jDir of candidateJadx) {
+        try {
+          if (fs.existsSync(jDir)) {
+            const items = fs.readdirSync(jDir);
+            if (items.length > 0) {
+              comp.jadxStatus = 'ready';
+              comp.jadxSourcePath = jDir;
+              changed = true;
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Detect APK if missing
+    if (!comp.apkPath && projectPath && comp.packageName) {
+      const candidateApkDirs = [
+        path.join(projectPath, 'workspaces', comp.packageName, 'apks'),
+        path.join(projectPath, '.reakit', 'workspaces', comp.packageName, 'apks'),
+        path.join(projectPath, comp.packageName, 'apks'),
+      ];
+      for (const aDir of candidateApkDirs) {
+        try {
+          if (fs.existsSync(aDir)) {
+            const apkFiles = fs.readdirSync(aDir).filter((f) => /\.(apk|xapk|apks)$/i.test(f));
+            if (apkFiles.length > 0) {
+              const primary = apkFiles.find((f) => !f.toLowerCase().includes('config') && f.endsWith('.apk')) || apkFiles[0];
+              const fullApkPath = path.join(aDir, primary);
+              const stats = fs.statSync(fullApkPath);
+              comp.apkPath = fullApkPath;
+              comp.apkName = primary;
+              comp.apkSize = stats.size;
+              comp.apkAddedAt = comp.apkAddedAt || now();
+              changed = true;
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    return changed;
+  }
+
   function getWorkspaces() {
-    return [...getWorkspaceConfig().projects].sort((a, b) => {
+    const config = getWorkspaceConfig();
+    let hasChanges = false;
+    for (const project of (config.projects || [])) {
+      if (Array.isArray(project.competitors)) {
+        for (const comp of project.competitors) {
+          if (enrichCompetitorFromDisk(project.path, comp)) {
+            hasChanges = true;
+          }
+        }
+      }
+    }
+    if (hasChanges) {
+      configStore.saveConfig();
+    }
+    return [...config.projects].sort((a, b) => {
       const timeA = a.addedAt || 0;
       const timeB = b.addedAt || 0;
       return timeB - timeA;
@@ -144,6 +219,11 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       iconUrl: (competitor.iconUrl || '').trim(),
       packageName: pkgName,
       platform: 'Android',
+      apkPath: typeof competitor.apkPath === 'string' ? competitor.apkPath.trim() : '',
+      apkName: typeof competitor.apkName === 'string' ? competitor.apkName.trim() : (competitor.apkPath ? path.basename(competitor.apkPath) : ''),
+      apkSize: typeof competitor.apkSize === 'number' && competitor.apkSize >= 0 ? competitor.apkSize : 0,
+      jadxSourcePath: typeof competitor.jadxSourcePath === 'string' ? competitor.jadxSourcePath.trim() : '',
+      jadxStatus: typeof competitor.jadxStatus === 'string' ? competitor.jadxStatus.trim() : '',
       notes: (competitor.notes || '').trim(),
       addedAt: competitor.addedAt || now(),
     };
@@ -157,7 +237,10 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     const project = workspaceConfig.projects.find((entry) => entry.path === projectPath);
     if (!project) return { success: false, error: 'Project not found' };
     if (!Array.isArray(project.competitors)) project.competitors = [];
-    const index = project.competitors.findIndex((c) => c.id === competitor.id);
+    let index = project.competitors.findIndex((c) => c.id === competitor.id);
+    if (index === -1 && competitor.packageName) {
+      index = project.competitors.findIndex((c) => c.packageName === competitor.packageName);
+    }
     if (index === -1) return { success: false, error: 'Competitor not found' };
     const existing = project.competitors[index];
     const compUrl = competitor.url !== undefined ? competitor.url.trim() : (existing.url || '');
@@ -169,10 +252,52 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       iconUrl: competitor.iconUrl !== undefined ? (competitor.iconUrl || '').trim() : (existing.iconUrl || ''),
       packageName: pkgName,
       platform: 'Android',
+      apkPath: competitor.apkPath !== undefined ? (competitor.apkPath ? competitor.apkPath.trim() : '') : (existing.apkPath || ''),
+      apkName: competitor.apkName !== undefined ? (competitor.apkName ? competitor.apkName.trim() : '') : (existing.apkName || ''),
+      apkSize: competitor.apkSize !== undefined ? competitor.apkSize : (existing.apkSize || 0),
+      jadxSourcePath: competitor.jadxSourcePath !== undefined ? (typeof competitor.jadxSourcePath === 'string' ? competitor.jadxSourcePath.trim() : '') : (existing.jadxSourcePath || ''),
+      jadxStatus: competitor.jadxStatus !== undefined ? (typeof competitor.jadxStatus === 'string' ? competitor.jadxStatus.trim() : '') : (existing.jadxStatus || ''),
       notes: (competitor.notes !== undefined ? competitor.notes : existing.notes).trim(),
     };
+    enrichCompetitorFromDisk(projectPath, project.competitors[index]);
     configStore.saveConfig();
     return { success: true, project, competitor: project.competitors[index] };
+  }
+
+  function linkCompetitorApk(projectPath, competitorId, apk) {
+    const workspaceConfig = getWorkspaceConfig();
+    const project = workspaceConfig.projects.find((entry) => entry.path === projectPath);
+    if (!project) return { success: false, error: 'Project not found' };
+    if (!Array.isArray(project.competitors)) project.competitors = [];
+    const comp = project.competitors.find((c) => c.id === competitorId);
+    if (!comp) return { success: false, error: 'Competitor not found' };
+
+    comp.apkPath = (apk?.path || '').trim();
+    comp.apkName = (apk?.name || (comp.apkPath ? path.basename(comp.apkPath) : '')).trim();
+    comp.apkSize = typeof apk?.size === 'number' && apk.size >= 0 ? apk.size : 0;
+    comp.apkAddedAt = now();
+
+    enrichCompetitorFromDisk(projectPath, comp);
+
+    configStore.saveConfig();
+    return { success: true, project, competitor: comp };
+  }
+
+  function unlinkCompetitorApk(projectPath, competitorId) {
+    const workspaceConfig = getWorkspaceConfig();
+    const project = workspaceConfig.projects.find((entry) => entry.path === projectPath);
+    if (!project) return { success: false, error: 'Project not found' };
+    if (!Array.isArray(project.competitors)) project.competitors = [];
+    const comp = project.competitors.find((c) => c.id === competitorId);
+    if (!comp) return { success: false, error: 'Competitor not found' };
+
+    delete comp.apkPath;
+    delete comp.apkName;
+    delete comp.apkSize;
+    delete comp.apkAddedAt;
+
+    configStore.saveConfig();
+    return { success: true, project, competitor: comp };
   }
 
   function removeProjectCompetitor(projectPath, competitorId) {
@@ -221,7 +346,11 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
           const flowsStr = parsed.length > 0
             ? parsed.join(', ')
             : (c.notes ? c.notes.replace(/[\r\n|]+/g, ' ').trim() : 'onboarding, main flow');
-          return `| ${c.name || 'App'} | \`${c.packageName || ''}\` | Android | ${flowsStr} | guest | ${c.url || ''} |`;
+          const noteParts = [];
+          if (c.url) noteParts.push(c.url);
+          if (c.apkName) noteParts.push(`APK: ${c.apkName}`);
+          const notesStr = noteParts.join(' | ');
+          return `| ${c.name || 'App'} | \`${c.packageName || ''}\` | Android | ${flowsStr} | guest | ${notesStr} |`;
         }).join('\n');
 
         const compTable = `| App | Package | Platform | Flows of interest | Account to use | Notes |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n${compRows}`;
@@ -253,6 +382,8 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     addProjectCompetitor,
     updateProjectCompetitor,
     removeProjectCompetitor,
+    linkCompetitorApk,
+    unlinkCompetitorApk,
     syncBaProjectConfig,
   };
 }

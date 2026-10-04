@@ -99,6 +99,10 @@ contextBridge.exposeInMainWorld('api', {
   addProjectCompetitor: (projectPath: string, competitor: any) => ipcRenderer.invoke('project:add-competitor', { projectPath, competitor }),
   updateProjectCompetitor: (projectPath: string, competitor: any) => ipcRenderer.invoke('project:update-competitor', { projectPath, competitor }),
   removeProjectCompetitor: (projectPath: string, competitorId: string) => ipcRenderer.invoke('project:remove-competitor', { projectPath, competitorId }),
+  linkCompetitorApk: (projectPath: string, competitorId: string, apk: any) =>
+    ipcRenderer.invoke('project:link-competitor-apk', { projectPath, competitorId, apk }),
+  unlinkCompetitorApk: (projectPath: string, competitorId: string) =>
+    ipcRenderer.invoke('project:unlink-competitor-apk', { projectPath, competitorId }),
   detectCompetitorApp: (url: string) => ipcRenderer.invoke('competitor:detect-app', { url }),
   fetchCompetitorIcon: (opts: { projectPath?: string; competitorId?: string; url?: string; packageName?: string }) =>
     ipcRenderer.invoke('competitor:fetch-icon', opts),
@@ -106,6 +110,16 @@ contextBridge.exposeInMainWorld('api', {
   selectApkFile: () => ipcRenderer.invoke('select-apk-file'),
   getFileInfo: (filePath: string) => ipcRenderer.invoke('get-file-info', filePath),
   installApk: (opts: { apkPath: string; serial?: string }) => ipcRenderer.invoke('adb:install-apk', opts),
+
+  // ── ReaKit / JADX Competitor Flow ──
+  downloadCompetitorApk: (opts: { projectPath: string; competitorId: string; packageName: string }) =>
+    ipcRenderer.invoke('competitor:download-apk', opts),
+  decompileCompetitorJadx: (opts: { projectPath: string; competitorId: string; packageName?: string; apkPath?: string }) =>
+    ipcRenderer.invoke('competitor:decompile-jadx', opts),
+  openJadxSource: (opts: { jadxSourcePath?: string; projectPath?: string; packageName?: string }) =>
+    ipcRenderer.invoke('competitor:open-jadx-source', opts),
+  getCompetitorReakitStatus: (opts: { projectPath?: string; competitorId?: string; packageName?: string; apkPath?: string; jadxSourcePath?: string }) =>
+    ipcRenderer.invoke('competitor:get-reakit-status', opts),
 
   // ── Device Manager ──
   deviceList: () => ipcRenderer.invoke('device:list'),

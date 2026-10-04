@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reakit"
+version = "2.0.0"
+description = "Unified Reverse Engineering Android & Automation Framework"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "impeterwayne" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Security",
+    "Topic :: Software Development :: Disassemblers"
+]
+dependencies = []
+
+[project.scripts]
+rea = "reakit.cli:main"
+reakit = "reakit.cli:main"
+scrcpy-cli = "reakit.scrcpy:scrcpy_cli_main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["reakit*"]

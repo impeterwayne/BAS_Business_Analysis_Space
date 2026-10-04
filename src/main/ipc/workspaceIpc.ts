@@ -76,6 +76,14 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
     workspaceService.removeProjectCompetitor(projectPath, competitorId)
   );
 
+  ipcMain.handle('project:link-competitor-apk', (_, { projectPath, competitorId, apk }) =>
+    workspaceService.linkCompetitorApk(projectPath, competitorId, apk)
+  );
+
+  ipcMain.handle('project:unlink-competitor-apk', (_, { projectPath, competitorId }) =>
+    workspaceService.unlinkCompetitorApk(projectPath, competitorId)
+  );
+
   ipcMain.handle('project:sync-ba-config', (_, { projectPath, worktreePath }) =>
     workspaceService.syncBaProjectConfig(projectPath, worktreePath)
   );
@@ -112,10 +120,10 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile'],
       filters: [
-        { name: 'Android Package (*.apk)', extensions: ['apk'] },
+        { name: 'Android Packages (*.apk, *.xapk, *.apks)', extensions: ['apk', 'xapk', 'apks'] },
         { name: 'All Files', extensions: ['*'] },
       ],
-      title: 'Select APK File',
+      title: 'Select APK or XAPK File',
     });
     if (result.canceled || !result.filePaths.length) return null;
     const filePath = result.filePaths[0];

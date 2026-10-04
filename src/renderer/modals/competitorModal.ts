@@ -1,4 +1,4 @@
-const { getCompetitorInitials, parseBenchmarkFlows } = require('../../domain');
+const { getCompetitorInitials, parseBenchmarkFlows, formatBytes, cleanApkAppName } = require('../../domain');
 
 type CompetitorData = {
   id?: string;
@@ -7,12 +7,18 @@ type CompetitorData = {
   packageName?: string;
   iconUrl?: string;
   platform?: 'Android';
+  apkPath?: string;
+  apkName?: string;
+  apkSize?: number;
+  jadxSourcePath?: string;
+  jadxStatus?: string;
   notes?: string;
 };
 
 type OpenCompetitorModalOptions = {
   project: any;
   competitor?: CompetitorData | null;
+  initialApk?: { name: string; path: string; size: number } | null;
   dom: any;
   icons: Record<string, string>;
   configureModalFooter: (actions: Array<{ id: string; label: string; kind?: 'primary' | 'secondary'; danger?: boolean }>) => Record<string, HTMLElement>;
@@ -28,6 +34,7 @@ type OpenCompetitorModalOptions = {
 export async function openCompetitorModal({
   project,
   competitor = null,
+  initialApk = null,
   dom,
   icons,
   configureModalFooter,
@@ -40,9 +47,13 @@ export async function openCompetitorModal({
   onSuccess,
 }: OpenCompetitorModalOptions) {
   const isEditing = Boolean(competitor && competitor.id);
-  dom.modalTitle.textContent = isEditing ? 'Edit Competitor App' : 'Add Competitor App';
+  dom.modalTitle.textContent = isEditing ? 'Edit Competitor App' : (initialApk ? 'Import Competitor APK' : 'Add Competitor App');
 
-  const defaultName = competitor?.name || '';
+  let currentApkPath = competitor?.apkPath || initialApk?.path || '';
+  let currentApkName = competitor?.apkName || initialApk?.name || (currentApkPath ? currentApkPath.split(/[\\/]/).pop() || '' : '');
+  let currentApkSize = competitor?.apkSize !== undefined ? competitor.apkSize : (initialApk?.size || 0);
+
+  const defaultName = competitor?.name || (initialApk?.name ? cleanApkAppName(initialApk.name) : '');
   const defaultUrl = competitor?.url || '';
   const defaultPkg = competitor?.packageName || '';
   const defaultNotes = competitor?.notes || '';
@@ -83,6 +94,16 @@ export async function openCompetitorModal({
     <div class="form-group" style="margin-bottom: 12px;">
       <label class="form-label">Package Name / App ID</label>
       <input class="form-input" id="comp-input-pkg" placeholder="e.g. com.mservice.momotransfer" value="${escapeHtml(defaultPkg)}" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Linked APK Build (Optional)</span>
+        <span class="form-hint" style="margin: 0; font-size: 11px;">Local .apk or .xapk for direct testing & install</span>
+      </label>
+      <div id="comp-modal-apk-container" class="comp-modal-apk-zone">
+        <!-- Injected dynamically by renderApkSection() -->
+      </div>
     </div>
 
     <div class="form-group" style="margin-bottom: 8px;">
@@ -214,6 +235,326 @@ export async function openCompetitorModal({
 
   renderFlowList();
 
+  function updateIconPreview(iconUrl?: string, appName?: string) {
+    if (iconUrl) {
+      modalIconImg.src = iconUrl;
+      modalIconImg.style.display = 'block';
+      modalInitials.style.display = 'none';
+    } else {
+      modalIconImg.style.display = 'none';
+      modalInitials.textContent = getCompetitorInitials(appName || nameInput.value || '');
+      modalInitials.style.display = 'block';
+    }
+  }
+
+  let currentJadxSourcePath = competitor?.jadxSourcePath || '';
+  let currentJadxStatus = competitor?.jadxStatus || '';
+
+  const apkContainerEl = dom.modalBody.querySelector('#comp-modal-apk-container') as HTMLElement;
+
+  async function checkAndSyncReakitStatus() {
+    const pkg = pkgInput.value.trim() || competitor?.packageName || defaultPkg;
+    if (!project?.path || (!pkg && !currentApkPath)) return;
+    try {
+      const status = await window.api.getCompetitorReakitStatus({
+        projectPath: project.path,
+        competitorId: competitor?.id,
+        packageName: pkg,
+        apkPath: currentApkPath,
+        jadxSourcePath: currentJadxSourcePath,
+      });
+      let changed = false;
+      if (status?.hasJadx) {
+        currentJadxStatus = 'ready';
+        currentJadxSourcePath = status.jadxSourcePath || currentJadxSourcePath;
+        changed = true;
+      }
+      if (status?.hasApk && !currentApkPath && status.apkPath) {
+        currentApkPath = status.apkPath;
+        currentApkName = status.apkName || '';
+        currentApkSize = status.apkSize || 0;
+        changed = true;
+      }
+      if (changed) {
+        renderApkSection();
+      }
+    } catch (_) {}
+  }
+
+  // Auto-detect on-disk ReaKit status on modal open
+  if (project?.path && (defaultPkg || currentApkPath)) {
+    void checkAndSyncReakitStatus();
+  }
+
+  function renderApkSection() {
+    if (!apkContainerEl) return;
+    if (currentApkPath) {
+      const isDecoded = currentJadxStatus === 'ready' || Boolean(currentJadxSourcePath);
+      apkContainerEl.innerHTML = `
+        <div class="comp-modal-workbench">
+          <div class="comp-modal-artifact-row apk-row">
+            <div class="comp-modal-artifact-main">
+              <div class="comp-modal-artifact-badge apk" title="Linked Android APK build">
+                ${icons.apk || icons.android || ''}
+              </div>
+              <div class="comp-modal-artifact-info">
+                <div class="comp-modal-artifact-name-row">
+                  <span class="comp-modal-artifact-name" title="${escapeHtml(currentApkName || currentApkPath)}">${escapeHtml(currentApkName || 'app.apk')}</span>
+                  <span class="comp-modal-pill-mono">${formatBytes(currentApkSize)}</span>
+                </div>
+                <span class="comp-modal-artifact-path" title="${escapeHtml(currentApkPath)}">${escapeHtml(currentApkPath)}</span>
+              </div>
+            </div>
+            <div class="comp-modal-artifact-actions">
+              <button type="button" class="btn-secondary btn-small" id="comp-modal-btn-change-apk" title="Select a different APK file">
+                <span>Change</span>
+              </button>
+              <button type="button" class="dash-icon-btn danger" id="comp-modal-btn-clear-apk" title="Remove linked APK">
+                ${icons.trash || icons.close || '×'}
+              </button>
+            </div>
+          </div>
+
+          <div class="comp-modal-artifact-row decode-row">
+            ${isDecoded ? `
+              <div class="comp-modal-artifact-main">
+                <div class="comp-modal-artifact-badge decode ready" title="Decoded Java/Kotlin sources ready">
+                  ${icons.decode || icons.code || ''}
+                </div>
+                <div class="comp-modal-artifact-info">
+                  <div class="comp-modal-artifact-name-row">
+                    <span class="comp-modal-decode-title ready">Decoded Source</span>
+                    <span class="comp-modal-pill-status ready">JADX Ready</span>
+                  </div>
+                  <span class="comp-modal-artifact-path" title="${escapeHtml(currentJadxSourcePath || 'jadx_src')}">${escapeHtml(currentJadxSourcePath || 'jadx_src')}</span>
+                </div>
+              </div>
+              <div class="comp-modal-artifact-actions">
+                <button type="button" class="btn-secondary btn-small" id="comp-modal-btn-open-src" title="Open decompiled source folder in Explorer">
+                  ${icons.folder || ''}
+                  <span>Source</span>
+                </button>
+                <button type="button" class="dash-icon-btn" id="comp-modal-btn-redecode" title="Re-decode APK with ReaKit JADX">
+                  ${icons.refresh || ''}
+                </button>
+              </div>
+            ` : `
+              <div class="comp-modal-artifact-main">
+                <div class="comp-modal-artifact-badge decode idle" title="APK source not decoded yet">
+                  ${icons.decode || icons.code || ''}
+                </div>
+                <div class="comp-modal-artifact-info">
+                  <div class="comp-modal-artifact-name-row">
+                    <span class="comp-modal-decode-title idle">Decoded Source</span>
+                    <span class="comp-modal-pill-status idle">Not Decoded</span>
+                  </div>
+                  <span class="comp-modal-artifact-hint">Extract Java/Kotlin sources & layouts with ReaKit</span>
+                </div>
+              </div>
+              <div class="comp-modal-artifact-actions">
+                <button type="button" class="dash-comp-btn-action decode" id="comp-modal-btn-decode" title="Decode APK and extract Java/Kotlin sources with ReaKit JADX">
+                  ${icons.decode || icons.code || ''}
+                  <span>Decode (JADX)</span>
+                </button>
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+
+      apkContainerEl.querySelector('#comp-modal-btn-change-apk')?.addEventListener('click', async () => {
+        const file = await window.api.selectApkFile();
+        if (file) {
+          currentApkPath = file.path;
+          currentApkName = file.name;
+          currentApkSize = file.size;
+          if (!nameInput.value.trim()) {
+            nameInput.value = cleanApkAppName(file.name);
+            updateIconPreview(currentIconUrl, nameInput.value);
+          }
+          renderApkSection();
+          void checkAndSyncReakitStatus();
+        }
+      });
+
+      apkContainerEl.querySelector('#comp-modal-btn-clear-apk')?.addEventListener('click', () => {
+        currentApkPath = '';
+        currentApkName = '';
+        currentApkSize = 0;
+        renderApkSection();
+      });
+
+      apkContainerEl.querySelector('#comp-modal-btn-open-src')?.addEventListener('click', async () => {
+        const res = await window.api.openJadxSource({
+          jadxSourcePath: currentJadxSourcePath,
+          projectPath: project.path,
+          packageName: pkgInput.value.trim() || competitor?.packageName,
+        });
+        if (!res?.success) {
+          showToast(res?.error || 'Failed to open source folder', 'error');
+        }
+      });
+
+      const handleDecode = async (btnEl: HTMLElement | null) => {
+        if (!btnEl) return;
+        const origHtml = btnEl.innerHTML;
+        btnEl.setAttribute('disabled', 'true');
+        btnEl.innerHTML = `<span class="spinner" style="width:11px; height:11px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:4px;"></span> Decoding...`;
+        showToast('Decoding APK with ReaKit (JADX)... This may take a minute.', 'info');
+        try {
+          const res = await window.api.decompileCompetitorJadx({
+            projectPath: project.path,
+            competitorId: competitor?.id,
+            packageName: pkgInput.value.trim() || competitor?.packageName,
+            apkPath: currentApkPath,
+          });
+          if (res?.success && res.jadxSourcePath) {
+            currentJadxStatus = 'ready';
+            currentJadxSourcePath = res.jadxSourcePath;
+            showToast('APK successfully decoded with JADX!', 'success');
+            renderApkSection();
+          } else {
+            showToast(`Decode failed: ${res?.error || 'Unknown error'}`, 'error');
+          }
+        } catch (err: any) {
+          showToast(`Decode error: ${err?.message || String(err)}`, 'error');
+        } finally {
+          btnEl.removeAttribute('disabled');
+          btnEl.innerHTML = origHtml;
+        }
+      };
+
+      apkContainerEl.querySelector('#comp-modal-btn-decode')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        void handleDecode(apkContainerEl.querySelector('#comp-modal-btn-decode') as HTMLElement);
+      });
+
+      apkContainerEl.querySelector('#comp-modal-btn-redecode')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        void handleDecode(apkContainerEl.querySelector('#comp-modal-btn-redecode') as HTMLElement);
+      });
+    } else {
+      const targetPkg = pkgInput.value.trim() || competitor?.packageName || '';
+      apkContainerEl.innerHTML = `
+        <div class="comp-modal-apk-empty" id="comp-modal-apk-dropzone">
+          <div class="comp-modal-apk-empty-inner">
+            <div class="comp-modal-apk-empty-icon">
+              ${icons.apk || icons.android || ''}
+            </div>
+            <div class="comp-modal-apk-empty-text">
+              <span>Drop <strong>.apk / .xapk</strong> here, or <button type="button" class="dash-inline-link" id="comp-modal-btn-browse-apk">browse file</button></span>
+            </div>
+          </div>
+          ${targetPkg ? `
+            <div class="comp-modal-apk-empty-actions">
+              <button type="button" class="dash-comp-btn-reakit-download" id="comp-modal-btn-download-apk" title="Download APK for ${escapeHtml(targetPkg)} via ReaKit (apkd)">
+                ${icons.download || ''}
+                <span>Download APK (ReaKit)</span>
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      const browseBtn = apkContainerEl.querySelector('#comp-modal-btn-browse-apk');
+      browseBtn?.addEventListener('click', async (e: Event) => {
+        e.preventDefault();
+        const file = await window.api.selectApkFile();
+        if (file) {
+          currentApkPath = file.path;
+          currentApkName = file.name;
+          currentApkSize = file.size;
+          if (!nameInput.value.trim()) {
+            nameInput.value = cleanApkAppName(file.name);
+            updateIconPreview(currentIconUrl, nameInput.value);
+          }
+          renderApkSection();
+          void checkAndSyncReakitStatus();
+        }
+      });
+
+      const downloadBtn = apkContainerEl.querySelector('#comp-modal-btn-download-apk') as HTMLElement;
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', async (e: Event) => {
+          e.preventDefault();
+          const pkg = pkgInput.value.trim() || competitor?.packageName || '';
+          if (!pkg) {
+            showToast('Please specify a package name first', 'info');
+            return;
+          }
+          const origHtml = downloadBtn.innerHTML;
+          downloadBtn.setAttribute('disabled', 'true');
+          downloadBtn.innerHTML = `<span class="spinner" style="width:11px; height:11px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:4px;"></span> Downloading...`;
+          showToast(`Downloading APK for ${pkg} via ReaKit...`, 'info');
+          try {
+            const res = await window.api.downloadCompetitorApk({
+              projectPath: project.path,
+              competitorId: competitor?.id || 'temp',
+              packageName: pkg,
+            });
+            if (res?.success && res.apkPath) {
+              currentApkPath = res.apkPath;
+              currentApkName = res.apkName || '';
+              currentApkSize = res.apkSize || 0;
+              showToast('Downloaded APK successfully!', 'success');
+              const status = await window.api.getCompetitorReakitStatus({
+                projectPath: project.path,
+                packageName: pkg,
+                apkPath: res.apkPath,
+              });
+              if (status?.hasJadx) {
+                currentJadxStatus = 'ready';
+                currentJadxSourcePath = status.jadxSourcePath || '';
+              }
+              renderApkSection();
+            } else {
+              showToast(`Download failed: ${res?.error || 'Unknown error'}`, 'error');
+            }
+          } catch (err: any) {
+            showToast(`Download error: ${err?.message || String(err)}`, 'error');
+          } finally {
+            downloadBtn.removeAttribute('disabled');
+            downloadBtn.innerHTML = origHtml;
+          }
+        });
+      }
+
+      const dropzone = apkContainerEl.querySelector('#comp-modal-apk-dropzone') as HTMLElement;
+      if (dropzone) {
+        dropzone.addEventListener('dragover', (e: DragEvent) => {
+          e.preventDefault();
+          dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => {
+          dropzone.classList.remove('dragover');
+        });
+        dropzone.addEventListener('drop', (e: DragEvent) => {
+          e.preventDefault();
+          dropzone.classList.remove('dragover');
+          const files = e.dataTransfer?.files;
+          if (files && files.length > 0) {
+            const f = files[0] as any;
+            if (f.path && /\.(apk|xapk|apks)$/i.test(f.path)) {
+              currentApkPath = f.path;
+              currentApkName = f.name;
+              currentApkSize = f.size || 0;
+              if (!nameInput.value.trim()) {
+                nameInput.value = cleanApkAppName(f.name);
+                updateIconPreview(currentIconUrl, nameInput.value);
+              }
+              renderApkSection();
+              void checkAndSyncReakitStatus();
+            } else {
+              showToast('Please drop an .apk or .xapk file', 'info');
+            }
+          }
+        });
+      }
+    }
+  }
+
+  renderApkSection();
+
   let userEditedName = Boolean(defaultName);
   nameInput.addEventListener('input', () => {
     userEditedName = true;
@@ -221,6 +562,13 @@ export async function openCompetitorModal({
     if (!currentIconUrl) {
       modalInitials.textContent = getCompetitorInitials(nameInput.value);
     }
+  });
+
+  pkgInput.addEventListener('input', () => {
+    if (!currentApkPath) {
+      renderApkSection();
+    }
+    void checkAndSyncReakitStatus();
   });
 
   async function runDetection(force = false) {
@@ -264,6 +612,10 @@ export async function openCompetitorModal({
         }
         if (res.packageName && (!pkgInput.value.trim() || force)) {
           pkgInput.value = res.packageName;
+          if (!currentApkPath) {
+            renderApkSection();
+          }
+          void checkAndSyncReakitStatus();
         }
         if (res.iconUrl) {
           currentIconUrl = res.iconUrl;
@@ -366,6 +718,11 @@ export async function openCompetitorModal({
       packageName: pkgInput.value.trim(),
       iconUrl: currentIconUrl,
       platform: 'Android',
+      apkPath: currentApkPath,
+      apkName: currentApkName,
+      apkSize: currentApkSize,
+      jadxSourcePath: currentJadxSourcePath,
+      jadxStatus: currentJadxStatus,
       notes: currentFlows.join('\n'),
     };
 

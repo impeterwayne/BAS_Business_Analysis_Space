@@ -38,7 +38,8 @@ test('normalizeSettings trims values and drops blank entries', () => {
       obsidianPath: '',
       obsidianVault: '',
       scrcpyPath: '',
-      autoRefreshCurrentProject: true,
+      reakitPath: '',
+      autoRefreshCurrentProject: false,
       autoRefreshInterval: 10,
     }
   );
@@ -56,7 +57,8 @@ test('normalizeSettings falls back for non-object input', () => {
     obsidianPath: '',
     obsidianVault: '',
     scrcpyPath: '',
-    autoRefreshCurrentProject: true,
+    reakitPath: '',
+    autoRefreshCurrentProject: false,
     autoRefreshInterval: 10,
   });
 });
@@ -72,7 +74,7 @@ test('normalizeSettings preserves autoRefreshCurrentProject boolean state', () =
   );
   assert.strictEqual(
     normalizeSettings({}).autoRefreshCurrentProject,
-    true
+    false
   );
 });
 
@@ -110,7 +112,8 @@ test('normalizeWorkspaceConfig keeps projects array and normalizes settings', ()
     obsidianPath: '',
     obsidianVault: '',
     scrcpyPath: '',
-    autoRefreshCurrentProject: true,
+    reakitPath: '',
+    autoRefreshCurrentProject: false,
     autoRefreshInterval: 10,
   });
 });

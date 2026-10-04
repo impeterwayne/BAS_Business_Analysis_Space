@@ -52,7 +52,7 @@
           <button type="button" class="sidebar-icon-btn" id="btn-settings" title="Settings" aria-label="Settings">
             <img src="icons/settings.svg" width="14" height="14" alt="" />
           </button>
-          <button type="button" class="sidebar-icon-btn" id="btn-refresh-all" title="Refresh all" style="display: none;">
+          <button type="button" class="sidebar-icon-btn" id="btn-refresh-all" title="Refresh all projects" aria-label="Refresh all projects">
             <img src="icons/refresh.svg" width="14" height="14" alt="" />
           </button>
           <button type="button" class="sidebar-icon-btn accent" id="btn-add-project" title="Add project">
@@ -127,26 +127,14 @@
                   <button type="button" class="dash-icon-btn" id="dash-btn-reveal-path" title="Reveal in Explorer">
                     <img src="icons/folder.svg" width="12" height="12" alt="" />
                   </button>
+                  <button type="button" class="dash-icon-btn" id="dash-btn-refresh-project" title="Refresh project">
+                    <img src="icons/refresh.svg" width="12" height="12" alt="" />
+                  </button>
                 </div>
               </div>
 
-              <!-- Header Controls Right: Metrics & View Toggle -->
+              <!-- Header Controls Right: View Toggle -->
               <div class="dash-header-right">
-                <div class="dash-header-metrics">
-                  <div class="dash-status-chip" id="dash-chip-device" title="Connected ADB device status">
-                    <span class="dash-chip-dot" id="dash-chip-device-dot"></span>
-                    <img src="icons/device.svg" width="12" height="12" alt="" />
-                    <span id="dash-device-text">ADB: Checking devices...</span>
-                  </div>
-                  <div class="dash-status-chip" id="dash-chip-worktree" title="Worktrees count in this project">
-                    <img src="icons/git-branch.svg" width="12" height="12" alt="" />
-                    <span id="dash-wt-text">1 Worktree</span>
-                  </div>
-                  <div class="dash-status-chip" id="dash-chip-bakit" title="BAKit deployment state">
-                    <img src="icons/agent-toolkit.svg" width="12" height="12" alt="" />
-                    <span id="dash-bakit-text">BAKit Ready</span>
-                  </div>
-                </div>
 
                 <!-- View Layout Switcher (Grid vs List) -->
                 <div class="dash-view-toggle" id="dash-view-toggle" title="Switch dashboard layout mode">
@@ -219,6 +207,10 @@
                   </div>
                 </div>
                 <div class="dash-section-actions">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-import-comp-apk" title="Import competitor app from APK file">
+                    <img src="icons/apk.svg" width="12" height="12" alt="" />
+                    <span>Import APK</span>
+                  </button>
                   <button type="button" class="btn-secondary btn-small" id="dash-btn-sync-config" title="Sync Figma & competitors to .agents/config/ba-project-config.md">
                     <img src="icons/refresh.svg" width="12" height="12" alt="" />
                     <span>Sync to Config</span>
@@ -231,46 +223,6 @@
               </div>
               <div class="dash-section-body">
                 <div class="dash-competitor-list" id="dash-competitor-list">
-                  <!-- Rendered dynamically by JS -->
-                </div>
-              </div>
-            </section>
-
-            <!-- Section 3: APK Builds -->
-            <section class="dash-section-card" id="dash-section-apk">
-              <div class="dash-section-header">
-                <div class="dash-section-title-group">
-                  <div class="dash-section-icon android-tint">
-                    <img src="icons/android.svg" width="16" height="16" alt="" />
-                  </div>
-                  <div class="dash-title-with-badge">
-                    <h3 class="dash-section-title">APK Builds</h3>
-                    <span class="dash-count-badge" id="dash-apk-badge">0 APKs</span>
-                  </div>
-                </div>
-                <div class="dash-section-actions">
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-refresh-adb" title="Check connected Android devices">
-                    <img src="icons/refresh.svg" width="12" height="12" alt="" />
-                    <span>Check Devices</span>
-                  </button>
-                  <button type="button" class="btn-primary btn-small" id="dash-btn-add-apk" title="Browse and link APK file">
-                    <img src="icons/plus.svg" width="12" height="12" alt="" />
-                    <span>Add APK</span>
-                  </button>
-                </div>
-              </div>
-              <div class="dash-section-body">
-                <div class="dash-apk-dropzone" id="dash-apk-dropzone">
-                  <div class="dash-dropzone-inner">
-                    <div class="dash-dropzone-icon">
-                      <img src="icons/android.svg" width="20" height="20" alt="" />
-                    </div>
-                    <div class="dash-dropzone-text">
-                      <span>Drop <strong>.apk</strong> here, or <button type="button" class="dash-inline-link" id="dash-link-browse-apk">browse</button></span>
-                    </div>
-                  </div>
-                </div>
-                <div class="dash-apk-list" id="dash-apk-list">
                   <!-- Rendered dynamically by JS -->
                 </div>
               </div>
@@ -465,6 +417,15 @@
                 <div class="input-browse-group">
                   <input type="text" id="settings-vscode-path" class="settings-input" placeholder="e.g. code or path to Code.exe" autocomplete="off" spellcheck="false" />
                   <button type="button" class="btn-browse" id="btn-browse-vscode" title="Browse executable">Browse</button>
+                </div>
+              </div>
+
+              <!-- ReaKit Framework -->
+              <div class="form-group-col">
+                <label class="form-label">ReaKit framework path (for APK download & JADX decompilation)</label>
+                <div class="input-browse-group">
+                  <input type="text" id="settings-reakit-path" class="settings-input" placeholder="e.g. D:\Quest\BA_Space\ReaKit or rea" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="btn-browse" id="btn-browse-reakit" title="Browse ReaKit directory">Browse</button>
                 </div>
               </div>
             </div>

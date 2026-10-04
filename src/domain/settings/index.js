@@ -19,7 +19,8 @@ function normalizeSettings(settings) {
     obsidianPath: typeof nextSettings.obsidianPath === 'string' ? nextSettings.obsidianPath.trim() : '',
     obsidianVault: typeof nextSettings.obsidianVault === 'string' ? nextSettings.obsidianVault.trim() : '',
     scrcpyPath: typeof nextSettings.scrcpyPath === 'string' ? nextSettings.scrcpyPath.trim() : '',
-    autoRefreshCurrentProject: typeof nextSettings.autoRefreshCurrentProject === 'boolean' ? nextSettings.autoRefreshCurrentProject : true,
+    reakitPath: typeof nextSettings.reakitPath === 'string' ? nextSettings.reakitPath.trim() : '',
+    autoRefreshCurrentProject: typeof nextSettings.autoRefreshCurrentProject === 'boolean' ? nextSettings.autoRefreshCurrentProject : false,
     autoRefreshInterval: typeof nextSettings.autoRefreshInterval === 'number' && nextSettings.autoRefreshInterval >= 1 ? nextSettings.autoRefreshInterval : 10,
   };
 }

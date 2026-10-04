@@ -525,7 +525,12 @@ export class DeviceService {
     const adb = this.getAdbPath();
 
     if (!apkPath || !fs.existsSync(apkPath)) {
-      return { success: false, error: `APK file not found: ${apkPath}` };
+      return { success: false, error: `APK/XAPK file not found: ${apkPath}` };
+    }
+
+    const ext = path.extname(apkPath).toLowerCase();
+    if (ext === '.xapk' || ext === '.apks') {
+      return this.installXapk(targetSerial, apkPath);
     }
 
     const serialArg = targetSerial ? `-s "${targetSerial}" ` : '';
@@ -548,6 +553,262 @@ export class DeviceService {
         }
       });
     });
+  }
+
+  public async installXapk(serial: string | undefined, xapkPath: string): Promise<{ success: boolean; output?: string; error?: string }> {
+    const targetSerial = serial || this.activeSerial;
+    const adb = this.getAdbPath();
+    const serialArg = targetSerial ? `-s "${targetSerial}" ` : '';
+
+    if (!xapkPath || !fs.existsSync(xapkPath)) {
+      return { success: false, error: `XAPK file not found: ${xapkPath}` };
+    }
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'baspace_xapk_'));
+
+    try {
+      // 1. Extract XAPK / APKS archive into temporary directory
+      const extracted = await this.extractArchive(xapkPath, tempDir);
+      if (!extracted) {
+        return { success: false, error: 'Failed to extract XAPK archive. Ensure the archive is not corrupted.' };
+      }
+
+      // 2. Discover all .apk and .obb files
+      const allApkFiles = this.findFilesRecursively(tempDir, '.apk');
+      const allObbFiles = this.findFilesRecursively(tempDir, '.obb');
+
+      if (allApkFiles.length === 0) {
+        return { success: false, error: 'No APK packages found inside XAPK archive' };
+      }
+
+      // 3. Read manifest.json if present
+      let manifest: any = null;
+      const manifestPath = path.join(tempDir, 'manifest.json');
+      if (fs.existsSync(manifestPath)) {
+        try {
+          manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+        } catch (_) {}
+      }
+
+      // 4. Query device CPU architecture to avoid conflicting ABI splits
+      let deviceAbis: string[] = [];
+      try {
+        const primaryAbi = execSync(`"${adb}" ${serialArg}shell getprop ro.product.cpu.abi`, { encoding: 'utf-8', timeout: 5000 }).trim();
+        const abiList = execSync(`"${adb}" ${serialArg}shell getprop ro.product.cpu.abilist`, { encoding: 'utf-8', timeout: 5000 }).trim();
+        deviceAbis = [...new Set([primaryAbi, ...abiList.split(',')].map(a => a.trim().toLowerCase()).filter(Boolean))];
+      } catch (_) {}
+
+      // 5. Filter split APKs to only compatible splits for this device
+      const apksToInstall = this.filterCompatibleApks(allApkFiles, deviceAbis);
+      if (apksToInstall.length === 0) {
+        return { success: false, error: 'No compatible APK splits found for connected device architecture' };
+      }
+
+      // 6. Install APK(s) via ADB
+      let installResult: { success: boolean; output?: string; error?: string };
+      if (apksToInstall.length === 1) {
+        installResult = await new Promise((resolve) => {
+          exec(`"${adb}" ${serialArg}install -r "${apksToInstall[0]}"`, { timeout: 180000 }, (err, stdout, stderr) => {
+            const out = (stdout || '').trim();
+            const errOut = (stderr || '').trim();
+            if (err || out.toLowerCase().includes('failure') || errOut.toLowerCase().includes('failure')) {
+              resolve({ success: false, error: errOut || out || err?.message || 'Installation failed' });
+            } else {
+              resolve({ success: true, output: out || 'Success' });
+            }
+          });
+        });
+      } else {
+        // Multi-APK split installation (adb install-multiple -r -d -t ...)
+        const quotedApks = apksToInstall.map((a) => `"${a}"`).join(' ');
+        installResult = await new Promise((resolve) => {
+          exec(`"${adb}" ${serialArg}install-multiple -r -d -t ${quotedApks}`, { timeout: 240000 }, (err, stdout, stderr) => {
+            const out = (stdout || '').trim();
+            const errOut = (stderr || '').trim();
+            if (err || out.toLowerCase().includes('failure') || errOut.toLowerCase().includes('failure')) {
+              resolve({ success: false, error: errOut || out || err?.message || 'Split APK installation failed' });
+            } else {
+              resolve({ success: true, output: out || 'Success' });
+            }
+          });
+        });
+      }
+
+      if (!installResult.success) {
+        return installResult;
+      }
+
+      // 7. Push OBB expansion files if present
+      let obbInstalledCount = 0;
+      if (allObbFiles.length > 0) {
+        const packageName = manifest?.package_name || this.detectPackageNameFromObb(allObbFiles[0]) || '';
+        if (packageName) {
+          const deviceObbDir = `/sdcard/Android/obb/${packageName}`;
+          try {
+            execSync(`"${adb}" ${serialArg}shell mkdir -p "${deviceObbDir}"`, { timeout: 10000 });
+          } catch (_) {}
+
+          for (const obbPath of allObbFiles) {
+            const obbFileName = path.basename(obbPath);
+            try {
+              execSync(`"${adb}" ${serialArg}push "${obbPath}" "${deviceObbDir}/${obbFileName}"`, { timeout: 300000 });
+              obbInstalledCount++;
+            } catch (err: any) {
+              console.warn(`[DeviceService] Failed to push OBB: ${obbFileName}`, err?.message);
+            }
+          }
+        }
+      }
+
+      const summaryParts = [
+        `Installed XAPK (${apksToInstall.length} split APK${apksToInstall.length === 1 ? '' : 's'})`,
+      ];
+      if (obbInstalledCount > 0) {
+        summaryParts.push(`with ${obbInstalledCount} OBB file${obbInstalledCount === 1 ? '' : 's'}`);
+      }
+
+      return {
+        success: true,
+        output: summaryParts.join(' '),
+      };
+    } catch (err: any) {
+      return { success: false, error: err?.message || String(err) };
+    } finally {
+      // 8. Clean up temporary directory
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (_) {}
+    }
+  }
+
+  private async extractArchive(archivePath: string, destDir: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      // 1. Try native tar first (available on Win 10+, macOS, Linux)
+      exec(`tar -xf "${archivePath}" -C "${destDir}"`, { timeout: 90000 }, (tarErr) => {
+        if (!tarErr) {
+          resolve(true);
+          return;
+        }
+
+        // 2. Fallback on Windows: PowerShell Expand-Archive
+        if (process.platform === 'win32') {
+          const psSrc = archivePath.replace(/'/g, "''");
+          const psDst = destDir.replace(/'/g, "''");
+          const psCmd = `powershell -NoProfile -NonInteractive -Command "Expand-Archive -LiteralPath '${psSrc}' -DestinationPath '${psDst}' -Force"`;
+          exec(psCmd, { timeout: 180000 }, (psErr) => {
+            resolve(!psErr);
+          });
+        } else {
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  private findFilesRecursively(dir: string, ext: string): string[] {
+    const results: string[] = [];
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          results.push(...this.findFilesRecursively(fullPath, ext));
+        } else if (entry.isFile() && entry.name.toLowerCase().endsWith(ext.toLowerCase())) {
+          results.push(fullPath);
+        }
+      }
+    } catch (_) {}
+    return results;
+  }
+
+  private filterCompatibleApks(allApks: string[], deviceAbis: string[]): string[] {
+    const ABI_PATTERNS = [
+      { key: 'arm64_v8a', patterns: [/arm64[-_]v8a/i, /arm64/i, /aarch64/i] },
+      { key: 'armeabi_v7a', patterns: [/armeabi[-_]v7a/i, /armeabi/i, /armv7/i] },
+      { key: 'x86_64', patterns: [/x86_64/i, /x64/i] },
+      { key: 'x86', patterns: [/(^|[^a-zA-Z0-9])x86([^a-zA-Z0-9]|$)/i] },
+    ];
+
+    const abiTaggedApks = new Map<string, { apk: string; abi: string }>();
+    const nonAbiApks: string[] = [];
+
+    for (const apk of allApks) {
+      const filename = path.basename(apk).toLowerCase();
+      let matchedAbi: string | null = null;
+      for (const item of ABI_PATTERNS) {
+        if (item.patterns.some((p) => p.test(filename))) {
+          matchedAbi = item.key;
+          break;
+        }
+      }
+      if (matchedAbi) {
+        abiTaggedApks.set(apk, { apk, abi: matchedAbi });
+      } else {
+        nonAbiApks.push(apk);
+      }
+    }
+
+    if (abiTaggedApks.size <= 1) {
+      return allApks;
+    }
+
+    let preferredAbi = 'arm64_v8a';
+    const normalizedDeviceAbis = deviceAbis.map((a) => a.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    if (normalizedDeviceAbis.length > 0) {
+      for (const devAbi of normalizedDeviceAbis) {
+        if (devAbi.includes('arm64') || devAbi.includes('aarch64')) {
+          preferredAbi = 'arm64_v8a';
+          break;
+        }
+        if (devAbi.includes('x8664') || devAbi.includes('x64')) {
+          preferredAbi = 'x86_64';
+          break;
+        }
+        if (devAbi.includes('v7') || devAbi.includes('arm')) {
+          preferredAbi = 'armeabi_v7a';
+          break;
+        }
+        if (devAbi.includes('x86')) {
+          preferredAbi = 'x86';
+          break;
+        }
+      }
+    }
+
+    const availableAbis = [...abiTaggedApks.values()].map((v) => v.abi);
+    let selectedAbi = preferredAbi;
+    if (!availableAbis.includes(selectedAbi)) {
+      if (selectedAbi === 'arm64_v8a' && availableAbis.includes('armeabi_v7a')) {
+        selectedAbi = 'armeabi_v7a';
+      } else if (selectedAbi === 'x86_64' && availableAbis.includes('x86')) {
+        selectedAbi = 'x86';
+      } else {
+        selectedAbi = availableAbis[0];
+      }
+    }
+
+    const selectedAbiApks: string[] = [];
+    for (const [apk, info] of abiTaggedApks.entries()) {
+      if (info.abi === selectedAbi) {
+        selectedAbiApks.push(apk);
+      }
+    }
+
+    return [...nonAbiApks, ...selectedAbiApks];
+  }
+
+  private detectPackageNameFromObb(obbPath: string): string {
+    const fileName = path.basename(obbPath);
+    const match = fileName.match(/^(?:main|patch)\.\d+\.([a-zA-Z0-9_.]+)\.obb$/i);
+    if (match && match[1]) {
+      return match[1];
+    }
+    const parent = path.basename(path.dirname(obbPath));
+    if (parent && parent.includes('.') && parent.toLowerCase() !== 'obb') {
+      return parent;
+    }
+    return '';
   }
 
   public async sendKey(serial: string, keycode: string | number): Promise<{ success: boolean; error?: string }> {

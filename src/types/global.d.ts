@@ -69,6 +69,7 @@ declare global {
         obsidianPath?: string;
         obsidianVault?: string;
         scrcpyPath?: string;
+        reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
@@ -84,6 +85,7 @@ declare global {
         obsidianPath?: string;
         obsidianVault?: string;
         scrcpyPath?: string;
+        reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
@@ -98,6 +100,7 @@ declare global {
         obsidianPath?: string;
         obsidianVault?: string;
         scrcpyPath?: string;
+        reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
@@ -112,6 +115,7 @@ declare global {
         figmaPath?: string | null;
         obsidianPath?: string | null;
         obsidianVault?: string | null;
+        reakitPath?: string | null;
       }>;
       gitPull: (path: string) => Promise<any>;
       gitFetch: (path: string) => Promise<any>;
@@ -157,6 +161,11 @@ declare global {
         packageName?: string;
         iconUrl?: string;
         platform?: 'Android';
+        apkPath?: string;
+        apkName?: string;
+        apkSize?: number;
+        jadxSourcePath?: string;
+        jadxStatus?: string;
         notes?: string;
       }) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
       updateProjectCompetitor: (projectPath: string, competitor: {
@@ -166,9 +175,16 @@ declare global {
         packageName?: string;
         iconUrl?: string;
         platform?: 'Android';
+        apkPath?: string;
+        apkName?: string;
+        apkSize?: number;
+        jadxSourcePath?: string;
+        jadxStatus?: string;
         notes?: string;
       }) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
       removeProjectCompetitor: (projectPath: string, competitorId: string) => Promise<{ success: boolean; project?: any; error?: string }>;
+      linkCompetitorApk: (projectPath: string, competitorId: string, apk: { name?: string; path: string; size?: number }) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
+      unlinkCompetitorApk: (projectPath: string, competitorId: string) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
       detectCompetitorApp: (url: string) => Promise<{
         success: boolean;
         appName?: string;
@@ -188,6 +204,39 @@ declare global {
       selectApkFile: () => Promise<{ name: string; path: string; size: number } | null>;
       getFileInfo: (filePath: string) => Promise<{ name: string; path: string; size: number; isFile: boolean } | null>;
       installApk: (opts: { apkPath: string; serial?: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
+
+      // ── ReaKit / JADX Competitor Flow ──
+      downloadCompetitorApk: (opts: {
+        projectPath: string;
+        competitorId: string;
+        packageName: string;
+      }) => Promise<{ success: boolean; apkPath?: string; apkName?: string; apkSize?: number; error?: string }>;
+      decompileCompetitorJadx: (opts: {
+        projectPath: string;
+        competitorId: string;
+        packageName?: string;
+        apkPath?: string;
+      }) => Promise<{ success: boolean; jadxSourcePath?: string; error?: string }>;
+      openJadxSource: (opts: {
+        jadxSourcePath?: string;
+        projectPath?: string;
+        packageName?: string;
+      }) => Promise<{ success: boolean; path?: string; error?: string }>;
+      getCompetitorReakitStatus: (opts: {
+        projectPath?: string;
+        competitorId?: string;
+        packageName?: string;
+        apkPath?: string;
+        jadxSourcePath?: string;
+      }) => Promise<{
+        hasApk: boolean;
+        apkPath?: string;
+        apkName?: string;
+        apkSize?: number;
+        hasJadx: boolean;
+        jadxSourcePath?: string;
+        jadxFileCount?: number;
+      }>;
 
       // ── Device Manager ──
       deviceList: () => Promise<{

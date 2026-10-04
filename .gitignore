@@ -10,3 +10,5 @@ build/*
 Thumbs.db
 /BA_Flow
 /mobilerun-mcp
+toolkits/ReaKit/workspaces/
+toolkits/ReaKit/**/__pycache__/

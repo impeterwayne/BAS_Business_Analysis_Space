@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+!core/jadx/lib/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Environments & IDEs
+.env
+.env.local
+.venv
+venv/
+.idea/
+.vscode/
+
+# Build artifacts & temp
+*.tmp
+*.log
+
+# Target workspaces (APKs, decompiled sources, extracted .so files)
+workspaces/
+
+# Agent harness local runtime state (hook markers, loop ledgers, off-switches)
+.agents/state/
+# Harness install manifest, only written into an injected target
+.reaharness.json
+AndroidHarnessAGY/
+
+# Ghidra release binary + JDK: large downloaded artifacts, fetched not tracked
+# (core/ghidra_mcp is a git submodule - see .gitmodules)
+core/ghidra/
+core/jdk*/
+
+# Ghidra headless projects and extracted native libraries live in workspaces/
+*.gpr
+*.rep/
+
+# Compiled apkd downloader binaries
+core/apkdgo/bin/
+core/apkdgo/build/
+core/apkdgo/apkd/apkd

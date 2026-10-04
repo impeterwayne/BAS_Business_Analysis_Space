@@ -20,6 +20,7 @@ const {
   parseBenchmarkFlows,
   formatFlowSlug,
   buildBenchmarkSlashCommand,
+  cleanApkAppName,
 } = require('../domain');
 
 const { initializeRendererLifecycle } = require('./lifecycle');
@@ -87,6 +88,7 @@ const state: {
     obsidianPath?: string;
     obsidianVault?: string;
     scrcpyPath?: string;
+    reakitPath?: string;
     autoRefreshCurrentProject?: boolean;
     autoRefreshInterval?: number;
     symlinkTargets?: Array<{ name: string; targetPath: string }>;
@@ -186,24 +188,14 @@ const dom = {
   dashProjectPath: $('#dash-project-path'),
   dashBtnCopyPath: $('#dash-btn-copy-path'),
   dashBtnRevealPath: $('#dash-btn-reveal-path'),
-  dashChipDevice: $('#dash-chip-device'),
-  dashChipDeviceDot: $('#dash-chip-device-dot'),
-  dashDeviceText: $('#dash-device-text'),
-  dashChipWorktree: $('#dash-chip-worktree'),
-  dashWtText: $('#dash-wt-text'),
-  dashChipBakit: $('#dash-chip-bakit'),
-  dashBakitText: $('#dash-bakit-text'),
+  dashBtnRefreshProject: $('#dash-btn-refresh-project'),
   dashFigmaStatusPill: $('#dash-figma-status-pill'),
   dashFigmaActions: $('#dash-figma-actions'),
   dashFigmaBody: $('#dash-figma-body'),
   dashBtnOpenFigma: $('#dash-btn-open-figma'),
   dashBtnBrowserFigma: $('#dash-btn-browser-figma'),
-  dashApkBadge: $('#dash-apk-badge'),
-  dashBtnAddApk: $('#dash-btn-add-apk'),
-  dashBtnRefreshAdb: $('#dash-btn-refresh-adb'),
-  dashApkDropzone: $('#dash-apk-dropzone'),
-  dashLinkBrowseApk: $('#dash-link-browse-apk'),
-  dashApkList: $('#dash-apk-list'),
+  dashSectionCompetitors: $('#dash-section-competitors'),
+  dashBtnImportCompApk: $('#dash-btn-import-comp-apk'),
   dashCompBadge: $('#dash-comp-badge'),
   dashBtnAddCompetitor: $('#dash-btn-add-competitor'),
   dashBtnSyncConfig: $('#dash-btn-sync-config'),
@@ -228,6 +220,7 @@ const dom = {
   settingsObsidianPath: $('#settings-obsidian-path'),
   settingsObsidianVault: $('#settings-obsidian-vault'),
   settingsScrcpyPath: $('#settings-scrcpy-path'),
+  settingsReaKitPath: $('#settings-reakit-path') as HTMLInputElement | null,
   btnBrowseAntigravity: $('#btn-browse-antigravity'),
   btnBrowseAntigravityAgent: $('#btn-browse-antigravity-agent'),
   btnBrowseAndroidStudio: $('#btn-browse-android-studio'),
@@ -236,6 +229,7 @@ const dom = {
   btnBrowseObsidian: $('#btn-browse-obsidian'),
   btnBrowseObsidianVault: $('#btn-browse-obsidian-vault'),
   btnBrowseScrcpy: $('#btn-browse-scrcpy'),
+  btnBrowseReaKit: $('#btn-browse-reakit') as HTMLButtonElement | null,
   btnAgentToolkitApplyAll: $('#btn-agent-toolkit-apply-all'),
   symlinkScreen: $('#symlink-screen'),
   btnCloseSymlinkScreen: $('#btn-close-symlink-screen'),
@@ -298,6 +292,16 @@ setupBrowseButton(dom.btnBrowseFigma, dom.settingsFigmaPath);
 setupBrowseButton(dom.btnBrowseObsidian, dom.settingsObsidianPath);
 setupBrowseButton(dom.btnBrowseScrcpy, dom.settingsScrcpyPath);
 
+if (dom.btnBrowseReaKit && dom.settingsReaKitPath) {
+  dom.btnBrowseReaKit.addEventListener('click', async () => {
+    const selected = await window.api.selectDirectory('Select ReaKit Directory');
+    if (selected) {
+      dom.settingsReaKitPath.value = selected;
+      await saveSettingsFromUI();
+    }
+  });
+}
+
 if (dom.btnBrowseObsidianVault && dom.settingsObsidianVault) {
   dom.btnBrowseObsidianVault.addEventListener('click', async () => {
     const selected = await window.api.selectDirectory('Select Obsidian Vault Folder');
@@ -318,6 +322,7 @@ const settingsInputs = [
   dom.settingsObsidianPath,
   dom.settingsObsidianVault,
   dom.settingsScrcpyPath,
+  dom.settingsReaKitPath,
 ];
 for (const input of settingsInputs) {
   if (input) {
@@ -329,9 +334,6 @@ for (const input of settingsInputs) {
 if (dom.settingsAutoRefresh) {
   dom.settingsAutoRefresh.addEventListener('change', async () => {
     await saveSettingsFromUI();
-    if (dom.btnRefreshAll) {
-      dom.btnRefreshAll.style.display = dom.settingsAutoRefresh.checked ? 'none' : '';
-    }
     startAutoRefreshLoop();
   });
 }
@@ -359,13 +361,23 @@ async function addProject() {
   await loadWorkspaces();
 }
 
-// ── Refresh All ────────────────────────────────────────
-dom.btnRefreshAll.addEventListener('click', async () => {
-  showToast('Refreshing...', 'info');
-  for (const p of state.projects) await window.api.refreshWorktrees(p.path);
-  await loadWorkspaces();
-  showToast('All projects refreshed', 'success');
-});
+// ── Refresh All Projects ───────────────────────────────
+if (dom.btnRefreshAll) {
+  dom.btnRefreshAll.addEventListener('click', async () => {
+    const icon = dom.btnRefreshAll.querySelector('img, svg');
+    if (icon) icon.classList.add('spinning');
+    showToast('Refreshing workspaces...', 'info');
+    try {
+      for (const p of state.projects) await window.api.refreshWorktrees(p.path);
+      await loadWorkspaces();
+      showToast('All projects refreshed', 'success');
+    } catch (err) {
+      showToast('Failed to refresh workspaces', 'error');
+    } finally {
+      if (icon) icon.classList.remove('spinning');
+    }
+  });
+}
 
 // ── Sidebar Resize ─────────────────────────────────────
 (function initSidebarResize() {
@@ -505,6 +517,9 @@ const iconRaw = {
   task: loadIcon('task'),
   refresh: loadIcon('refresh'),
   check: loadIcon('check'),
+  apk: loadIcon('apk'),
+  decode: loadIcon('decode'),
+  reakit: loadIcon('reakit'),
 };
 
 // Pre-sized icon strings matching original inline sizes
@@ -524,6 +539,9 @@ const icons = {
   claude: iconSvg(iconRaw.claude, 12),
   'windows-terminal': iconSvg(iconRaw['windows-terminal'], 12),
   android: iconSvg(iconRaw.android, 12),
+  apk: iconSvg(iconRaw.apk, 12),
+  decode: iconSvg(iconRaw.decode, 12),
+  reakit: iconSvg(iconRaw.reakit, 12),
   device: iconSvg(iconRaw.device, 14),
   refresh: iconSvg(iconRaw.refresh, 12),
   check: iconSvg(iconRaw.check, 12),
@@ -1930,6 +1948,7 @@ function showProjectOptionsMenu(project, x, y) {
     x,
     y,
     html: `
+      ${menuItemHTML({ action: 'refresh-project', icon: icons.refresh, label: 'Refresh project' })}
       ${menuItemHTML({ action: 'add-wt', icon: icons.plus, label: 'Add worktree' })}
       ${menuItemHTML({ action: 'create-branch', icon: icons.gitBranch, label: 'Create branch' })}
       ${menuItemHTML({ action: 'fetch', icon: icons.download, label: 'Fetch' })}
@@ -1940,6 +1959,15 @@ function showProjectOptionsMenu(project, x, y) {
   });
 
   bindMenuActions(menu, {
+    'refresh-project': async () => {
+      showToast(`Refreshing ${project.name}...`, 'info');
+      try {
+        await refreshProjectWorkspaces(project.path);
+        showToast(`Refreshed ${project.name}`, 'success');
+      } catch (err) {
+        showToast(`Failed to refresh ${project.name}`, 'error');
+      }
+    },
     'create-branch': () => showCreateBranchModal(project),
     'add-wt': () => showAddWorktreeModal(project),
     'fetch': async () => {
@@ -2106,31 +2134,6 @@ function formatBytes(bytes: number, decimals = 1): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
-
-async function checkDashboardAdbDevice() {
-  if (!dom.dashDeviceText || !dom.dashChipDeviceDot) return;
-  try {
-    const res = await window.api.deviceList();
-    if (res?.success && res.devices?.length) {
-      const active = res.devices.find((d: any) => d.isActive) || res.devices[0];
-      dom.dashChipDeviceDot.className = 'dash-chip-dot online';
-      const label = active.marketName || active.model || active.serial;
-      dom.dashDeviceText.textContent = `ADB: ${label} (${res.devices.length} connected)`;
-      if (dom.dashChipDevice) {
-        dom.dashChipDevice.title = `Active device: ${label} (${active.serial})\nTotal connected: ${res.devices.length}\nClick to open Device Manager`;
-      }
-    } else {
-      dom.dashChipDeviceDot.className = 'dash-chip-dot';
-      dom.dashDeviceText.textContent = 'ADB: No devices connected';
-      if (dom.dashChipDevice) {
-        dom.dashChipDevice.title = 'No Android devices connected. Click to open Device Manager';
-      }
-    }
-  } catch {
-    dom.dashChipDeviceDot.className = 'dash-chip-dot';
-    dom.dashDeviceText.textContent = 'ADB: Offline';
-  }
 }
 
 function updateSidebarFigmaButton(activeProject?: any) {
@@ -2369,106 +2372,8 @@ function renderFigmaInlineEdit(activeProject: any, currentUrl: string) {
   });
 }
 
-function renderDashboardApk(activeProject: any) {
-  if (!dom.dashApkList) return;
-  const apkFiles = Array.isArray(activeProject.apkFiles) ? activeProject.apkFiles : [];
-
-  if (dom.dashApkBadge) {
-    dom.dashApkBadge.textContent = `${apkFiles.length} APK${apkFiles.length === 1 ? '' : 's'}`;
-  }
-
-  if (apkFiles.length === 0) {
-    dom.dashApkList.innerHTML = `
-      <div style="text-align: center; padding: 14px 12px; color: var(--text-muted); font-size: 12px;">
-        No APK builds linked yet.
-      </div>
-    `;
-    return;
-  }
-
-  dom.dashApkList.innerHTML = apkFiles.map((apk: any) => `
-    <div class="dash-apk-item" data-apk-id="${esc(apk.id)}">
-      <div class="dash-apk-item-left">
-        <div class="dash-apk-file-icon">
-          ${icons.device || '<img src="icons/device.svg" width="16" height="16" />'}
-        </div>
-        <div class="dash-apk-meta-group">
-          <div class="dash-apk-name-row">
-            <span class="dash-apk-title" title="${esc(apk.name)}">${esc(apk.name)}</span>
-            <span class="dash-apk-size-pill">${formatBytes(apk.size)}</span>
-          </div>
-          <span class="dash-apk-path" title="${esc(apk.path)}">${esc(apk.path)}</span>
-        </div>
-      </div>
-      <div class="dash-apk-item-actions">
-        <button type="button" class="btn-apk-install" data-action="install-apk" data-path="${esc(apk.path)}" data-name="${esc(apk.name)}" title="Install this APK to connected Android device via adb">
-          ${icons.download || ''}
-          <span>Install to Device</span>
-        </button>
-        <button type="button" class="dash-icon-btn" data-action="reveal-apk" data-path="${esc(apk.path)}" title="Reveal in File Explorer">
-          ${icons.folder || ''}
-        </button>
-        <button type="button" class="dash-icon-btn" data-action="remove-apk" data-id="${esc(apk.id)}" title="Remove APK from project">
-          ${icons.trash || ''}
-        </button>
-      </div>
-    </div>
-  `).join('');
-
-  dom.dashApkList.querySelectorAll('[data-action="install-apk"]').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLElement;
-      const apkPath = target.dataset.path;
-      const apkName = target.dataset.name || 'APK';
-      if (!apkPath) return;
-
-      const originalHtml = target.innerHTML;
-      target.setAttribute('disabled', 'true');
-      target.innerHTML = `<span class="spinner" style="width:12px; height:12px; border-width:2px;"></span> Installing...`;
-      showToast(`Installing ${apkName} on Android device...`, 'info');
-
-      try {
-        const res = await window.api.installApk({ apkPath });
-        if (res.success) {
-          showToast(`Successfully installed ${apkName}!`, 'success');
-        } else {
-          showToast(`Install failed: ${res.error || 'Check device connection'}`, 'error');
-        }
-      } catch (err: any) {
-        showToast(`Install error: ${err.message}`, 'error');
-      } finally {
-        target.removeAttribute('disabled');
-        target.innerHTML = originalHtml;
-      }
-    });
-  });
-
-  dom.dashApkList.querySelectorAll('[data-action="reveal-apk"]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      const target = e.currentTarget as HTMLElement;
-      const apkPath = target.dataset.path;
-      if (apkPath) {
-        void window.api.openInExplorer(apkPath);
-      }
-    });
-  });
-
-  dom.dashApkList.querySelectorAll('[data-action="remove-apk"]').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLElement;
-      const apkId = target.dataset.id;
-      if (!apkId) return;
-
-      const res = await window.api.removeProjectApk(activeProject.path, apkId);
-      if (res?.success) {
-        showToast('APK removed from project', 'info');
-        activeProject.apkFiles = (activeProject.apkFiles || []).filter((a: any) => a.id !== apkId);
-        renderDashboardApk(activeProject);
-      } else {
-        showToast(`Failed: ${res?.error || 'Unknown error'}`, 'error');
-      }
-    });
-  });
+function renderDashboardApk(_activeProject?: any) {
+  // Standalone APK dashboard section was integrated into the Competitor UI
 }
 
 const COMPETITOR_THEMES = [
@@ -2530,6 +2435,9 @@ function extractCompetitorFlows(notes: string): string {
   return words.slice(0, 2).join(' ').toLowerCase();
 }
 
+const reakitBusy = new Map<string, string>(); // compId -> 'downloading' | 'decompiling'
+const inFlightReakitChecks = new Set<string>();
+
 function renderDashboardCompetitors(activeProject: any, activeWt: any) {
   if (!dom.dashCompetitorList) return;
   const competitors = Array.isArray(activeProject.competitors) ? activeProject.competitors : [];
@@ -2548,10 +2456,16 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         <div class="dash-comp-empty-desc">
           Add rival Android apps to benchmark user flows and run automated agent audits with <code>/ba-competitor</code>.
         </div>
-        <button type="button" class="btn-primary btn-small dash-comp-empty-btn" id="dash-btn-empty-add-comp">
-          ${icons.plus || '+'}
-          <span>Add Competitor App</span>
-        </button>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-primary btn-small dash-comp-empty-btn" id="dash-btn-empty-add-comp">
+            ${icons.plus || '+'}
+            <span>Add Competitor App</span>
+          </button>
+          <button type="button" class="btn-secondary btn-small dash-comp-empty-btn" id="dash-btn-empty-import-apk" title="Import competitor app from an APK file">
+            ${icons.apk || icons.android}
+            <span>Import APK</span>
+          </button>
+        </div>
       </div>
     `;
 
@@ -2561,10 +2475,17 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         if (dom.dashBtnAddCompetitor) dom.dashBtnAddCompetitor.click();
       });
     }
+    const emptyImportBtn = dom.dashCompetitorList.querySelector('#dash-btn-empty-import-apk');
+    if (emptyImportBtn) {
+      emptyImportBtn.addEventListener('click', () => {
+        if (dom.dashBtnImportCompApk) dom.dashBtnImportCompApk.click();
+      });
+    }
     return;
   }
 
   dom.dashCompetitorList.innerHTML = competitors.map((comp: any) => {
+    const busyState = reakitBusy.get(comp.id);
     const theme = getCompetitorTheme(comp.name);
     const initials = getCompetitorInitials(comp.name);
     const urlInfo = formatCompetitorUrlLabel(comp.url);
@@ -2621,6 +2542,108 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
               </button>
             </div>
           ` : ''}
+
+          ${busyState ? `
+            <div class="dash-comp-busy-banner">
+              <div class="dash-comp-spinner"></div>
+              <div class="dash-comp-busy-info">
+                <span class="dash-comp-busy-title">${busyState === 'downloading' ? 'Downloading APK via ReaKit...' : 'Decoding APK with ReaKit (JADX)...'}</span>
+                <span class="dash-comp-busy-sub">${busyState === 'downloading' ? 'Fetching Android package artifacts' : 'Extracting Java/Kotlin sources & resources'}</span>
+              </div>
+            </div>
+          ` : (comp.apkPath ? `
+            <div class="dash-comp-workbench">
+              <div class="dash-comp-artifact-row apk-row">
+                <div class="dash-comp-artifact-main">
+                  <div class="dash-comp-artifact-badge apk" title="Linked Android APK build">
+                    ${icons.apk || icons.android}
+                  </div>
+                  <div class="dash-comp-artifact-info">
+                    <div class="dash-comp-artifact-name-row">
+                      <span class="dash-comp-artifact-name" title="${esc(comp.apkName || comp.apkPath)}">${esc(comp.apkName || 'app.apk')}</span>
+                      <span class="dash-comp-pill-mono">${formatBytes(comp.apkSize || 0)}</span>
+                    </div>
+                    <span class="dash-comp-artifact-path" title="${esc(comp.apkPath)}">${esc(comp.apkPath)}</span>
+                  </div>
+                </div>
+                <div class="dash-comp-artifact-actions">
+                  <button type="button" class="dash-comp-btn-action install" data-action="comp-install-apk" data-path="${esc(comp.apkPath)}" data-name="${esc(comp.name)}" title="Install ${esc(comp.name)} APK to connected Android device via ADB">
+                    ${icons.download}
+                    <span>Install</span>
+                  </button>
+                  <button type="button" class="dash-icon-btn" data-action="comp-reveal-apk" data-path="${esc(comp.apkPath)}" title="Reveal in File Explorer">
+                    ${icons.folder}
+                  </button>
+                  <button type="button" class="dash-icon-btn danger" data-action="comp-unlink-apk" data-comp-id="${esc(comp.id)}" data-comp-name="${esc(comp.name)}" title="Unlink APK from ${esc(comp.name)}">
+                    ${icons.trash}
+                  </button>
+                </div>
+              </div>
+
+              <div class="dash-comp-artifact-row decode-row">
+                ${(comp.jadxStatus === 'ready' || comp.jadxSourcePath) ? `
+                  <div class="dash-comp-artifact-main">
+                    <div class="dash-comp-artifact-badge decode ready" title="Decoded Java/Kotlin sources ready">
+                      ${icons.decode || icons.code}
+                    </div>
+                    <div class="dash-comp-artifact-info">
+                      <div class="dash-comp-artifact-name-row">
+                        <span class="dash-comp-decode-status-text ready">Decoded Source</span>
+                        <span class="dash-comp-pill-status ready">JADX Ready</span>
+                      </div>
+                      <span class="dash-comp-artifact-path" title="${esc(comp.jadxSourcePath || 'jadx_src')}">${esc(comp.jadxSourcePath ? (comp.jadxSourcePath.split(/[\\/]/).slice(-2).join('/')) : 'jadx_src')}</span>
+                    </div>
+                  </div>
+                  <div class="dash-comp-artifact-actions">
+                    <button type="button" class="dash-comp-btn-action source" data-action="comp-open-jadx-src" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-jadx-path="${esc(comp.jadxSourcePath || '')}" title="Open decompiled source folder in Explorer">
+                      ${icons.folder}
+                      <span>Source</span>
+                    </button>
+                    <button type="button" class="dash-icon-btn" data-action="comp-decompile-jadx" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-comp-name="${esc(comp.name)}" data-path="${esc(comp.apkPath || '')}" title="Re-decode APK with ReaKit JADX">
+                      ${icons.refresh}
+                    </button>
+                  </div>
+                ` : `
+                  <div class="dash-comp-artifact-main">
+                    <div class="dash-comp-artifact-badge decode idle" title="APK source not decoded yet">
+                      ${icons.decode || icons.code}
+                    </div>
+                    <div class="dash-comp-artifact-info">
+                      <div class="dash-comp-artifact-name-row">
+                        <span class="dash-comp-decode-status-text idle">Decoded Source</span>
+                        <span class="dash-comp-pill-status idle">Not Decoded</span>
+                      </div>
+                      <span class="dash-comp-artifact-hint">Decompile Java/Kotlin &amp; layouts</span>
+                    </div>
+                  </div>
+                  <div class="dash-comp-artifact-actions">
+                    <button type="button" class="dash-comp-btn-action decode" data-action="comp-decompile-jadx" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-comp-name="${esc(comp.name)}" data-path="${esc(comp.apkPath || '')}" title="Decode APK and extract Java/Kotlin sources with ReaKit JADX">
+                      ${icons.decode || icons.code}
+                      <span>Decode</span>
+                    </button>
+                  </div>
+                `}
+              </div>
+            </div>
+          ` : `
+            <div class="dash-comp-no-apk-row">
+              ${comp.packageName ? `
+                <button type="button" class="dash-comp-btn-reakit-download" data-action="comp-reakit-download" data-comp-id="${esc(comp.id)}" data-comp-name="${esc(comp.name)}" data-pkg="${esc(comp.packageName)}" title="Download APK for ${esc(comp.packageName)} via ReaKit">
+                  ${icons.download}
+                  <span>Download APK</span>
+                </button>
+                <button type="button" class="dash-comp-link-apk-btn" data-action="comp-link-apk" data-comp-id="${esc(comp.id)}" data-comp-name="${esc(comp.name)}" title="Link an existing local APK file">
+                  ${icons.apk || icons.android}
+                  <span>Link APK</span>
+                </button>
+              ` : `
+                <button type="button" class="dash-comp-link-apk-btn" data-action="comp-link-apk" data-comp-id="${esc(comp.id)}" data-comp-name="${esc(comp.name)}" title="Link an APK build to ${esc(comp.name)}">
+                  ${icons.apk || icons.android}
+                  <span>+ Link APK Build</span>
+                </button>
+              `}
+            </div>
+          `)}
         </div>
 
         <div class="dash-comp-bench-section">
@@ -2794,6 +2817,354 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       }
     });
   });
+
+  // Install competitor APK to connected Android device
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-install-apk"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const apkPath = target.dataset.path;
+      const compName = target.dataset.name || 'Competitor';
+      if (!apkPath) return;
+
+      const originalHtml = target.innerHTML;
+      target.setAttribute('disabled', 'true');
+      target.innerHTML = `<span class="spinner" style="width:11px; height:11px; border-width:2px;"></span> Installing...`;
+      showToast(`Installing ${compName} on Android device...`, 'info');
+
+      try {
+        const res = await window.api.installApk({ apkPath });
+        if (res?.success) {
+          showToast(`Successfully installed ${compName}!`, 'success');
+        } else {
+          showToast(`Install failed: ${res?.error || 'Check device connection'}`, 'error');
+        }
+      } catch (err: any) {
+        showToast(`Install error: ${err.message}`, 'error');
+      } finally {
+        target.removeAttribute('disabled');
+        target.innerHTML = originalHtml;
+      }
+    });
+  });
+
+  // Reveal competitor APK in File Explorer
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-reveal-apk"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const apkPath = target.dataset.path;
+      if (apkPath) {
+        void window.api.openInExplorer(apkPath);
+      }
+    });
+  });
+
+  // Unlink APK from competitor
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-unlink-apk"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const compId = target.dataset.compId;
+      const compName = target.dataset.compName || 'Competitor';
+      if (!compId) return;
+
+      const res = await window.api.unlinkCompetitorApk(activeProject.path, compId);
+      if (res?.success) {
+        showToast(`Unlinked APK from ${compName}`, 'info');
+        const comp = (activeProject.competitors || []).find((c: any) => c.id === compId);
+        if (comp) {
+          delete comp.apkPath;
+          delete comp.apkName;
+          delete comp.apkSize;
+        }
+        renderDashboardCompetitors(activeProject, activeWt);
+      } else {
+        showToast(`Failed to unlink APK: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    });
+  });
+
+  // Link APK on competitor card
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-link-apk"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const compId = target.dataset.compId;
+      const compName = target.dataset.compName || 'Competitor';
+      if (!compId) return;
+
+      const apkFile = await window.api.selectApkFile();
+      if (apkFile) {
+        const res = await window.api.linkCompetitorApk(activeProject.path, compId, apkFile);
+        if (res?.success) {
+          showToast(`Linked ${apkFile.name} to ${compName}!`, 'success');
+          const comp = (activeProject.competitors || []).find((c: any) => c.id === compId);
+          if (comp) {
+            comp.apkPath = apkFile.path;
+            comp.apkName = apkFile.name;
+            comp.apkSize = apkFile.size;
+            if (res.competitor?.jadxStatus === 'ready') {
+              comp.jadxStatus = 'ready';
+              comp.jadxSourcePath = res.competitor.jadxSourcePath;
+            } else {
+              void window.api.getCompetitorReakitStatus({
+                projectPath: activeProject.path,
+                competitorId: comp.id,
+                packageName: comp.packageName,
+                apkPath: apkFile.path,
+              }).then((st: any) => {
+                if (st?.hasJadx) {
+                  comp.jadxStatus = 'ready';
+                  comp.jadxSourcePath = st.jadxSourcePath;
+                  renderDashboardCompetitors(activeProject, activeWt);
+                }
+              }).catch(() => {});
+            }
+          }
+          renderDashboardCompetitors(activeProject, activeWt);
+        } else {
+          showToast(`Failed to link APK: ${res?.error || 'Unknown error'}`, 'error');
+        }
+      }
+    });
+  });
+
+  // Download APK via ReaKit
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-reakit-download"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const compId = target.dataset.compId;
+      const compName = target.dataset.compName || 'Competitor';
+      const pkg = target.dataset.pkg;
+      if (!compId || !pkg) return;
+
+      if (reakitBusy.has(compId)) {
+        showToast('Operation in progress for this competitor...', 'info');
+        return;
+      }
+
+      reakitBusy.set(compId, 'downloading');
+      renderDashboardCompetitors(activeProject, activeWt);
+      showToast(`Downloading APK for ${compName} via ReaKit...`, 'info');
+
+      try {
+        const res = await window.api.downloadCompetitorApk({
+          projectPath: activeProject.path,
+          competitorId: compId,
+          packageName: pkg,
+        });
+
+        if (res?.success && res.apkPath) {
+          showToast(`Downloaded ${res.apkName || 'APK'} successfully!`, 'success');
+          const comp = (activeProject.competitors || []).find((c: any) => c.id === compId);
+          if (comp) {
+            comp.apkPath = res.apkPath;
+            comp.apkName = res.apkName;
+            comp.apkSize = res.apkSize;
+          }
+          const status = await window.api.getCompetitorReakitStatus({
+            projectPath: activeProject.path,
+            packageName: pkg,
+            apkPath: res.apkPath,
+          });
+          if (status?.hasJadx && comp) {
+            comp.jadxStatus = 'ready';
+            comp.jadxSourcePath = status.jadxSourcePath;
+          }
+        } else {
+          showToast(`Download failed: ${res?.error || 'Unknown error'}`, 'error');
+        }
+      } catch (err: any) {
+        showToast(`Download error: ${err?.message || String(err)}`, 'error');
+      } finally {
+        reakitBusy.delete(compId);
+        renderDashboardCompetitors(activeProject, activeWt);
+      }
+    });
+  });
+
+  // Decompile APK with ReaKit JADX
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-decompile-jadx"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const compId = target.dataset.compId;
+      const compName = target.dataset.compName || 'Competitor';
+      const pkg = target.dataset.pkg;
+      const apkPath = target.dataset.path;
+      if (!compId) return;
+
+      if (reakitBusy.has(compId)) {
+        showToast('Operation in progress for this competitor...', 'info');
+        return;
+      }
+
+      reakitBusy.set(compId, 'decompiling');
+      renderDashboardCompetitors(activeProject, activeWt);
+      showToast(`Decoding ${compName} APK sources with ReaKit... (this may take a minute)`, 'info');
+
+      try {
+        const res = await window.api.decompileCompetitorJadx({
+          projectPath: activeProject.path,
+          competitorId: compId,
+          packageName: pkg,
+          apkPath,
+        });
+
+        if (res?.success && res.jadxSourcePath) {
+          showToast(`Successfully decoded ${compName} sources (JADX)!`, 'success');
+          const comp = (activeProject.competitors || []).find((c: any) => c.id === compId);
+          if (comp) {
+            comp.jadxStatus = 'ready';
+            comp.jadxSourcePath = res.jadxSourcePath;
+          }
+          void window.api.updateProjectCompetitor(activeProject.path, {
+            id: compId,
+            packageName: pkg,
+            jadxSourcePath: res.jadxSourcePath,
+            jadxStatus: 'ready',
+          });
+        } else {
+          showToast(`Decode failed: ${res?.error || 'Unknown error'}`, 'error');
+        }
+      } catch (err: any) {
+        showToast(`Decode error: ${err?.message || String(err)}`, 'error');
+      } finally {
+        reakitBusy.delete(compId);
+        renderDashboardCompetitors(activeProject, activeWt);
+      }
+    });
+  });
+
+  // Open JADX source folder in Explorer
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-open-jadx-src"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const jadxPath = target.dataset.jadxPath;
+      const pkg = target.dataset.pkg;
+      const res = await window.api.openJadxSource({
+        jadxSourcePath: jadxPath,
+        projectPath: activeProject.path,
+        packageName: pkg,
+      });
+      if (!res?.success) {
+        showToast(res?.error || 'Failed to open JADX source folder', 'error');
+      }
+    });
+  });
+
+  // Drag and drop an APK onto a specific competitor card
+  dom.dashCompetitorList.querySelectorAll('.dash-comp-card').forEach((cardEl: Element) => {
+    const cardHtml = cardEl as HTMLElement;
+    cardHtml.addEventListener('dragover', (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cardHtml.classList.add('dragover');
+    });
+    cardHtml.addEventListener('dragleave', (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cardHtml.classList.remove('dragover');
+    });
+    cardHtml.addEventListener('drop', async (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cardHtml.classList.remove('dragover');
+      const compId = cardHtml.dataset.compId;
+      if (!compId) return;
+
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+      const file = files[0] as any;
+      if (!file?.path || !/\.(apk|xapk|apks)$/i.test(file.path)) {
+        showToast('Please drop an .apk or .xapk file', 'info');
+        return;
+      }
+
+      const comp = (activeProject.competitors || []).find((c: any) => c.id === compId);
+      const res = await window.api.linkCompetitorApk(activeProject.path, compId, {
+        name: file.name,
+        path: file.path,
+        size: file.size || 0,
+      });
+      if (res?.success) {
+        showToast(`Linked ${file.name} to ${comp?.name || 'competitor'}!`, 'success');
+        if (comp) {
+          comp.apkPath = file.path;
+          comp.apkName = file.name;
+          comp.apkSize = file.size || 0;
+          if (res.competitor?.jadxStatus === 'ready') {
+            comp.jadxStatus = 'ready';
+            comp.jadxSourcePath = res.competitor.jadxSourcePath;
+          } else {
+            void window.api.getCompetitorReakitStatus({
+              projectPath: activeProject.path,
+              competitorId: comp.id,
+              packageName: comp.packageName,
+              apkPath: file.path,
+            }).then((st: any) => {
+              if (st?.hasJadx) {
+                comp.jadxStatus = 'ready';
+                comp.jadxSourcePath = st.jadxSourcePath;
+                renderDashboardCompetitors(activeProject, activeWt);
+              }
+            }).catch(() => {});
+          }
+        }
+        renderDashboardCompetitors(activeProject, activeWt);
+      } else {
+        showToast(`Failed to link APK: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    });
+  });
+
+  // Auto-detect ReaKit status from disk for existing targets
+  if (activeProject?.path) {
+    (activeProject.competitors || []).forEach(async (comp: any) => {
+      if (!comp.id || inFlightReakitChecks.has(comp.id)) return;
+      if (comp.jadxStatus !== 'ready' || !comp.jadxSourcePath || !comp.apkPath) {
+        inFlightReakitChecks.add(comp.id);
+        try {
+          const status = await window.api.getCompetitorReakitStatus({
+            projectPath: activeProject.path,
+            competitorId: comp.id,
+            packageName: comp.packageName,
+            apkPath: comp.apkPath,
+            jadxSourcePath: comp.jadxSourcePath,
+          });
+          let changed = false;
+          if (status.hasJadx && comp.jadxStatus !== 'ready') {
+            comp.jadxStatus = 'ready';
+            comp.jadxSourcePath = status.jadxSourcePath;
+            changed = true;
+          }
+          if (status.hasApk && !comp.apkPath && status.apkPath) {
+            comp.apkPath = status.apkPath;
+            comp.apkName = status.apkName;
+            comp.apkSize = status.apkSize;
+            changed = true;
+          }
+          if (changed) {
+            void window.api.updateProjectCompetitor(activeProject.path, {
+              id: comp.id,
+              packageName: comp.packageName,
+              apkPath: comp.apkPath,
+              apkName: comp.apkName,
+              apkSize: comp.apkSize,
+              jadxSourcePath: comp.jadxSourcePath,
+              jadxStatus: comp.jadxStatus,
+            });
+            renderDashboardCompetitors(activeProject, activeWt);
+          }
+        } catch (_) {} finally {
+          inFlightReakitChecks.delete(comp.id);
+        }
+      }
+    });
+  }
 }
 
 function renderDashboardViewer() {
@@ -2820,14 +3191,7 @@ function renderDashboardViewer() {
     dom.dashProjectPath.textContent = currentPath;
     dom.dashProjectPath.title = currentPath;
   }
-  if (dom.dashWtText) {
-    const wtCount = (activeProject.worktrees || []).length;
-    dom.dashWtText.textContent = `${wtCount} Worktree${wtCount === 1 ? '' : 's'}`;
-  }
-
-  void checkDashboardAdbDevice();
   renderDashboardFigma(activeProject);
-  renderDashboardApk(activeProject);
   renderDashboardCompetitors(activeProject, activeWt);
 }
 
@@ -2859,34 +3223,21 @@ if (dom.dashBtnRevealPath) {
   });
 }
 
-if (dom.dashBtnRefreshAdb) {
-  dom.dashBtnRefreshAdb.addEventListener('click', async () => {
-    showToast('Checking ADB devices...', 'info');
-    await checkDashboardAdbDevice();
-  });
-}
-
-if (dom.dashChipDevice) {
-  dom.dashChipDevice.style.cursor = 'pointer';
-  dom.dashChipDevice.addEventListener('click', () => {
-    void showDeviceManagerScreen();
-  });
-}
-
-if (dom.dashChipWorktree) {
-  dom.dashChipWorktree.style.cursor = 'pointer';
-  dom.dashChipWorktree.addEventListener('click', () => {
-    if (dom.workspaceSidebar && dom.workspaceSidebar.classList.contains('workspace-sidebar-collapsed')) {
-      dom.btnToggleWorkspaceSidebar?.click();
-    }
-  });
-}
-
-if (dom.dashChipBakit) {
-  dom.dashChipBakit.style.cursor = 'pointer';
-  dom.dashChipBakit.addEventListener('click', () => {
-    if (dom.btnAgentToolkit) {
-      dom.btnAgentToolkit.click();
+if (dom.dashBtnRefreshProject) {
+  dom.dashBtnRefreshProject.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    const proj = activeProject || (state.selectedProjectPath ? state.projects.find(p => p.path === state.selectedProjectPath) : (state.projects && state.projects[0] ? state.projects[0] : null));
+    if (!proj) return;
+    const icon = dom.dashBtnRefreshProject.querySelector('img, svg');
+    if (icon) icon.classList.add('spinning');
+    showToast(`Refreshing ${proj.name}...`, 'info');
+    try {
+      await refreshProjectWorkspaces(proj.path);
+      showToast(`Refreshed ${proj.name}`, 'success');
+    } catch (err) {
+      showToast(`Failed to refresh ${proj.name}`, 'error');
+    } finally {
+      if (icon) icon.classList.remove('spinning');
     }
   });
 }
@@ -2924,45 +3275,55 @@ if (dom.dashBtnViewList) {
   });
 }
 
-if (dom.dashBtnAddApk) {
-  dom.dashBtnAddApk.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
+if (dom.dashBtnImportCompApk) {
+  dom.dashBtnImportCompApk.addEventListener('click', async () => {
+    const { activeProject, activeWt } = getActiveProjectAndWorktree();
     if (!activeProject) {
       showToast('Please select a project first', 'error');
       return;
     }
     const apkFile = await window.api.selectApkFile();
     if (apkFile) {
-      const res = await window.api.addProjectApk(activeProject.path, apkFile);
-      if (res?.success) {
-        showToast(`Linked APK: ${apkFile.name}`, 'success');
-        activeProject.apkFiles = res.project.apkFiles;
-        renderDashboardApk(activeProject);
-      } else {
-        showToast(`Failed to link APK: ${res?.error || 'Unknown error'}`, 'error');
-      }
+      openCompetitorModal({
+        project: activeProject,
+        initialApk: apkFile,
+        dom,
+        icons,
+        configureModalFooter,
+        showModal,
+        hideModal,
+        showToast,
+        focusModalInputLater,
+        bindModalEnterSubmit,
+        withAsyncButtonState,
+        onSuccess: (updated: any) => {
+          activeProject.competitors = updated.competitors;
+          renderDashboardCompetitors(activeProject, activeWt);
+        },
+      });
     }
   });
 }
 
-if (dom.dashLinkBrowseApk) {
-  dom.dashLinkBrowseApk.addEventListener('click', () => {
-    if (dom.dashBtnAddApk) dom.dashBtnAddApk.click();
+if (dom.dashSectionCompetitors) {
+  dom.dashSectionCompetitors.addEventListener('dragover', (e: DragEvent) => {
+    e.preventDefault();
+    dom.dashSectionCompetitors.classList.add('dragover');
   });
-}
+  dom.dashSectionCompetitors.addEventListener('dragleave', (e: DragEvent) => {
+    if (!dom.dashSectionCompetitors.contains(e.relatedTarget as Node)) {
+      dom.dashSectionCompetitors.classList.remove('dragover');
+    }
+  });
+  dom.dashSectionCompetitors.addEventListener('drop', async (e: DragEvent) => {
+    if (e.defaultPrevented && (e.target as HTMLElement).closest('.dash-comp-card')) {
+      dom.dashSectionCompetitors.classList.remove('dragover');
+      return;
+    }
+    e.preventDefault();
+    dom.dashSectionCompetitors.classList.remove('dragover');
 
-if (dom.dashApkDropzone) {
-  dom.dashApkDropzone.addEventListener('dragover', (e: DragEvent) => {
-    e.preventDefault();
-    dom.dashApkDropzone.classList.add('dragover');
-  });
-  dom.dashApkDropzone.addEventListener('dragleave', () => {
-    dom.dashApkDropzone.classList.remove('dragover');
-  });
-  dom.dashApkDropzone.addEventListener('drop', async (e: DragEvent) => {
-    e.preventDefault();
-    dom.dashApkDropzone.classList.remove('dragover');
-    const { activeProject } = getActiveProjectAndWorktree();
+    const { activeProject, activeWt } = getActiveProjectAndWorktree();
     if (!activeProject) {
       showToast('Please select a project first', 'error');
       return;
@@ -2970,26 +3331,33 @@ if (dom.dashApkDropzone) {
 
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i] as any;
-      const filePath = file.path;
-      if (!filePath) continue;
-      if (!filePath.toLowerCase().endsWith('.apk')) {
-        showToast(`Skipped non-APK: ${file.name}`, 'info');
-        continue;
-      }
-      const res = await window.api.addProjectApk(activeProject.path, {
-        name: file.name,
-        path: filePath,
-        size: file.size,
-      });
-      if (res?.success) {
-        activeProject.apkFiles = res.project.apkFiles;
-        showToast(`Added APK: ${file.name}`, 'success');
-      }
+    const file = files[0] as any;
+    if (!file?.path || !/\.(apk|xapk|apks)$/i.test(file.path)) {
+      showToast('Please drop an .apk or .xapk file', 'info');
+      return;
     }
-    renderDashboardApk(activeProject);
+
+    openCompetitorModal({
+      project: activeProject,
+      initialApk: {
+        name: file.name,
+        path: file.path,
+        size: file.size || 0,
+      },
+      dom,
+      icons,
+      configureModalFooter,
+      showModal,
+      hideModal,
+      showToast,
+      focusModalInputLater,
+      bindModalEnterSubmit,
+      withAsyncButtonState,
+      onSuccess: (updated: any) => {
+        activeProject.competitors = updated.competitors;
+        renderDashboardCompetitors(activeProject, activeWt);
+      },
+    });
   });
 }
 
@@ -3110,9 +3478,6 @@ async function loadWorkspaces() {
   }
 
   state.settings = (await window.api.getSettings()) || {};
-  if (dom.btnRefreshAll) {
-    dom.btnRefreshAll.style.display = state.settings.autoRefreshCurrentProject ? 'none' : '';
-  }
   state.projects = (await window.api.getWorkspaces()) || [];
   
   dom.loadingState.style.display = 'none';
@@ -3215,6 +3580,12 @@ function sidebarSelectedProjectHTML(project) {
   const expanded = state.expandedProjects.has(project.path);
   const wtItems = getDomainBuildWorktreeTree(project, state.settings)
     .map((node) => sidebarWtItemHTML(project, node)).join('');
+  const refreshButton = sidebarActionButtonHTML({
+    action: 'project-refresh',
+    path: project.path,
+    title: 'Refresh project',
+    icon: icons.refresh,
+  });
   const optionsButton = sidebarActionButtonHTML({
     action: 'project-options',
     path: project.path,
@@ -3229,6 +3600,7 @@ function sidebarSelectedProjectHTML(project) {
         <span class="sidebar-project-name" title="${esc(project.path)}">${esc(project.name)}</span>
       </div>
       <div class="sidebar-project-actions">
+        ${refreshButton}
         ${optionsButton}
       </div>
     </div>
@@ -3336,6 +3708,23 @@ function attachSelectedProjectEvents(project) {
       showProjectOptionsMenu(project, e.clientX, e.clientY);
     });
   }
+
+  // Refresh button
+  container.querySelector('[data-action="project-refresh"]')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget as HTMLElement;
+    const icon = btn?.querySelector('svg, img');
+    if (icon) icon.classList.add('spinning');
+    showToast(`Refreshing ${project.name}...`, 'info');
+    try {
+      await refreshProjectWorkspaces(project.path);
+      showToast(`Refreshed ${project.name}`, 'success');
+    } catch (err) {
+      showToast(`Failed to refresh ${project.name}`, 'error');
+    } finally {
+      if (icon) icon.classList.remove('spinning');
+    }
+  });
 
   // Options button
   container.querySelector('[data-action="project-options"]')?.addEventListener('click', (e) => {
@@ -3590,7 +3979,8 @@ async function saveSettingsFromUI() {
     obsidianPath: dom.settingsObsidianPath ? cleanVal(dom.settingsObsidianPath.value) : '',
     obsidianVault: dom.settingsObsidianVault ? dom.settingsObsidianVault.value.trim() : (state.settings?.obsidianVault || ''),
     scrcpyPath: dom.settingsScrcpyPath ? cleanVal(dom.settingsScrcpyPath.value) : '',
-    autoRefreshCurrentProject: dom.settingsAutoRefresh ? dom.settingsAutoRefresh.checked : true,
+    reakitPath: dom.settingsReaKitPath ? cleanVal(dom.settingsReaKitPath.value) : '',
+    autoRefreshCurrentProject: dom.settingsAutoRefresh ? dom.settingsAutoRefresh.checked : false,
     autoRefreshInterval: isNaN(intervalVal) || intervalVal < 1 ? 10 : intervalVal,
   };
   state.settings = await window.api.updateSettings(nextSettings);
@@ -3607,6 +3997,7 @@ async function showSettingsScreen() {
     if (dom.settingsObsidianPath) dom.settingsObsidianPath.value = state.settings.obsidianPath || 'detecting...';
     if (dom.settingsObsidianVault) dom.settingsObsidianVault.value = state.settings.obsidianVault || '';
     if (dom.settingsScrcpyPath) dom.settingsScrcpyPath.value = state.settings.scrcpyPath || 'detecting...';
+    if (dom.settingsReaKitPath) dom.settingsReaKitPath.value = state.settings.reakitPath || 'detecting...';
     if (dom.settingsAutoRefresh) dom.settingsAutoRefresh.checked = !!state.settings.autoRefreshCurrentProject;
     if (dom.settingsAutoRefreshInterval) dom.settingsAutoRefreshInterval.value = String(state.settings.autoRefreshInterval || 10);
   }
@@ -3646,6 +4037,9 @@ async function showSettingsScreen() {
       if (dom.settingsObsidianVault) {
         dom.settingsObsidianVault.value = state.settings.obsidianVault || detected.obsidianVault || '';
       }
+      if (dom.settingsReaKitPath) {
+        dom.settingsReaKitPath.value = state.settings.reakitPath || detected.reakitPath || 'not detected';
+      }
     }
   } catch (err) {
     console.error('Failed to detect integration paths:', err);
@@ -3673,6 +4067,9 @@ async function showSettingsScreen() {
       }
       if (dom.settingsObsidianVault) {
         dom.settingsObsidianVault.value = state.settings.obsidianVault || '';
+      }
+      if (dom.settingsReaKitPath) {
+        dom.settingsReaKitPath.value = state.settings.reakitPath || 'not detected';
       }
     }
   }
@@ -4108,7 +4505,6 @@ const deviceManagerScreen = new DeviceManagerScreen({
   dom,
   showToast,
   getActiveWorktreePath: () => state.activeWorktreePath,
-  refreshDashboardDeviceChip: checkDashboardAdbDevice,
   icons,
 });
 
@@ -4548,6 +4944,9 @@ function startAutoRefreshLoop() {
   if (autoRefreshIntervalId) {
     clearInterval(autoRefreshIntervalId);
     autoRefreshIntervalId = null;
+  }
+  if (!state.settings?.autoRefreshCurrentProject) {
+    return;
   }
   const intervalSeconds = state.settings?.autoRefreshInterval || 10;
   const intervalMs = intervalSeconds * 1000;

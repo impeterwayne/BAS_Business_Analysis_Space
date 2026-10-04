@@ -1,0 +1,240 @@
+package sources
+
+import (
+	"compress/gzip"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"maps"
+	"net/http"
+	"regexp"
+	"strings"
+	"sync"
+
+	"github.com/kiber-io/apkd/apkd/logging"
+	"github.com/kiber-io/apkd/apkd/network"
+
+	"github.com/vbauerster/mpb/v8"
+)
+
+// DownloadStream is returned by Source.Download. Body is the response body to
+// read from; Size is the exact byte count that will arrive, taken from the
+// HTTP Content-Length header. Size is -1 when the server did not send a
+// Content-Length (e.g. chunked transfer, transparent gzip decompression).
+type DownloadStream struct {
+	Body io.ReadCloser
+	Size int64
+}
+
+type Source interface {
+	MaxParallelsDownloads() int
+	Name() string
+	FindByPackage(packageName string, versionCode int) (Version, error)
+	FindByDeveloper(developerId string) ([]string, error)
+	Download(version Version) (*DownloadStream, error)
+}
+
+type BaseSource struct {
+	Source
+	Net            network.Doer
+	DefaultHeaders http.Header
+}
+
+type Error struct {
+	SourceName  string
+	PackageName string
+	Err         error
+}
+
+func (e Error) Error() string {
+	return fmt.Sprintf("source %s: package %s: %v", e.SourceName, e.PackageName, e.Err)
+}
+
+func (s *BaseSource) MaxParallelsDownloads() int {
+	return 1
+}
+
+func (s *BaseSource) FindByDeveloper(developerId string) ([]string, error) {
+	return []string{}, nil
+}
+
+func (s *BaseSource) Log() *logging.Logger {
+	loggerName := "sources"
+	if s.Source != nil {
+		sourceName := strings.ToLower(strings.TrimSpace(s.Name()))
+		if sourceName != "" {
+			loggerName = loggerName + "." + sourceName
+		}
+	}
+	return logging.Named(loggerName)
+}
+
+type FileType string
+
+const (
+	APK  FileType = "apk"
+	XAPK FileType = "xapk"
+)
+
+type Version struct {
+	Name        string
+	Code        int
+	Size        uint64
+	Link        string
+	PackageName string
+	DeveloperId string
+	Type        FileType
+}
+
+type ProgressReader struct {
+	Reader   io.Reader
+	Progress *mpb.Bar
+}
+
+func (pr *ProgressReader) Read(p []byte) (int, error) {
+	n, err := pr.Reader.Read(p)
+	pr.Progress.IncrBy(n)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return n, fmt.Errorf("read error: %w", err)
+	}
+	return n, err //nolint:wrapcheck // io.EOF must pass through per io.Reader contract
+}
+
+type AppNotFoundError struct {
+	PackageName string
+}
+
+func (e *AppNotFoundError) Error() string {
+	return e.PackageName + " not found"
+}
+
+var sources = make(map[string]Source)
+var sourceFactories []SourceFactory
+
+var initializeRegisteredSourcesOnce sync.Once
+var initializeRegisteredSourcesErr error
+var sourceFactoryRegistrationErrors []error
+
+var appVersionRegexp = regexp.MustCompile(`^\d+(\.\d+)*$`)
+
+type SourceFactory func() (Source, error)
+
+func RegisterSourceFactory(factory SourceFactory) {
+	sourceFactories = append(sourceFactories, factory)
+}
+
+func RegisterSourceFactoryWithConfig(factory SourceFactory, sourceName string, configDecoder ConfigDecoder) {
+	RegisterSourceFactory(factory)
+	if configDecoder != nil {
+		if err := RegisterSourceConfigDecoder(sourceName, configDecoder); err != nil {
+			sourceFactoryRegistrationErrors = append(sourceFactoryRegistrationErrors, fmt.Errorf("failed to register config decoder for source %q: %w", sourceName, err))
+		}
+	}
+}
+
+func InitializeRegisteredSources() error {
+	initializeRegisteredSourcesOnce.Do(func() {
+		if len(sourceFactoryRegistrationErrors) > 0 {
+			initializeRegisteredSourcesErr = fmt.Errorf("failed to register source config decoders: %w", errors.Join(sourceFactoryRegistrationErrors...))
+			return
+		}
+
+		for i, sourceFactory := range sourceFactories {
+			source, err := sourceFactory()
+			if err != nil {
+				initializeRegisteredSourcesErr = fmt.Errorf("failed to initialize source from factory #%d: %w", i+1, err)
+				return
+			}
+			if err := Register(source); err != nil {
+				initializeRegisteredSourcesErr = fmt.Errorf("failed to register source %s: %w", source.Name(), err)
+				return
+			}
+		}
+	})
+
+	return initializeRegisteredSourcesErr
+}
+
+func Register(s Source) error {
+	if _, exists := sources[s.Name()]; exists {
+		return fmt.Errorf("source %s is already registered", s.Name())
+	}
+	if s.Name() != strings.ToLower(s.Name()) {
+		return fmt.Errorf("source name %s should be lowercase", s.Name())
+	}
+	sources[s.Name()] = s
+	return nil
+}
+
+func GetAll() map[string]Source {
+	registry := make(map[string]Source, len(sources))
+	maps.Copy(registry, sources)
+	return registry
+}
+
+func readBody(res *http.Response) ([]byte, error) {
+	reader, err := unpackResponse(res)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	return body, nil
+}
+
+func unpackResponse(res *http.Response) (io.ReadCloser, error) {
+	switch res.Header.Get("Content-Encoding") {
+	case "gzip":
+		gzipReader, err := gzip.NewReader(res.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		return gzipReader, nil
+	default:
+		return res.Body, nil
+	}
+}
+
+func createResponseReader(httpClient network.Doer, req *http.Request) (*DownloadStream, error) {
+	if httpClient == nil {
+		httpClient = network.DefaultClient()
+	}
+	req = network.WithoutClientTimeout(req)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		if resp.Body != nil {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				return nil, fmt.Errorf("error %s: failed to close response body: %w", resp.Status, closeErr)
+			}
+		}
+		return nil, fmt.Errorf("error: %s", resp.Status)
+	}
+	return &DownloadStream{Body: resp.Body, Size: resp.ContentLength}, nil
+}
+
+func (s *BaseSource) NewRequest(method, url string, body io.Reader) (*http.Request, error) {
+	ctx := network.WithModule(context.Background(), s.Name())
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	return req, nil
+}
+
+func (s *BaseSource) Http() network.Doer {
+	if s.Net == nil {
+		sourceName := ""
+		if s.Source != nil {
+			sourceName = s.Name()
+		}
+		s.Net = network.DefaultClientForSource(sourceName)
+	}
+	return s.Net
+}

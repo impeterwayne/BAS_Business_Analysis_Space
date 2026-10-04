@@ -1,0 +1,40 @@
+{
+  "workspaceRoot": "workspaces",
+  "defaultStructure": {
+    "apks": "apks",
+    "jadx": "jadx_src",
+    "docs": "docs",
+    "native": "native",
+    "traffic": "traffic",
+    "runtime": {
+      "base": "runtime",
+      "internal": "runtime/internal",
+      "external": "runtime/external"
+    }
+  },
+  "targets": [
+    {
+      "packageName": "net.rention.smarter",
+      "alias": "Smarter"
+    },
+    {
+      "packageName": "ru.vk.store",
+      "alias": "Store"
+    },
+    {
+      "packageName": "com.nashstore",
+      "alias": "Nashstore"
+    },
+    {
+      "packageName": "com.ss.android.ugc.trill",
+      "alias": "Trill"
+    },
+    {
+      "packageName": "com.beautyplus.makeupfilter.sweetcamera.photo",
+      "alias": "Photo"
+    }
+  ],
+  "ghidraHome": "core/ghidra/ghidra_12.1.3_PUBLIC",
+  "ghidraGuiPort": 8089,
+  "ghidraHeadlessPort": 8192
+}

@@ -299,6 +299,11 @@ function normalizeProjectMetadata(metadata) {
               ? c.packageName.trim()
               : extractPlayStorePackageName(c.url),
             platform: 'Android',
+            apkPath: typeof c.apkPath === 'string' ? c.apkPath.trim() : '',
+            apkName: typeof c.apkName === 'string' ? c.apkName.trim() : (c.apkPath ? c.apkPath.split(/[\\/]/).pop() || '' : ''),
+            apkSize: typeof c.apkSize === 'number' && c.apkSize >= 0 ? c.apkSize : 0,
+            jadxSourcePath: typeof c.jadxSourcePath === 'string' ? c.jadxSourcePath.trim() : '',
+            jadxStatus: typeof c.jadxStatus === 'string' ? c.jadxStatus.trim() : '',
             notes: typeof c.notes === 'string' ? c.notes.trim() : '',
             addedAt: typeof c.addedAt === 'number' ? c.addedAt : Date.now(),
           }))
@@ -418,10 +423,41 @@ function buildBenchmarkSlashCommand(target, flow) {
   return slug ? `/ba-competitor ${pkg} ${slug}` : `/ba-competitor ${pkg}`;
 }
 
+function cleanApkAppName(fileName) {
+  if (!fileName || typeof fileName !== 'string') return '';
+  let base = fileName.trim().split(/[\\/]/).pop() || '';
+  base = base.replace(/\.(apk|xapk|apks)$/i, '').trim();
+  if (!base) return '';
+
+  const pkgMatch = base.match(/^([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]+)+)/);
+  if (pkgMatch) {
+    const inferred = inferAppNameFromPackage(pkgMatch[1]);
+    if (inferred) return inferred;
+  }
+
+  // Remove common build artifact suffixes
+  base = base.replace(/[-_](release|debug|universal|signed|unsigned|aligned|arm64|v7a|x86(_64)?)/gi, '');
+
+  // Replace underscores and dashes with spaces
+  base = base.replace(/[-_]+/g, ' ').trim();
+
+  // Capitalize words if all lowercase or uppercase
+  if (base.toLowerCase() === base || base.toUpperCase() === base) {
+    base = base
+      .split(' ')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  return base;
+}
+
 module.exports = {
   extractPlayStorePackageName,
   cleanStoreAppName,
   inferAppNameFromPackage,
+  cleanApkAppName,
   extractAppInfoFromHtml,
   cleanHtmlUrl,
   extractAppIconFromHtml,
