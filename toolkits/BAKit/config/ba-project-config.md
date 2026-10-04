@@ -48,9 +48,12 @@ writing any deliverable. Never store passwords, OTPs or API tokens here.
 
 Used by `competitor-app-analysis` / `/ba-competitor`. One row per app to benchmark.
 
-| App | Package | Platform | Flows of interest | Account to use | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| [Tên app] | `com.example.app` | Android | onboarding, login, [luồng chính] | guest / test account from [owner] | [ví dụ: cần OTP, giới hạn vùng] |
+| App | Package | Platform | Flows of interest | Account to use | Decoded source | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| [Tên app] | `com.example.app` | Android | onboarding, login, [luồng chính] | guest / test account from [owner] | `[…\com.example.app\jadx_src]` or none | [ví dụ: cần OTP, giới hạn vùng] |
+
+**Decoded source** is the ReaKit jadx output for the app (BA Space → Competitor → Decode). With it,
+`/ba-competitor` reads the code with parallel `code-scout` agents before touching the device.
 
 **Device:** [serial from `adb devices`, only needed when several devices are attached]
 

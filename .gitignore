@@ -10,6 +10,10 @@ build/*
 Thumbs.db
 /BA_Flow
 /mobilerun-mcp
+/AndroidHarnessAGY
+/apk-reverse
 toolkits/ReaKit/workspaces/
 toolkits/ReaKit/**/__pycache__/
+**/__pycache__/
+*.py[cod]
 *.egg-info/

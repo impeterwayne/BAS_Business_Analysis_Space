@@ -11,10 +11,11 @@
 | Tác giả / Agent (Author) | {name / agent} |
 | Phiên bản tài liệu (Version) | v1 |
 | Thư mục bằng chứng (Evidence folder) | `docs/BA/competitor/{app-slug}/screens/` |
+| Mã nguồn đã giải mã (Decoded source) | `{jadx_src path}` — chỉ mục: `code-index/_meta.md` / Không có (black-box) |
 
 ## 1. Tổng quan (Overview)
 
-{2–4 câu: ứng dụng làm gì, cho ai. Chỉ ghi điều quan sát được hoặc có nguồn; suy luận phải gắn nhãn [Suy luận (Inferred)].}
+{2–4 câu: ứng dụng làm gì, cho ai. Chỉ ghi điều quan sát được hoặc có nguồn; suy luận phải gắn nhãn [Inferred].}
 
 ## 2. Phạm vi khảo sát (Survey Scope)
 
@@ -54,7 +55,26 @@ flowchart TD
 | :--- | :--- | :--- |
 | {Màn hình thanh toán} | {Hành động phá hủy / cần tài khoản thật} | {Tài khoản sandbox} |
 
-## 9. Câu hỏi mở (Open Questions)
+## 9. Hồ sơ kỹ thuật (Tech Profile)
+
+Chỉ khi có `code-index/`. Nguồn: `code-index/tech.md`, `code-index/endpoints.md`. Mọi dòng gắn nhãn [Code].
+
+| Hạng mục (Item) | Giá trị (Value) | Nguồn (Source) |
+| :--- | :--- | :--- |
+| Nền tảng UI (UI framework) | {Native View / Compose / Flutter / React Native} | `code-index/tech.md` |
+| Nhóm SDK (SDK categories) | {Analytics: AppsFlyer, Firebase; eKYC: …} | `code-index/tech.md` |
+| Miền backend (Backend hosts) | {api.example.vn, …} | `code-index/endpoints.md` |
+
+## 10. Tính năng chỉ thấy trong mã nguồn (Code-only Features)
+
+Màn hình, cờ tính năng (feature flag) hoặc sự kiện có trong mã nhưng chưa quan sát được trên thiết bị: có thể bị ẩn,
+giới hạn theo tài khoản/vùng, đang A/B test hoặc sắp ra mắt. Không phải năng lực đã quan sát.
+
+| ID | Tính năng (Feature) | Dấu hiệu trong mã (Code signal) | Nguồn (Source) | Vì sao chưa thấy (Why not observed) |
+| :--- | :--- | :--- | :--- | :--- |
+| CC-001 | {Tab Đầu tư} | {InvestFragment + cờ `invest_tab_enabled`} | `{path:line}` | {Cờ tắt / cần KYC / chưa đi tới} |
+
+## 11. Câu hỏi mở (Open Questions)
 
 | ID | Câu hỏi (Question) | Bước tiếp theo để trả lời (Next step) |
 | :--- | :--- | :--- |

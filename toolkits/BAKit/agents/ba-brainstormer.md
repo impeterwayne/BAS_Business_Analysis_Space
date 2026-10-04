@@ -32,7 +32,7 @@ Phase 2 of `ba-workflow`. Run the `brainstorm-features` skill end to end.
 
 ## Output
 
-A `feature-brief` (template in `ba-templates`) in Vietnamese under `docs/BA/briefs/`, named per
+A `feature-brief` (template in `ba-templates`) in Vietnamese (English terminology, see `ba-global-rules`) under `docs/BA/briefs/`, named per
 `ba-naming-convention` (type `brief`), with the chosen approach, who chose it, and why.
 
 ## Boundaries

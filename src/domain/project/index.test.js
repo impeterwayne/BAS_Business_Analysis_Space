@@ -317,6 +317,8 @@ test('formatFlowSlug formats benchmark flow name into clean command parameter sl
   assert.strictEqual(formatFlowSlug('Onboarding KYC'), 'onboarding-kyc');
   assert.strictEqual(formatFlowSlug('QR Scan & Payment!'), 'qr-scan-payment');
   assert.strictEqual(formatFlowSlug('money_transfer'), 'money-transfer');
+  assert.strictEqual(formatFlowSlug('Chuyển tiền'), 'chuyen-tien');
+  assert.strictEqual(formatFlowSlug('Đăng nhập OTP'), 'dang-nhap-otp');
   assert.strictEqual(formatFlowSlug(''), '');
 });
 
@@ -332,6 +334,10 @@ test('buildBenchmarkSlashCommand generates correct /ba-competitor slash command'
   assert.strictEqual(
     buildBenchmarkSlashCommand('Shopee', ''),
     '/ba-competitor Shopee'
+  );
+  assert.strictEqual(
+    buildBenchmarkSlashCommand('vn.momo', ['Chuyển tiền', 'Onboarding KYC']),
+    '/ba-competitor vn.momo chuyen-tien onboarding-kyc'
   );
 });
 

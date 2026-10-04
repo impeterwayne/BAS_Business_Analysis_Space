@@ -327,7 +327,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       if (fs.existsSync(configFilePath)) {
         content = fs.readFileSync(configFilePath, 'utf-8');
       } else {
-        content = `# BA Project Configuration\n\n| Field | Value |\n| :--- | :--- |\n| Project | ${project.name} |\n| Deliverable language | Vietnamese |\n\n## 1. Project Overview\n\n> **Description:** Requirements and benchmarks\n\n## 2. Links & Resources\n\n| Resource | URL | Note / Access |\n| :--- | :--- | :--- |\n| Figma | \`https://figma.com\` | Design mockups, design system |\n\n## 5. Competitor Apps\n\n| App | Package | Platform | Flows of interest | Account to use | Notes |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+        content = `# BA Project Configuration\n\n| Field | Value |\n| :--- | :--- |\n| Project | ${project.name} |\n| Deliverable language | Vietnamese |\n\n## 1. Project Overview\n\n> **Description:** Requirements and benchmarks\n\n## 2. Links & Resources\n\n| Resource | URL | Note / Access |\n| :--- | :--- | :--- |\n| Figma | \`https://figma.com\` | Design mockups, design system |\n\n## 5. Competitor Apps\n\n| App | Package | Platform | Flows of interest | Account to use | Decoded source | Notes |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
       }
 
       // Update Figma URL if provided
@@ -350,10 +350,11 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
           if (c.url) noteParts.push(c.url);
           if (c.apkName) noteParts.push(`APK: ${c.apkName}`);
           const notesStr = noteParts.join(' | ');
-          return `| ${c.name || 'App'} | \`${c.packageName || ''}\` | Android | ${flowsStr} | guest | ${notesStr} |`;
+          const decoded = c.jadxStatus === 'ready' && c.jadxSourcePath ? `\`${c.jadxSourcePath}\`` : 'none';
+          return `| ${c.name || 'App'} | \`${c.packageName || ''}\` | Android | ${flowsStr} | guest | ${decoded} | ${notesStr} |`;
         }).join('\n');
 
-        const compTable = `| App | Package | Platform | Flows of interest | Account to use | Notes |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n${compRows}`;
+        const compTable = `| App | Package | Platform | Flows of interest | Account to use | Decoded source | Notes |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n${compRows}`;
 
         if (/## 5\. Competitor Apps[\s\S]*?(?=##|\Z)/i.test(content)) {
           content = content.replace(/## 5\. Competitor Apps[\s\S]*?(?=##|\Z)/i, `## 5. Competitor Apps\n\nUsed by \`competitor-app-analysis\` / \`/ba-competitor\`. One row per app to benchmark.\n\n${compTable}\n\n`);

@@ -2620,14 +2620,17 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
           ${flows.length > 0 ? `
             <div class="dash-comp-bench-list">
-              ${flows.map((flow: string, index: number) => {
+              ${(flows.length > 1 ? [flows, ...flows] : flows).map((flow: string | string[], index: number) => {
+                // With several flows, the first item runs them all in one session: one plan, one profile.
+                const isAll = Array.isArray(flow);
+                const label = isAll ? `All ${flows.length} flows` : flow as string;
                 const slashCmd = buildBenchmarkSlashCommand(target, flow);
                 return `
                   <div class="dash-comp-bench-item" data-action="copy-bench-cmd" data-cmd="${esc(slashCmd)}" title="Click to copy: ${esc(slashCmd)}">
                     <div class="dash-comp-bench-item-header">
                       <div class="dash-comp-bench-item-left">
-                        <span class="dash-comp-bench-index">${index + 1}</span>
-                        <span class="dash-comp-bench-name" title="${esc(flow)}">${esc(flow)}</span>
+                        <span class="dash-comp-bench-index">${isAll ? '★' : (flows.length > 1 ? index : index + 1)}</span>
+                        <span class="dash-comp-bench-name" title="${esc(label)}">${esc(label)}</span>
                       </div>
                       <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
                     </div>
@@ -2723,6 +2726,15 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
       void navigator.clipboard.writeText(cmd);
       showToast(`Copied command: ${cmd} — paste into Antigravity!`, 'success');
+
+      // /ba-competitor takes the decoded-source path and flows from ba-project-config.md: refresh it now.
+      const { activeProject, activeWt } = getActiveProjectAndWorktree();
+      if (activeProject) {
+        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path })
+          .then((res: any) => {
+            if (!res?.success) showToast(`Config sync failed: ${res?.error || 'Unknown error'}`, 'error');
+          });
+      }
 
       target.classList.add('copied');
       const iconState = target.querySelector('.dash-comp-bench-icon-state') as HTMLElement;
@@ -4477,10 +4489,12 @@ const BAKIT_COMPONENTS = [
     name: 'BA Agent Roster',
     folderName: '.agents\\agents',
     sourceFolder: 'agents',
-    description: 'Deploy ba-lead, competitor-analyst, ba-researcher, ba-brainstormer, and ba-spec-writer agents.',
+    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
     gitExcludePatterns: [
       '.agents/agents/ba-lead.md',
+      '.agents/agents/code-scout.md',
       '.agents/agents/competitor-analyst.md',
+      '.agents/agents/evidence-verifier.md',
       '.agents/agents/ba-researcher.md',
       '.agents/agents/ba-brainstormer.md',
       '.agents/agents/ba-spec-writer.md'
@@ -4492,9 +4506,10 @@ const BAKIT_COMPONENTS = [
     name: 'BA Skills & Templates (specs, competitor analysis, audits, test cases)',
     folderName: '.agents\\skills',
     sourceFolder: 'skills',
-    description: 'ba-templates catalog, competitor-app-analysis, mobilerun, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
+    description: 'ba-templates catalog, apk-code-index (jadx), competitor-app-analysis, mobilerun, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
+      '.agents/skills/apk-code-index/',
       '.agents/skills/competitor-app-analysis/',
       '.agents/skills/mobilerun/',
       '.agents/skills/specs/',
@@ -4530,11 +4545,20 @@ const BAKIT_COMPONENTS = [
     ]
   },
   {
+    id: 'bakit_agents_md',
+    toolkit: 'bakit',
+    kind: 'agentsmd',
+    name: 'Delegation Rule (AGENTS.md)',
+    sourceFile: 'agents-md\\AGENTS.block.md',
+    description: 'Adds a marked block to the worktree AGENTS.md so the main Antigravity session plans and dispatches subagents (invoke_subagent) instead of doing the work itself. Your own AGENTS.md content is kept.',
+    gitExcludePatterns: []
+  },
+  {
     id: 'bakit_mobilerun_mcp',
     toolkit: 'bakit',
     kind: 'mcp',
-    name: 'Mobilerun MCP (Antigravity)',
-    description: "Registers the mobilerun server in Antigravity's global MCP config so agents can drive competitor apps on the connected Android device. Applies to every Antigravity workspace.",
+    name: 'Mobilerun MCP (workspace plugin)',
+    description: 'Adds the mobilerun server as an Antigravity plugin in this worktree (.agents/plugins/mobilerun) so agents can drive competitor apps on the connected Android device. Other workspaces are not affected.',
     gitExcludePatterns: []
   }
 ];
@@ -4577,9 +4601,20 @@ async function refreshAgentToolkitStatus() {
   try {
     // Fetch statuses for all components
     const statuses = await Promise.all(TOOLKIT_COMPONENTS.map(async (comp: any) => {
+      if (comp.kind === 'agentsmd') {
+        try {
+          const st = await window.api.getAgentsMdBlockStatus({
+            worktreePath: activeWorktreePath,
+            sourcePath: srcBaseFor(comp) + '\\' + comp.sourceFile
+          });
+          return { id: comp.id, name: comp.name, sourceExists: st.sourceExists, exists: st.installed };
+        } catch (e) {
+          return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
+        }
+      }
       if (comp.kind === 'mcp') {
         try {
-          const mcp = await window.api.getMobilerunMcpStatus();
+          const mcp = await window.api.getMobilerunMcpStatus({ worktreePath: activeWorktreePath });
           return { id: comp.id, name: comp.name, sourceExists: mcp.registered || !!mcp.pythonPath, exists: mcp.registered };
         } catch (e) {
           return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
@@ -4760,19 +4795,35 @@ async function refreshAgentToolkitStatus() {
         };
 
         try {
+          if (comp.kind === 'agentsmd') {
+            if (isChecked) {
+              const res = await window.api.applyAgentsMdBlock({
+                worktreePath: activeWorktreePath,
+                sourcePath: srcBase + '\\' + comp.sourceFile
+              });
+              if (!res.success) throw new Error(res.error || 'Failed to update AGENTS.md');
+              showToast(`Delegation rule written to ${res.agentsMdPath}. Start a new Antigravity conversation to load it.`, 'success');
+            } else {
+              const res = await window.api.removeAgentsMdBlock({ worktreePath: activeWorktreePath });
+              if (!res.success) throw new Error(res.error || 'Failed to update AGENTS.md');
+              showToast('Delegation rule removed from AGENTS.md.', 'success');
+            }
+            return;
+          }
+
           if (comp.kind === 'mcp') {
             if (isChecked) {
-              const res = await window.api.registerMobilerunMcp();
+              const res = await window.api.registerMobilerunMcp({ worktreePath: activeWorktreePath });
               if (!res.success) throw new Error(res.error || 'Failed to register mobilerun MCP');
-              showToast(res.alreadyRegistered
-                ? `mobilerun is already registered in ${res.configPath}.`
-                : `Registered mobilerun in ${res.configPath}. Restart the Antigravity agent to load it.`, 'success');
-            } else {
-              if (!window.confirm("Remove the mobilerun MCP server from Antigravity's global config? This affects every Antigravity workspace.")) {
-                target.checked = true;
-                return;
+              showToast(`Registered mobilerun in ${res.configPath}. Restart the Antigravity agent to load it.`, 'success');
+              // An entry from an earlier BAKit in the global config would start mobilerun in every workspace.
+              if (res.globalRegistered && window.confirm('mobilerun is also registered in Antigravity\'s global MCP config, so it starts in every workspace. Remove the global entry?')) {
+                const g = await window.api.unregisterGlobalMobilerunMcp();
+                if (!g.success) throw new Error(g.error || 'Failed to remove the global mobilerun entry');
+                showToast(`Removed the global mobilerun entry from ${g.configPath}.`, 'success');
               }
-              const res = await window.api.unregisterMobilerunMcp();
+            } else {
+              const res = await window.api.unregisterMobilerunMcp({ worktreePath: activeWorktreePath });
               if (!res.success) throw new Error(res.error || 'Failed to unregister mobilerun MCP');
               showToast(`Removed mobilerun from ${res.configPath}.`, 'success');
             }

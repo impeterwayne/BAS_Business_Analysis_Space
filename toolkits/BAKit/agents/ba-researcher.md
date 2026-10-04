@@ -32,7 +32,7 @@ facts, not assumptions.
    cross-check claims across at least two sources. Distinguish stable practice from experimental.
 4. For a requirement URL, use `document-extraction` and save the extracted Markdown under `docs/BA/` per
    `ba-naming-convention` (type `extracted`).
-5. Write a concise research note in Vietnamese to `docs/BA/research/`, header per `ba-global-rules`,
+5. Write a concise research note in Vietnamese (English terminology, see `ba-global-rules`) to `docs/BA/research/`, header per `ba-global-rules`,
    every claim with a source link, and unresolved questions at the end.
 
 ## Boundaries

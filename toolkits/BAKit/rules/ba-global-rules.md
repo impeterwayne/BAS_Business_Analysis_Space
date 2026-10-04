@@ -15,12 +15,37 @@ trigger: always_on
 - Communication language: **Vietnamese** is the default for all exchanges, reports and explanations.
 - All BA deliverables MUST be written in **Vietnamese**, grammatically correct and natural, preserving the
   clarity and integrity of the source material.
+- **Terminology stays in English** (see *Terminology* below): write the sentences in Vietnamese, but keep
+  product, BA and technical terms in English as-is. A forced translation is harder to read than the term
+  the team already uses.
 - Templates in `ba-templates` use bilingual headings `Tiếng Việt (English)`; keep them as they are.
 - On-screen labels, error messages and quotes MUST stay in their original language (Vietnamese, Korean,
   English, …) with an English translation in parentheses, e.g. `"Đăng nhập" (Log in)`.
 - All `SKILL.md`, rule and workflow files MUST be written in English.
 - The project may override the deliverable language in `.agents/config/ba-project-config.md` →
   `Deliverable language`. Read it before writing a deliverable.
+
+## Terminology
+
+Vietnamese grammar, English terms. Write the term exactly as the team says it, without translating it and
+without a Vietnamese gloss in parentheses. Everyday words stay Vietnamese (người dùng, màn hình, nút, ứng
+dụng, tài khoản, số tiền).
+
+| Area | Keep in English |
+| :--- | :--- |
+| Product / UX | flow, user flow, onboarding, login, sign-up, logout, home, tab, menu, popup, dialog, bottom sheet, banner, toast, form, field, dropdown, checkbox, toggle, CTA, deep link, push notification, empty state, loading state, error state, paywall, layout, UI, UX |
+| BA | requirement, functional / non-functional requirement, use case, user story, acceptance criteria, business rule, actor, precondition, postcondition, main flow, alternative flow, exception flow, edge case, scope, in scope / out of scope, stakeholder, backlog, epic, feature, MVP, gap, benchmark, persona, pain point, trade-off, KPI, test case |
+| Tech | API, endpoint, backend, SDK, feature flag, remote config, A/B test, analytics event, tracking, session, token, cache, sync, permission, OTP, KYC / eKYC, QR |
+| Competitor analysis | competitor, evidence, screenshot, UI tree, deep link, observed, inferred, boundary |
+
+| Avoid (forced translation) | Write instead |
+| :--- | :--- |
+| Luồng giới thiệu ban đầu yêu cầu mật khẩu dùng một lần trước khi vào trang chủ. | Flow onboarding yêu cầu nhập OTP trước khi vào Home. |
+| Tiêu chí chấp nhận của câu chuyện người dùng | Acceptance criteria của user story |
+| Cờ tính năng từ cấu hình từ xa | Feature flag từ remote config |
+
+A term not in the table follows the same test: if the team would say it in English in a meeting, write it in
+English. On-screen labels and quotes still follow the rule above (original language, English in parentheses).
 
 ## File & Naming Standards
 
@@ -35,7 +60,8 @@ trigger: always_on
 - Every output MUST be **evidence-based**: cite the requirement section, document, screenshot path or UI
   tree file it rests on.
 - NEVER fabricate data, statistics, screens or requirements.
-- Separate observation from inference; label inferences `[Suy luận (Inferred)]`.
+- Separate observation from inference; label inferences `[Inferred]`. Facts read from decoded
+  competitor code are `[Code]` with a `path:line`, never presented as observed behaviour.
 - When uncertain, say so explicitly and ask.
 
 ## Agent Boundaries

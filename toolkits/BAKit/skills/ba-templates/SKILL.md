@@ -49,11 +49,14 @@ workflows score and parse them section by section. Do not copy them elsewhere.
    - Remove a section only when it truly does not apply, and say why in one line in its place.
    - `<!-- SECTION: ... -->` blocks in `fsd.md` are filtered by project type; keep only matching blocks
      and delete the comment markers.
-4. **Language.** Write content in Vietnamese per `ba-global-rules`. Headings are already bilingual. Keep
+4. **Language.** Write content in Vietnamese per `ba-global-rules`, keeping product, BA and technical terms in
+   English (`ba-global-rules` → Terminology: flow, use case, acceptance criteria, feature flag, …). Headings are
+   already bilingual. Keep
    on-screen labels, error messages and source quotes in their original language, and put the English
    translation in parentheses.
 5. **Evidence.** Every requirement, rule or competitor claim cites its source: a document section, a
-   screenshot path, or a UI-tree file. Label inferences `[Suy luận (Inferred)]`. Never fabricate data.
+   screenshot path, a UI-tree file, or a `path:line` in decoded code. Label code-only facts
+   `[Code]` and inferences `[Inferred]`. Never fabricate data.
 6. **Name and version the file** per `ba-naming-convention`. Living specs (`fsd`, `use-case`,
    `test-case`) are updated in place with a Change Log row and a version bump. Every other output is an
    immutable `v[N]` file: if `v1` exists, write `v2`.

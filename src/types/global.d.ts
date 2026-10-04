@@ -133,10 +133,16 @@ declare global {
       removeToolkit: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ success: boolean; error?: string }>;
       getDefaultToolkitSources: () => Promise<{ bakitPath: string }>;
 
-      // ── BAKit: mobilerun MCP registration in Antigravity's global MCP config ──
-      getMobilerunMcpStatus: () => Promise<{ registered: boolean; configPath: string; entry?: any; pythonPath: string | null; error?: string }>;
-      registerMobilerunMcp: () => Promise<{ success: boolean; alreadyRegistered?: boolean; configPath?: string; error?: string }>;
-      unregisterMobilerunMcp: () => Promise<{ success: boolean; configPath?: string; error?: string }>;
+      // ── BAKit: mobilerun MCP as a workspace plugin (.agents/plugins/mobilerun) ──
+      getMobilerunMcpStatus: (opts: { worktreePath: string }) => Promise<{ registered: boolean; configPath: string; pythonPath: string | null; globalRegistered: boolean; globalConfigPath: string; error?: string }>;
+      registerMobilerunMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; configPath?: string; globalRegistered?: boolean; error?: string }>;
+      unregisterMobilerunMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; configPath?: string; error?: string }>;
+      unregisterGlobalMobilerunMcp: () => Promise<{ success: boolean; configPath?: string; error?: string }>;
+
+      // ── BAKit: delegation block in the worktree's AGENTS.md ──
+      getAgentsMdBlockStatus: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ installed: boolean; current: boolean; sourceExists: boolean; agentsMdPath: string }>;
+      applyAgentsMdBlock: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ success: boolean; created?: boolean; agentsMdPath?: string; error?: string }>;
+      removeAgentsMdBlock: (opts: { worktreePath: string }) => Promise<{ success: boolean; deleted?: boolean; agentsMdPath?: string; error?: string }>;
       writeProjectFile: (opts: { projectPath: string; relativeFilePath: string; content: string }) => Promise<any>;
       downloadFile: (opts: { url: string; destinationPath: string }) => Promise<any>;
 

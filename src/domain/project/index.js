@@ -407,20 +407,24 @@ function parseBenchmarkFlows(notes) {
 
 function formatFlowSlug(flow) {
   if (!flow || typeof flow !== 'string') return '';
+  // Fold Vietnamese diacritics first ("Chuyển tiền" -> "chuyen-tien"); \w alone would drop the letters.
   return flow
     .trim()
     .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_]+/g, '-');
 }
 
+// flow: one flow name or an array of them (one run over several flows shares one plan and one profile).
+// The decoded-source path is not part of the command (Antigravity drops a quoted path from slash-command
+// input); /ba-competitor reads it from the Decoded source column of ba-project-config.md instead.
 function buildBenchmarkSlashCommand(target, flow) {
   const pkg = (target || 'app').trim();
-  if (!flow) {
-    return `/ba-competitor ${pkg}`;
-  }
-  const slug = formatFlowSlug(flow);
-  return slug ? `/ba-competitor ${pkg} ${slug}` : `/ba-competitor ${pkg}`;
+  const slug = (Array.isArray(flow) ? flow : [flow]).map(formatFlowSlug).filter(Boolean).join(' ');
+  return `/ba-competitor ${pkg}${slug ? ` ${slug}` : ''}`;
 }
 
 function cleanApkAppName(fileName) {

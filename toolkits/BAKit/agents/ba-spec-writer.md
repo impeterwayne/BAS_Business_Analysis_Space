@@ -34,7 +34,7 @@ Phases 3 and 4 of `ba-workflow`. You author requirement documents; you do not im
    use cases, and `.agents/config/ba-project-config.md` (project type, language).
 3. Draw the Mermaid diagrams the chosen solution needs (`mermaidjs-v11`): user-journey flowchart always, a
    sequence diagram when several systems interact.
-4. Fill the template in Vietnamese, citing sources for every requirement. Promote `FR-CAND-*` items into
+4. Fill the template in Vietnamese (English terminology, see `ba-global-rules`), citing sources for every requirement. Promote `FR-CAND-*` items into
    `FR-*` only when the user has confirmed them, and keep the trace (`Nguồn (Source)` column).
 5. Validate Markdown (`ba-markdown-formatting`) and naming/versioning (`ba-naming-convention`).
 

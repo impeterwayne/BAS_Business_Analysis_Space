@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Installs the BAKit BA toolkit into an Antigravity workspace and (optionally) registers the
-  mobilerun MCP server in Antigravity's MCP config.
+  mobilerun MCP server for that workspace.
 
 .DESCRIPTION
   Copies agents, skills, rules and workflows into <Target>\.agents\. The project config
@@ -9,15 +9,16 @@
   overwritten. Adds the deployed toolkit paths (not the project config) to the repository's
   info/exclude when Target is a git work tree.
 
-  With -RegisterMcp, merges a "mobilerun" entry into Antigravity's MCP config
-  (%USERPROFILE%\.gemini\config\mcp_config.json, or the legacy ...\.gemini\antigravity\mcp_config.json
-  when the new folder does not exist). Other servers are preserved and a .bak copy is written first.
-  An existing "mobilerun" entry is left untouched unless -Force is given.
+  With -RegisterMcp, adds mobilerun as an Antigravity workspace plugin:
+  <Target>\.agents\plugins\mobilerun\{plugin.json, mcp_config.json}. Antigravity discovers plugins in
+  the workspace's .agents\, so the server starts only in this workspace. Other servers in that file are
+  preserved; an existing "mobilerun" entry is left untouched unless -Force is given. Warns when an older
+  global entry (%USERPROFILE%\.gemini\config\mcp_config.json) would still start it everywhere.
 
 .EXAMPLE
   .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -RegisterMcp
 .EXAMPLE
-  .\install-bakit.ps1 -RegisterMcp -McpOnly -MobilerunPath D:\Quest\mobilerun-mcp -Device R58RB1XWAKJ
+  .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -McpOnly -MobilerunPath D:\Quest\mobilerun-mcp -Device R58RB1XWAKJ
 #>
 [CmdletBinding()]
 param(
@@ -84,8 +85,20 @@ function Get-AntigravityMcpConfigPath {
 }
 
 function Register-MobilerunMcp {
-  $configPath = Get-AntigravityMcpConfigPath
+  # Workspace scope: an Antigravity plugin under <Target>\.agents\plugins\mobilerun, discovered only in
+  # this workspace. The global config is read only to warn about an entry left by an older BAKit.
+  $pluginDir = Join-Path (Resolve-Path $Target).Path '.agents\plugins\mobilerun'
+  $configPath = Join-Path $pluginDir 'mcp_config.json'
   $python = Resolve-MobilerunPython
+
+  if (-not (Test-Path $pluginDir)) { New-Item -ItemType Directory -Force $pluginDir | Out-Null }
+  $manifest = [pscustomobject]@{ name = 'mobilerun'; description = 'BAKit: drives a connected Android device for competitor app analysis (mobilerun MCP).' }
+  [System.IO.File]::WriteAllText((Join-Path $pluginDir 'plugin.json'), ($manifest | ConvertTo-Json), $Utf8NoBom)
+
+  $globalPath = Get-AntigravityMcpConfigPath
+  if ((Test-Path $globalPath) -and ([System.IO.File]::ReadAllText($globalPath) -match '"mobilerun"\s*:')) {
+    Write-Warning "mobilerun is also registered globally in $globalPath, so it starts in every workspace. Remove that entry to keep it workspace-only."
+  }
 
   $config = [pscustomobject]@{ mcpServers = [pscustomobject]@{} }
   if (Test-Path $configPath) {
@@ -108,11 +121,8 @@ function Register-MobilerunMcp {
   if ($exists) { $config.mcpServers.PSObject.Properties.Remove('mobilerun') }
   $config.mcpServers | Add-Member -NotePropertyName mobilerun -NotePropertyValue $entry
 
-  $dir = Split-Path -Parent $configPath
-  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
-  if (Test-Path $configPath) { Copy-Item -Force $configPath "$configPath.bak" }
   [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 20), $Utf8NoBom)
-  Write-Host "Registered mobilerun MCP ($python) in $configPath. Restart the Antigravity agent to load it."
+  Write-Host "Registered mobilerun MCP ($python) as a workspace plugin in $configPath. Restart the Antigravity agent to load it."
 }
 
 if (-not $McpOnly) {
@@ -137,6 +147,27 @@ if (-not $McpOnly) {
       $patterns += ".agents/$folder/$($item.Name)$suffix"
     }
   }
+  # The delegation rule goes into AGENTS.md as a marked block (Antigravity always reads AGENTS.md;
+  # rule files load unreliably). Content outside the markers is the user's and is kept.
+  $agentsMd = Join-Path $Target 'AGENTS.md'
+  $blockBody = [System.IO.File]::ReadAllText((Join-Path $KitRoot 'agents-md\AGENTS.block.md')).Trim()
+  $block = "<!-- bakit:orchestrate:start -->`n$blockBody`n<!-- bakit:orchestrate:end -->`n"
+  $blockRe = '(?s)<!-- bakit:orchestrate:start -->.*?<!-- bakit:orchestrate:end -->\r?\n?'
+  if (Test-Path $agentsMd) {
+    $current = [System.IO.File]::ReadAllText($agentsMd)
+    if ($current -match $blockRe) {
+      $next = [regex]::Replace($current, $blockRe, { param($m) $block })
+    } elseif ($current.Trim()) {
+      $next = "$block`n$current"
+    } else {
+      $next = $block
+    }
+  } else {
+    $next = $block
+  }
+  [System.IO.File]::WriteAllText($agentsMd, $next, $Utf8NoBom)
+  Write-Host "Delegation rule written to $agentsMd"
+
   # ba-project-config.md is project data, not toolkit code: leave it committable.
   Add-GitExclude $Target $patterns
   Write-Host "BAKit installed into $agentsDir"

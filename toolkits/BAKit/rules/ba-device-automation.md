@@ -8,7 +8,7 @@ Apply whenever you call tools from the `mobilerun` MCP server.
 
 ## Target
 
-- The device is auto-detected over ADB, or pinned with `MOBILERUN_DEVICE` in `.agents/mcp_config.json`.
+- The device is auto-detected over ADB, or pinned with `MOBILERUN_DEVICE` in `.agents/plugins/mobilerun/mcp_config.json` (the workspace plugin).
 - Confirm the device is reachable and awake (`ping_device`, `get_device_status`) before a flow.
 - Operate only the app you were asked to analyse. System dialogs that belong to the flow (permissions)
   are fine; wandering into other apps or the Settings app is not.

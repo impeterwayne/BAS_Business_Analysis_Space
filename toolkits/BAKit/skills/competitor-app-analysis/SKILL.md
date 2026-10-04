@@ -4,19 +4,26 @@ description: >-
   Explores a competitor (opponent) Android app on a connected device through the `mobilerun` MCP server,
   captures a screenshot and accessibility tree at every screen, and writes BA deliverables from templates:
   app profile, screen inventory, per-flow analysis, and a feature comparison / gap analysis with candidate
-  requirements. Use when the user asks to analyse, benchmark, survey, or document a competitor app, or runs
-  /ba-competitor.
+  requirements. When the APK has been decoded with jadx, it follows an exploration plan built from the
+  `apk-code-index` notes and records which code predictions the device confirmed. Use when the user asks to
+  analyse, benchmark, survey, or document a competitor app, or runs /ba-competitor.
 ---
 
 # Competitor App Analysis
 
-You produce a black-box, evidence-backed picture of what a competitor app does, then turn it into
-requirements input for our product. You work from the screen only: every claim cites a screenshot or UI
-tree you captured. You operate the app; you never modify it, script it, or decompile it.
+You produce an evidence-backed picture of what a competitor app does, then turn it into requirements input
+for our product. The screen is the ground truth: every observed claim cites a screenshot or UI tree you
+captured. When the APK was decoded (ReaKit `jadx_src/`), the code tells you where to look — which screens
+exist, how to reach them, which rules and hidden branches to check — and the device tells you what is true.
+You operate the app; you never modify, patch or repackage it.
 
 Tools: the `mobilerun` MCP server (see the `mobilerun` skill for the full tool list) plus file writes.
 Templates: `ba-templates` catalog keys `competitor-profile`, `competitor-screens`, `competitor-flow`,
-`comparison-gap`.
+`comparison-gap`. Code side: the `apk-code-index` skill.
+
+In the `/ba-competitor` pipeline the work is split: `code-scout` agents write `code-index/` notes, `ba-lead`
+writes `exploration-plan.md`, `competitor-analyst` runs Phase 1 once per flow (WALK) and Phase 2 once at the
+end (SYNTHESIZE), and `evidence-verifier` checks the result. Run alone, do all phases yourself in order.
 
 ## Inputs (ask for anything missing before touching the device)
 
@@ -26,6 +33,7 @@ Templates: `ba-templates` catalog keys `competitor-profile`, `competitor-screens
 | Flows in scope | onboarding, login, transfer money, search | Yes (default: onboarding + primary navigation) |
 | Account | guest / test account provided by user | Yes — never create a real account yourself |
 | Our product reference | `docs/project-fsd.md`, a Figma link, or "none" | Only for the comparison step |
+| Decoded source | ReaKit `…/<package>/jadx_src` | No — without it the survey is black-box |
 
 Also read `.agents/config/ba-project-config.md` → **Competitor Apps** table; it may already hold the
 package, device serial and account notes.
@@ -37,6 +45,9 @@ docs/BA/competitor/
   {app-slug}/
     screens/{flow}-{NN}-{slug}.png         screenshot per state
     screens/{flow}-{NN}-{slug}.tree.txt    accessibility tree per state
+    code-index/_meta.md, screens.md, …       apk_index.py build output (apk-code-index)
+    code-index/flow-{flow}.md               code-scout notes with a Verify-on-device checklist
+    exploration-plan.md                     per flow: entry, expected screens, checklist, results
     {app-slug}_profile_{YYYYMMDD}_v1.md
     {app-slug}_screens_{YYYYMMDD}_v1.md
     {app-slug}_flow-{flow}_{YYYYMMDD}_v1.md
@@ -60,7 +71,10 @@ write `v2` instead.
 
 ### Phase 1 — Explore and capture (per flow)
 
-1. `mark_step(index=i, status="in_progress")`. Start the app with `open_and_settle` (or `launch_app`).
+1. `mark_step(index=i, status="in_progress")`. Read the flow's section of `exploration-plan.md` when there is
+   one. Enter the flow the way it says: `open_deeplink(uri=…, package_name=…)` or
+   `start_app(app_id=…, activity=…)` for a deep link or exported activity, otherwise `open_and_settle` (or
+   `launch_app`) and navigate. A direct entry that fails is itself a finding; fall back to the UI.
 2. **At every new state, capture before you act:**
    - `screenshot_path` → copy the returned file to `screens/{flow}-{NN}-{slug}.png` with a shell copy
      (`Copy-Item <path> <dest>` on Windows).
@@ -69,16 +83,19 @@ write `v2` instead.
 3. **Read the screen:** `read_screen` for text and layout; `perceive_screen` when you need to see icons,
    visual state, or `read_screen` ends with ESCALATE. Use `detail="full"` only for icon-only controls the
    tree does not label, and treat its red boxes as guesses.
-4. **Keep a coverage frontier.** For each screen, list its actionable elements and mark which you have
+4. **Work the plan's Verify-on-device checklist first**, then the frontier. Mark each item `observed`
+   (capture), `not reached` (why) or `contradicted` (code says X, screen shows Y — cite both) and write the
+   results into the plan's `Results:` line for the flow.
+5. **Keep a coverage frontier.** For each screen, list its actionable elements and mark which you have
    tried. Prefer an untried element on the current screen over re-walking a recorded path. Go depth-first:
    finish a branch (or reach a dead end and `press_back`) before trying a sibling.
-5. **Act one step at a time** with `tap_text`, `tap(som_id=...)` or `type_text`, and write down the action
+6. **Act one step at a time** with `tap_text`, `tap(som_id=...)` or `type_text`, and write down the action
    that caused each transition (`tap "Tiếp tục (Continue)" → 03`). Read `post_action_observation` to
    confirm the screen changed before the next step. `som_id`s are stale after any action.
-6. Record verified facts with `record_finding(item=..., quote=<exact text on screen>)` — prices, limits,
+7. Record verified facts with `record_finding(item=..., quote=<exact text on screen>)` — prices, limits,
    validation messages, plan names. Put interim facts in `mark_step(..., note=...)`; the pixels are gone
    next turn.
-7. When the flow is exhausted or blocked, `mark_step(index=i, status="done" | "skipped" | "failed", note=why)`.
+8. When the flow is exhausted or blocked, `mark_step(index=i, status="done" | "skipped" | "failed", note=why)`.
 
 ### Phase 2 — Write the documents
 
@@ -89,7 +106,10 @@ Write only what you captured. Fill templates exactly as `ba-templates` describes
 2. **Flow analysis** (`competitor-flow`), one file per flow: step table, Mermaid state diagram, observed
    rules, friction, coverage.
 3. **App profile** (`competitor-profile`): overview, survey scope, feature map (`CF-NNN`), strengths,
-   weaknesses, boundaries, open questions.
+   weaknesses, boundaries, open questions. When a code index exists, add a tech section from
+   `code-index/tech.md` (frameworks, SDK categories, permissions) and a **code-only features** section: screens,
+   flags and events present in code but never observed, graded `[Code]` — hidden, gated, regional or
+   upcoming features, not observed capabilities.
 4. **Comparison / gap** (`comparison-gap`) — only when the user supplied our product reference or asked to
    compare several apps: feature matrix, `GAP-NNN` list, and `FR-CAND-NNN` candidate requirements.
    Candidates are proposals; they enter the FSD only after the user confirms (then run `specs analyze`).
@@ -103,8 +123,11 @@ Write only what you captured. Fill templates exactly as `ba-templates` describes
 
 ## Hard Rules
 
-- **Observed vs inferred.** "The field rejected 11 digits with message X" is observed. "The field validates
-  phone numbers" is inference — label it `[Suy luận (Inferred)]`. Never blur the two.
+- **Three evidence grades, never blurred.** "The field rejected 11 digits with message X" is observed —
+  `[Observed]`, cites a capture. "`PhoneValidator.java:41` rejects more than 10 digits" is code —
+  `[Code]`, cites `path:line`. "The field validates phone numbers" is inference — label it
+  `[Inferred]` and say what it rests on. A code fact never becomes observed until the device shows it.
+- **No secrets from code.** API keys, tokens and credentials found in decoded code are named, never quoted.
 - **No destructive or outward actions without an explicit yes:** registering accounts, sending messages,
   posting, payments, top-ups, transfers, subscriptions, deleting data, granting account-linking consent.
   Stop at the confirm button, capture it, record it as a boundary, and ask.

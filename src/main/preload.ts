@@ -82,10 +82,15 @@ contextBridge.exposeInMainWorld('api', {
   removeToolkit: (opts) => ipcRenderer.invoke('toolkit:remove', opts),
   getDefaultToolkitSources: () => ipcRenderer.invoke('toolkit:get-default-sources'),
 
-  // ── BAKit: mobilerun MCP (Antigravity global config) ──
-  getMobilerunMcpStatus: () => ipcRenderer.invoke('bakit:mcp-status'),
-  registerMobilerunMcp: () => ipcRenderer.invoke('bakit:mcp-register'),
-  unregisterMobilerunMcp: () => ipcRenderer.invoke('bakit:mcp-unregister'),
+  // ── BAKit: mobilerun MCP (workspace plugin .agents/plugins/mobilerun) ──
+  getMobilerunMcpStatus: (opts) => ipcRenderer.invoke('bakit:mcp-status', opts),
+  registerMobilerunMcp: (opts) => ipcRenderer.invoke('bakit:mcp-register', opts),
+  unregisterMobilerunMcp: (opts) => ipcRenderer.invoke('bakit:mcp-unregister', opts),
+  unregisterGlobalMobilerunMcp: () => ipcRenderer.invoke('bakit:mcp-unregister-global'),
+  // ── BAKit: delegation block in the worktree's AGENTS.md ──
+  getAgentsMdBlockStatus: (opts) => ipcRenderer.invoke('bakit:agents-md-status', opts),
+  applyAgentsMdBlock: (opts) => ipcRenderer.invoke('bakit:agents-md-apply', opts),
+  removeAgentsMdBlock: (opts) => ipcRenderer.invoke('bakit:agents-md-remove', opts),
 
   // ── Project File Operations ──
   writeProjectFile: (opts) => ipcRenderer.invoke('project:write-file', opts),

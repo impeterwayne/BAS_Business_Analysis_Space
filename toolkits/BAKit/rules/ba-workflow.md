@@ -11,7 +11,7 @@ QA handoff. Adapted from the BA_Flow 4-phase workflow, with a competitor discove
 
 | Phase | Lead agent | Skills | Slash command |
 | :--- | :--- | :--- | :--- |
-| 0. Competitor discovery (optional) | `competitor-analyst` | `competitor-app-analysis`, `mobilerun`, `ba-templates` | `/ba-competitor` |
+| 0. Competitor discovery (optional) | `ba-lead` → `code-scout`, `competitor-analyst`, `evidence-verifier` | `apk-code-index`, `competitor-app-analysis`, `mobilerun`, `ba-templates` | `/ba-competitor` |
 | 1. Research & problem breakdown | `ba-researcher` | `problem-solving`, `sequential-thinking`, `document-extraction` | — |
 | 2. Ideation & trade-offs | `ba-brainstormer` | `brainstorm-features`, `ba-templates` (`feature-brief`) | — |
 | 3. Modeling & specification | `ba-spec-writer` | `mermaidjs-v11`, `specs`, `ba-templates` | `/ba-spec`, `/ba-template` |
@@ -24,8 +24,10 @@ QA handoff. Adapted from the BA_Flow 4-phase workflow, with a competitor discove
 ### Phase 0 — Competitor discovery
 
 Use when the request involves another app ("how does X do it", "benchmark", "survey the competitor").
-Drive the app on the connected device with the `mobilerun` MCP server, capture evidence, and write the
-competitor profile, screen inventory and flow analyses. When our product reference is available, finish with
+When the APK was decoded with jadx, `code-scout` agents read the code in parallel first and `ba-lead` turns
+their notes into an exploration plan. Then drive the app on the connected device with the `mobilerun` MCP
+server, one flow at a time, capture evidence, and write the competitor profile, screen inventory and flow
+analyses; `evidence-verifier` checks them before they reach the user. When our product reference is available, finish with
 the comparison / gap report; its `GAP-*` and `FR-CAND-*` items become inputs to Phase 2.
 
 ### Phase 1 — Research & discovery

@@ -33,5 +33,6 @@
 | tap "{nhãn}" | → 02 / → lỗi / → đóng |
 
 - **Quy tắc quan sát được (Observed rules):** {chỉ điều đã thấy xảy ra}
-- **Suy luận (Inferred):** {gắn nhãn rõ ràng, tách khỏi quan sát}
+- **[Code]:** {quy tắc trong mã chưa thấy trên màn hình — `path:line`}
+- **[Inferred]:** {gắn nhãn rõ ràng, tách khỏi quan sát}
 - **Chưa rõ (Unresolved):** {điều còn mờ và cách xác nhận}
