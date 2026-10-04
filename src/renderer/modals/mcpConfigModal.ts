@@ -73,7 +73,7 @@ async function openMcpConfigModal({
       .json-string { color: var(--green); }
       .json-number { color: var(--orange); }
       .json-boolean { color: var(--accent-light); font-weight: 600; }
-      .json-null { color: var(--text-muted); font-style: italic; }
+      .json-null { color: var(--text-muted); }
       
       .mcp-checkbox-container input:checked ~ .checkmark {
         background-color: var(--accent);
@@ -231,7 +231,7 @@ async function openMcpConfigModal({
         </div>
       </div>
     `;
-    jsonPre.innerHTML = `<span style="color: var(--text-muted); font-style: italic;">Unable to format due to JSON syntax error.</span>`;
+    jsonPre.innerHTML = `<span style="color: var(--text-muted);">Unable to format due to JSON syntax error.</span>`;
   };
 
   const handleCheckboxChange = (serverName, isChecked) => {

@@ -140,6 +140,82 @@ declare global {
       unregisterMobilerunMcp: () => Promise<{ success: boolean; configPath?: string; error?: string }>;
       writeProjectFile: (opts: { projectPath: string; relativeFilePath: string; content: string }) => Promise<any>;
       downloadFile: (opts: { url: string; destinationPath: string }) => Promise<any>;
+
+      // ── Project Metadata, Assets & ADB ──
+      updateProjectMetadata: (projectPath: string, metadata: {
+        name?: string;
+        figmaUrl?: string;
+        apkFiles?: any[];
+        competitors?: any[];
+      }) => Promise<{ success: boolean; project?: any; error?: string }>;
+      addProjectApk: (projectPath: string, apk: { name?: string; path: string; size?: number }) => Promise<{ success: boolean; project?: any; apk?: any; error?: string }>;
+      removeProjectApk: (projectPath: string, apkId: string) => Promise<{ success: boolean; project?: any; error?: string }>;
+      addProjectCompetitor: (projectPath: string, competitor: {
+        id?: string;
+        name: string;
+        url?: string;
+        packageName?: string;
+        platform?: 'Android' | 'iOS' | 'Web';
+        notes?: string;
+      }) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
+      updateProjectCompetitor: (projectPath: string, competitor: {
+        id: string;
+        name?: string;
+        url?: string;
+        packageName?: string;
+        platform?: 'Android' | 'iOS' | 'Web';
+        notes?: string;
+      }) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
+      removeProjectCompetitor: (projectPath: string, competitorId: string) => Promise<{ success: boolean; project?: any; error?: string }>;
+      syncBaProjectConfig: (opts: { projectPath: string; worktreePath?: string }) => Promise<{ success: boolean; path?: string; error?: string }>;
+      selectApkFile: () => Promise<{ name: string; path: string; size: number } | null>;
+      getFileInfo: (filePath: string) => Promise<{ name: string; path: string; size: number; isFile: boolean } | null>;
+      installApk: (opts: { apkPath: string; serial?: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
+
+      // ── Device Manager ──
+      deviceList: () => Promise<{
+        success: boolean;
+        devices: Array<{
+          serial: string;
+          state: 'device' | 'unauthorized' | 'offline' | 'bootloader' | 'authorizing' | 'unknown';
+          model: string;
+          manufacturer: string;
+          product: string;
+          marketName: string;
+          androidVersion: string;
+          sdkVersion: string;
+          screenResolution: string;
+          screenDensity: string;
+          batteryLevel: number | null;
+          batteryStatus: string;
+          isCharging: boolean;
+          ipAddress: string | null;
+          connectionType: 'usb' | 'wifi' | 'emulator';
+          transportId?: string;
+          mobilerunPortalInstalled: boolean;
+          isActive: boolean;
+        }>;
+        error?: string;
+      }>;
+      deviceGetActive: () => Promise<string | null>;
+      deviceSetActive: (serial: string | null) => Promise<{ success: boolean; activeSerial: string | null }>;
+      deviceConnectWireless: (opts: { ip: string; port?: number }) => Promise<{ success: boolean; output: string; error?: string }>;
+      deviceDisconnectWireless: (opts: { serial: string }) => Promise<{ success: boolean; output: string; error?: string }>;
+      deviceEnableTcpip: (opts: { serial: string; port?: number }) => Promise<{ success: boolean; output: string; error?: string }>;
+      deviceReboot: (opts: { serial: string; mode?: string }) => Promise<{ success: boolean; error?: string }>;
+      deviceRestartServer: () => Promise<{ success: boolean; output: string; error?: string }>;
+      deviceMirror: (options?: {
+        serial?: string;
+        stayAwake?: boolean;
+        turnScreenOff?: boolean;
+        alwaysOnTop?: boolean;
+        maxSize?: number;
+        maxFps?: number;
+      }) => Promise<{ success: boolean; error?: string }>;
+      deviceCaptureUi: (options: { serial?: string; worktreePath: string; prefix?: string }) => Promise<any>;
+      deviceInstallApk: (opts: { serial?: string; apkPath: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
+      deviceSendKey: (opts: { serial: string; keycode: string | number }) => Promise<{ success: boolean; error?: string }>;
+      deviceSetupMobilerun: (opts: { serial: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
     };
   }
 }

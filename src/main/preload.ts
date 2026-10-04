@@ -91,5 +91,32 @@ contextBridge.exposeInMainWorld('api', {
   // ── Project File Operations ──
   writeProjectFile: (opts) => ipcRenderer.invoke('project:write-file', opts),
   downloadFile: (opts) => ipcRenderer.invoke('project:download-file', opts),
+
+  // ── Project Metadata, Assets & ADB ──
+  updateProjectMetadata: (projectPath: string, metadata: any) => ipcRenderer.invoke('project:update-metadata', { projectPath, metadata }),
+  addProjectApk: (projectPath: string, apk: any) => ipcRenderer.invoke('project:add-apk', { projectPath, apk }),
+  removeProjectApk: (projectPath: string, apkId: string) => ipcRenderer.invoke('project:remove-apk', { projectPath, apkId }),
+  addProjectCompetitor: (projectPath: string, competitor: any) => ipcRenderer.invoke('project:add-competitor', { projectPath, competitor }),
+  updateProjectCompetitor: (projectPath: string, competitor: any) => ipcRenderer.invoke('project:update-competitor', { projectPath, competitor }),
+  removeProjectCompetitor: (projectPath: string, competitorId: string) => ipcRenderer.invoke('project:remove-competitor', { projectPath, competitorId }),
+  syncBaProjectConfig: (opts: { projectPath: string; worktreePath?: string }) => ipcRenderer.invoke('project:sync-ba-config', opts),
+  selectApkFile: () => ipcRenderer.invoke('select-apk-file'),
+  getFileInfo: (filePath: string) => ipcRenderer.invoke('get-file-info', filePath),
+  installApk: (opts: { apkPath: string; serial?: string }) => ipcRenderer.invoke('adb:install-apk', opts),
+
+  // ── Device Manager ──
+  deviceList: () => ipcRenderer.invoke('device:list'),
+  deviceGetActive: () => ipcRenderer.invoke('device:get-active'),
+  deviceSetActive: (serial) => ipcRenderer.invoke('device:set-active', serial),
+  deviceConnectWireless: (opts) => ipcRenderer.invoke('device:connect-wireless', opts),
+  deviceDisconnectWireless: (opts) => ipcRenderer.invoke('device:disconnect-wireless', opts),
+  deviceEnableTcpip: (opts) => ipcRenderer.invoke('device:enable-tcpip', opts),
+  deviceReboot: (opts) => ipcRenderer.invoke('device:reboot', opts),
+  deviceRestartServer: () => ipcRenderer.invoke('device:restart-server'),
+  deviceMirror: (options) => ipcRenderer.invoke('device:mirror', options),
+  deviceCaptureUi: (options) => ipcRenderer.invoke('device:capture-ui', options),
+  deviceInstallApk: (opts) => ipcRenderer.invoke('device:install-apk', opts),
+  deviceSendKey: (opts) => ipcRenderer.invoke('device:send-key', opts),
+  deviceSetupMobilerun: (opts) => ipcRenderer.invoke('device:setup-mobilerun', opts),
 });
 

@@ -10,6 +10,8 @@ const { createWorkspaceConfigStore } = require('../application/workspaceConfigSt
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
 const { registerBakitIpc } = require('./bakit/bakitService');
+const { DeviceService } = require('./device/deviceService');
+const { registerDeviceIpc } = require('./ipc/deviceIpc');
 const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
 
 // ── State ──────────────────────────────────────────────
@@ -19,6 +21,7 @@ const workspaceService = createWorkspaceService({
   configStore: workspaceConfigStore,
   getWorktrees: (projectPath) => readWorktrees(projectPath, execSync, path, Buffer),
 });
+const deviceService = new DeviceService(() => workspaceService.getSettings());
 let mainWindow = null;
 const ptyProcesses = new Map(); // id -> pty process
 
@@ -293,9 +296,11 @@ app.whenReady().then(() => {
     dialog,
     mainWindow,
     workspaceService,
+    deviceService,
   });
 
   registerBakitIpc({ ipcMain });
+  registerDeviceIpc({ ipcMain, deviceService });
 
   ipcMain.handle('get-git-info', (_, dirPath) => getGitInfo(dirPath));
   ipcMain.handle('get-recent-commits', (_, dirPath) => getRecentCommits(dirPath));
@@ -1059,16 +1064,45 @@ app.whenReady().then(() => {
     }
   }
 
-  function findFigmaExecutable() {
+  function findFigmaExecutable(): string | null {
+    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+
     const possiblePaths = [
-      path.join(os.homedir(), 'AppData', 'Local', 'Figma', 'Figma.exe'),
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Figma', 'Figma.exe'),
-      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Figma', 'Figma.exe'),
+      path.join(localAppData, 'Figma', 'Figma.exe'),
+      path.join(localAppData, 'Programs', 'Figma', 'Figma.exe'),
+      path.join(programFiles, 'Figma', 'Figma.exe'),
+      path.join(programFilesX86, 'Figma', 'Figma.exe'),
+      // macOS
+      '/Applications/Figma.app/Contents/MacOS/Figma',
+      path.join(os.homedir(), 'Applications', 'Figma.app', 'Contents', 'MacOS', 'Figma'),
+      // Linux
+      '/usr/bin/figma-linux',
+      '/usr/local/bin/figma-linux',
+      '/snap/bin/figma-linux',
+      '/usr/bin/figma',
     ];
 
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
         return p;
+      }
+    }
+
+    // Check versioned directories in AppData/Local/Figma (e.g. app-126.9.11/Figma.exe)
+    const figmaBase = path.join(localAppData, 'Figma');
+    if (fs.existsSync(figmaBase)) {
+      try {
+        const subdirs = fs.readdirSync(figmaBase).filter((name) => name.startsWith('app-')).sort().reverse();
+        for (const dir of subdirs) {
+          const candidate = path.join(figmaBase, dir, 'Figma.exe');
+          if (fs.existsSync(candidate)) {
+            return candidate;
+          }
+        }
+      } catch {
+        // ignore read error
       }
     }
 
@@ -1245,26 +1279,37 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('open-in-figma', (_, pathOrUrl) => {
+  ipcMain.handle('open-in-figma', async (_, pathOrUrl) => {
     try {
       const settings = workspaceService.getSettings();
       const target = (typeof pathOrUrl === 'string' && pathOrUrl.trim())
         ? pathOrUrl.trim()
-        : (settings.figmaUrl || 'https://www.figma.com');
+        : (settings.figmaUrl || '');
 
-      if (/^https?:\/\//i.test(target)) {
-        void shell.openExternal(target);
-        return { success: true };
-      }
-
+      // 1. Search for Figma Desktop executable first!
       const exe = settings.figmaPath || findFigmaExecutable();
       if (exe && fs.existsSync(exe)) {
-        spawn(exe, [target], { detached: true, stdio: 'ignore' });
-        return { success: true };
+        const args = target ? [target] : [];
+        const child = spawn(exe, args, { detached: true, stdio: 'ignore' });
+        child.unref();
+        return { success: true, method: 'desktop', path: exe };
       }
 
-      void shell.openExternal('https://www.figma.com');
-      return { success: true };
+      // 2. Try figma:// protocol URL if target is a web Figma URL and OS has registered handler
+      if (target && /^https?:\/\/(?:[\w-]+\.)?figma\.com\//i.test(target)) {
+        const protoUrl = target.replace(/^https?:\/\/(?:[\w-]+\.)?figma\.com\//i, 'figma://');
+        try {
+          await shell.openExternal(protoUrl);
+          return { success: true, method: 'protocol' };
+        } catch {
+          // Protocol launch failed, fall through to browser
+        }
+      }
+
+      // 3. Fallback: open in browser only if desktop app is not found
+      const fallbackUrl = target && /^https?:\/\//i.test(target) ? target : 'https://www.figma.com';
+      await shell.openExternal(fallbackUrl);
+      return { success: true, method: 'browser' };
     } catch (e) {
       return { success: false, error: e.message };
     }
@@ -1348,88 +1393,22 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('scrcpy:mirror', (_, serial) => {
+  ipcMain.handle('scrcpy:mirror', async (_, arg) => {
+    const options = typeof arg === 'string' ? { serial: arg } : (arg || {});
+    return await deviceService.launchMirror(options);
+  });
+
+  ipcMain.handle('scrcpy:device-list', async () => {
     try {
-      const settings = workspaceService.getSettings();
-      const exe = settings.scrcpyPath || findScrcpyExecutable();
-      const args = [];
-      if (serial && typeof serial === 'string' && serial.trim()) {
-        args.push('-s', serial.trim());
-      }
-      if (exe && fs.existsSync(exe)) {
-        spawn(exe, args, { shell: false, detached: true, stdio: 'ignore' });
-        return { success: true };
-      }
-      // fallback to scrcpy-cli mirror
-      const cli = resolveToolLaunch('scrcpy-cli', ['mirror', ...(serial ? ['-s', serial] : [])]);
-      spawn(cli.file, cli.args, { shell: false, detached: true, stdio: 'ignore' });
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message };
+      const devices = await deviceService.listDevices();
+      return { success: true, devices: devices.map((d: any) => d.serial), raw: '' };
+    } catch (e: any) {
+      return { success: false, devices: [], error: e?.message || String(e) };
     }
   });
 
-  ipcMain.handle('scrcpy:device-list', () => {
-    try {
-      const output = execSync('scrcpy-cli device-list', {
-        encoding: 'utf-8',
-        timeout: 10000,
-      }).trim();
-      const lines = output.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      return { success: true, devices: lines, raw: output };
-    } catch (e) {
-      try {
-        const adbOut = execSync('adb devices', { encoding: 'utf-8', timeout: 5000 }).trim();
-        const lines = adbOut.split(/\r?\n/)
-          .slice(1)
-          .map(l => l.trim())
-          .filter(l => l && !l.startsWith('*') && l.includes('\tdevice'))
-          .map(l => l.split('\t')[0]);
-        return { success: true, devices: lines, raw: adbOut };
-      } catch (err) {
-        return { success: false, devices: [], error: e.message };
-      }
-    }
-  });
-
-  ipcMain.handle('scrcpy:capture-ui', (_, { worktreePath, prefix } = {}) => {
-    try {
-      if (!worktreePath || !fs.existsSync(worktreePath)) {
-        return { success: false, error: 'Invalid or missing worktree path' };
-      }
-      const evidenceDir = path.join(worktreePath, 'docs', 'spec', 'evidence');
-      fs.mkdirSync(evidenceDir, { recursive: true });
-
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const now = new Date();
-      const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-      const filePrefix = prefix && typeof prefix === 'string' ? prefix.trim().replace(/[^a-zA-Z0-9_-]/g, '_') : 'screen';
-
-      const screenshotFilename = `${filePrefix}_${timestamp}.png`;
-      const dumpFilename = `${filePrefix}_${timestamp}.xml`;
-      const screenshotPath = path.join(evidenceDir, screenshotFilename);
-      const dumpPath = path.join(evidenceDir, dumpFilename);
-
-      execSync(`scrcpy-cli screenshot "${screenshotPath}"`, {
-        encoding: 'utf-8',
-        timeout: 15000,
-      });
-
-      execSync(`scrcpy-cli ui-dump "${dumpPath}"`, {
-        encoding: 'utf-8',
-        timeout: 15000,
-      });
-
-      return {
-        success: true,
-        screenshotPath,
-        dumpPath,
-        relativeScreenshot: path.join('docs', 'spec', 'evidence', screenshotFilename),
-        relativeDump: path.join('docs', 'spec', 'evidence', dumpFilename),
-      };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
+  ipcMain.handle('scrcpy:capture-ui', async (_, { worktreePath, prefix, serial } = {}) => {
+    return deviceService.captureUi({ worktreePath, prefix, serial });
   });
 
   // ── Quick git commands ───────────────────────────────

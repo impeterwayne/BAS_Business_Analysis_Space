@@ -102,4 +102,6 @@ module.exports = {
   canCreateNestedWorktree,
   getNestedWorktreeParentPath,
   buildWorktreeTree,
+  ...require('./device'),
+  ...require('./project'),
 };

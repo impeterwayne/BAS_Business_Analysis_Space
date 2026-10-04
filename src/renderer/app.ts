@@ -15,13 +15,17 @@ const {
   classifyWorktreeLocation: getDomainClassifyWorktreeLocation,
   canCreateNestedWorktree: getDomainCanCreateNestedWorktree,
   buildWorktreeTree: getDomainBuildWorktreeTree,
+  parseFigmaUrl,
+  formatDisplayUrl,
 } = require('../domain');
 
 const { initializeRendererLifecycle } = require('./lifecycle');
 const { openCreateBranchModal } = require('./modals/createBranchModal');
 const { openAddWorktreeModal, openAddSubWorktreeModal, openMergeWorktreeModal, openForceRemoveWorktreeModal } = require('./modals/worktreeModals');
+const { openCompetitorModal } = require('./modals/competitorModal');
 const { createModalHelpers } = require('./ui/modalHelpers');
 const { createModalPrimitives } = require('./ui/modalPrimitives');
+const { DeviceManagerScreen } = require('./screens/deviceManagerScreen');
 
 type TerminalBehavior = {
   forceMouseMode: boolean;
@@ -151,6 +155,13 @@ const dom = {
   terminalWelcome: $('#terminal-welcome'),
   terminalContainer: $('#terminal-container'),
   terminalTabs: $('#terminal-tabs'),
+  btnTerminalScreen: $('#btn-terminal-screen'),
+  terminalScreen: $('#terminal-screen'),
+  btnCloseTerminalScreen: $('#btn-close-terminal-screen'),
+  btnTerminalScreenNew: $('#btn-terminal-screen-new'),
+  terminalScreenActiveName: $('#terminal-screen-active-name'),
+  terminalEmptyState: $('#terminal-empty-state'),
+  btnTerminalEmptyNew: $('#btn-terminal-empty-new'),
   tabListScroll: $('#tab-list-scroll'),
   tabNewBtn: $('#tab-new-btn'),
   tabCollapseBtn: $('#tab-collapse-btn'),
@@ -159,14 +170,41 @@ const dom = {
   btnAndroidStudio: $('#btn-android-studio'),
   btnAntigravity: $('#btn-antigravity'),
   btnAntigravityAgent: $('#btn-antigravity-agent'),
-  btnScrcpyMirror: $('#btn-scrcpy-mirror'),
   btnScrcpyCapture: $('#btn-scrcpy-capture'),
   btnFigma: $('#btn-figma'),
   btnObsidian: $('#btn-obsidian'),
-  welcomeBtnTerminal: $('#welcome-btn-terminal'),
-  welcomeBtnMirror: $('#welcome-btn-mirror'),
-  welcomeBtnCapture: $('#welcome-btn-capture'),
-  welcomeBtnToolkit: $('#welcome-btn-toolkit'),
+  dashboardEmptyState: $('#dashboard-empty-state'),
+  btnDashboardAddFirst: $('#btn-dashboard-add-first'),
+  dashboardViewer: $('#dashboard-viewer'),
+  dashProjectName: $('#dash-project-name'),
+  dashBranchBadge: $('#dash-branch-badge'),
+  dashProjectPath: $('#dash-project-path'),
+  dashBtnCopyPath: $('#dash-btn-copy-path'),
+  dashBtnRevealPath: $('#dash-btn-reveal-path'),
+  dashChipDevice: $('#dash-chip-device'),
+  dashChipDeviceDot: $('#dash-chip-device-dot'),
+  dashDeviceText: $('#dash-device-text'),
+  dashChipWorktree: $('#dash-chip-worktree'),
+  dashWtText: $('#dash-wt-text'),
+  dashChipBakit: $('#dash-chip-bakit'),
+  dashBakitText: $('#dash-bakit-text'),
+  dashFigmaStatusPill: $('#dash-figma-status-pill'),
+  dashFigmaActions: $('#dash-figma-actions'),
+  dashFigmaBody: $('#dash-figma-body'),
+  dashBtnOpenFigma: $('#dash-btn-open-figma'),
+  dashBtnBrowserFigma: $('#dash-btn-browser-figma'),
+  dashApkBadge: $('#dash-apk-badge'),
+  dashBtnAddApk: $('#dash-btn-add-apk'),
+  dashBtnRefreshAdb: $('#dash-btn-refresh-adb'),
+  dashApkDropzone: $('#dash-apk-dropzone'),
+  dashLinkBrowseApk: $('#dash-link-browse-apk'),
+  dashApkList: $('#dash-apk-list'),
+  dashCompBadge: $('#dash-comp-badge'),
+  dashBtnAddCompetitor: $('#dash-btn-add-competitor'),
+  dashBtnSyncConfig: $('#dash-btn-sync-config'),
+  dashCompetitorList: $('#dash-competitor-list'),
+  dashBtnViewGrid: $('#dash-btn-view-grid'),
+  dashBtnViewList: $('#dash-btn-view-list'),
   titlebarCrumbProject: $('#titlebar-crumb-project'),
   titlebarCrumbBranch: $('#titlebar-crumb-branch'),
   welcomeStatusName: $('#welcome-status-name'),
@@ -210,6 +248,9 @@ const dom = {
   agentToolkitActiveName: $('#agent-toolkit-active-name'),
   agentToolkitActivePath: $('#agent-toolkit-active-path'),
   agentToolkitListContainer: $('#agent-toolkit-list-container'),
+  btnDeviceManager: $('#btn-device-manager'),
+  deviceManagerScreen: $('#device-manager-screen'),
+  btnCloseDeviceManagerScreen: $('#btn-close-device-manager-screen'),
 };
 
 const WORKSPACE_SIDEBAR_COLLAPSED_KEY = 'codingspace.workspaceSidebarCollapsed';
@@ -315,13 +356,10 @@ async function addProject() {
 
 // ── Refresh All ────────────────────────────────────────
 dom.btnRefreshAll.addEventListener('click', async () => {
-  const icon = dom.btnRefreshAll.querySelector('img');
-  if (icon) icon.classList.add('spinning');
   showToast('Refreshing...', 'info');
   for (const p of state.projects) await window.api.refreshWorktrees(p.path);
   await loadWorkspaces();
   showToast('All projects refreshed', 'success');
-  if (icon) icon.classList.remove('spinning');
 });
 
 // ── Sidebar Resize ─────────────────────────────────────
@@ -336,7 +374,7 @@ dom.btnRefreshAll.addEventListener('click', async () => {
   });
   document.addEventListener('mousemove', (e) => {
     if (!isResizing) return;
-    dom.sidebar.style.width = Math.min(500, Math.max(240, e.clientX)) + 'px';
+    dom.sidebar.style.width = Math.min(500, Math.max(200, e.clientX)) + 'px';
     fitActiveTerminal();
   });
   document.addEventListener('mouseup', () => {
@@ -366,8 +404,9 @@ dom.btnRefreshAll.addEventListener('click', async () => {
   
   document.addEventListener('mousemove', (e) => {
     if (!isResizing) return;
-    const sidebarWidth = dom.sidebar.getBoundingClientRect().width;
-    const computedWidth = Math.min(350, Math.max(140, e.clientX - sidebarWidth));
+    const parentEl = dom.terminalTabs?.parentElement;
+    const parentLeft = parentEl ? parentEl.getBoundingClientRect().left : dom.sidebar.getBoundingClientRect().width;
+    const computedWidth = Math.min(350, Math.max(140, e.clientX - parentLeft));
     document.documentElement.style.setProperty('--tab-sidebar-width', computedWidth + 'px');
     fitActiveTerminal();
   });
@@ -456,6 +495,7 @@ const iconRaw = {
   'agent-toolkit': loadIcon('agent-toolkit'),
   screen: loadIcon('screen'),
   capture: loadIcon('capture'),
+  device: loadIcon('device'),
   figma: loadIcon('figma'),
   task: loadIcon('task'),
 };
@@ -477,6 +517,7 @@ const icons = {
   claude: iconSvg(iconRaw.claude, 12),
   'windows-terminal': iconSvg(iconRaw['windows-terminal'], 12),
   android: iconSvg(iconRaw.android, 12),
+  device: iconSvg(iconRaw.device, 14),
   get antigravity() { return iconSvg(iconRaw.antigravity, 12); },
   moreVertical: iconSvg(iconRaw['more-vertical'], 12),
   copy: iconSvg(iconRaw.copy, 12),
@@ -488,6 +529,16 @@ const icons = {
   figma: iconSvg(iconRaw.figma, 14),
   task: iconSvg(iconRaw.task, 14),
 };
+
+const FIGMA_COLORED_LOGO = `<svg width="18" height="27" viewBox="0 0 38 57" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M19 28.5C19 23.2533 23.2533 19 28.5 19C33.7467 19 38 23.2533 38 28.5C38 33.7467 33.7467 38 28.5 38C23.2533 38 19 33.7467 19 28.5Z" fill="#1ABCFE"/>
+  <path d="M0 47.5C0 42.2533 4.25329 38 9.5 38H19V47.5C19 52.7467 14.7467 57 9.5 57C4.25329 57 0 52.7467 0 47.5Z" fill="#0ACF83"/>
+  <path d="M19 0V19H28.5C33.7467 19 38 14.7467 38 9.5C38 4.25329 33.7467 0 28.5 0H19Z" fill="#FF7262"/>
+  <path d="M0 9.5C0 14.7467 4.25329 19 9.5 19H19V0H9.5C4.25329 0 0 4.25329 0 9.5Z" fill="#F24E1E"/>
+  <path d="M0 28.5C0 33.7467 4.25329 38 9.5 38H19V19H9.5C4.25329 19 0 23.2533 0 28.5Z" fill="#A259FF"/>
+</svg>`;
+
+const EDIT_PENCIL_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
 
 const TOOL_TABS: Record<string, ToolTab> = {
   agy: {
@@ -748,6 +799,17 @@ const {
   bindModalEnterSubmit,
   withAsyncButtonState,
 } = createModalHelpers(dom);
+
+const { showModal, hideModal, showToast, initializeModalPrimitives } = createModalPrimitives(dom);
+initializeModalPrimitives();
+
+// ── Utilities ──────────────────────────────────────────
+function esc(str: any) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
 function syncWorktreePathInput(pathInput, baseDir, projectName) {
   return (branch) => {
@@ -1299,14 +1361,79 @@ function insertTab(id, name) {
   });
 }
 
-/** Switch the active worktree context (swap tab bar + restore last active terminal) */
+function isTerminalScreenVisible() {
+  return dom.terminalScreen ? !dom.terminalScreen.classList.contains('hidden') : false;
+}
+
+async function showTerminalScreen() {
+  // Exit other screens
+  dom.settingsScreen?.classList.add('hidden');
+  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
+  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+
+  if (dom.terminalScreen) {
+    dom.terminalScreen.classList.remove('hidden');
+  }
+  if (dom.btnTerminalScreen) {
+    dom.btnTerminalScreen.classList.add('active');
+  }
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+
+  const activeWorktreePath = state.activeWorktreePath;
+  const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'active workspace';
+  if (dom.terminalScreenActiveName) {
+    dom.terminalScreenActiveName.textContent = activeWorktreeName;
+  }
+
+  // Check if active worktree has terminals
+  const wtTerminals = getTerminalsForWorktree(activeWorktreePath);
+  if (wtTerminals.length > 0) {
+    if (dom.terminalEmptyState) dom.terminalEmptyState.classList.add('hidden');
+    const savedId = state.worktreeActiveTerminal.get(activeWorktreePath);
+    if (savedId && state.terminals.has(savedId)) {
+      switchToTerminal(savedId);
+    } else {
+      switchToTerminal(wtTerminals[wtTerminals.length - 1]);
+    }
+  } else if (activeWorktreePath) {
+    // If no terminal exists for this worktree yet, auto-create the initial shell
+    await createTerminal(activeWorktreePath, activeWorktreeName, {
+      worktreePath: activeWorktreePath,
+    });
+  } else if (state.projects && state.projects.length > 0) {
+    const p = state.projects.find((proj) => proj.path === state.selectedProjectPath) || state.projects[0];
+    const wt = (p.worktrees && p.worktrees[0]) ? p.worktrees[0].path : p.path;
+    await createTerminal(wt, p.name);
+  } else {
+    if (dom.terminalEmptyState) dom.terminalEmptyState.classList.remove('hidden');
+  }
+
+  fitActiveTerminal();
+}
+
+function hideTerminalScreen() {
+  if (dom.terminalScreen) {
+    dom.terminalScreen.classList.add('hidden');
+  }
+  if (dom.btnTerminalScreen) {
+    dom.btnTerminalScreen.classList.remove('active');
+  }
+  startAutoRefreshLoop();
+}
+
+/** Switch the active worktree context */
 function switchWorktreeContext(wtPath) {
-  // Exit settings if active
+  // Exit other screens if active
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
 
-  if (state.activeWorktreePath === wtPath) return;
+  if (state.activeWorktreePath === wtPath) {
+    rebuildTabsForWorktree(wtPath);
+    updateSidebarActiveState();
+    return;
+  }
 
   // Save current active terminal for the old worktree
   if (state.activeWorktreePath && state.activeTerminalId) {
@@ -1324,27 +1451,40 @@ function switchWorktreeContext(wtPath) {
 
   rebuildTabsForWorktree(wtPath);
 
-  // Restore last active terminal for this worktree, or pick first
-  const savedId = state.worktreeActiveTerminal.get(wtPath);
-  const wtTerminals = getTerminalsForWorktree(wtPath);
+  // If the terminal screen is currently visible, update terminal view
+  if (isTerminalScreenVisible()) {
+    const activeWorktreeName = wtPath ? wtPath.split(/[\\/]/).pop() : 'active workspace';
+    if (dom.terminalScreenActiveName) dom.terminalScreenActiveName.textContent = activeWorktreeName;
 
-  if (savedId && state.terminals.has(savedId)) {
-    switchToTerminal(savedId);
-  } else if (wtTerminals.length > 0) {
-    switchToTerminal(wtTerminals[wtTerminals.length - 1]);
-  } else {
-    // No terminals for this worktree — hide all panes, show welcome
-    state.activeTerminalId = null;
-    dom.terminalContainer.querySelectorAll('.terminal-pane').forEach((p) => {
-      p.classList.remove('active');
-    });
-    dom.tabListScroll.querySelectorAll('.terminal-tab').forEach((t) => {
-      t.classList.remove('active');
-    });
-    dom.terminalWelcome.classList.remove('hidden');
+    const savedId = state.worktreeActiveTerminal.get(wtPath);
+    const wtTerminals = getTerminalsForWorktree(wtPath);
+
+    if (savedId && state.terminals.has(savedId)) {
+      switchToTerminal(savedId);
+    } else if (wtTerminals.length > 0) {
+      switchToTerminal(wtTerminals[wtTerminals.length - 1]);
+    } else {
+      // No terminals for this worktree
+      state.activeTerminalId = null;
+      dom.terminalContainer.querySelectorAll('.terminal-pane').forEach((p) => {
+        p.classList.remove('active');
+      });
+      dom.tabListScroll.querySelectorAll('.terminal-tab').forEach((t) => {
+        t.classList.remove('active');
+      });
+      if (dom.terminalEmptyState) dom.terminalEmptyState.classList.remove('hidden');
+    }
   }
 
   updateSidebarActiveState();
+
+  // If other screens are open, update them
+  if (dom.symlinkScreen && !dom.symlinkScreen.classList.contains('hidden')) {
+    void showSymlinkScreen();
+  }
+  if (dom.agentToolkitScreen && !dom.agentToolkitScreen.classList.contains('hidden')) {
+    void showAgentToolkitScreen();
+  }
 
   // Re-prewarm tool sessions for the new worktree
   reprewarmForWorktree();
@@ -1367,22 +1507,12 @@ async function openProjectWorkspaceAndTerminal(projectPath) {
   }
 
   if (targetWt) {
-    const wtPath = targetWt.path;
-    const wtName = targetWt.name;
-    const wtTerminals = getTerminalsForWorktree(wtPath);
-    if (wtTerminals.length > 0) {
-      switchWorktreeContext(wtPath);
-    } else {
-      await createTerminal(wtPath, wtName, {
-        worktreePath: wtPath,
-      });
-      prewarmAllTools();
-    }
+    switchWorktreeContext(targetWt.path);
   }
 }
 
 function switchToTerminal(id) {
-  // Exit settings if active
+  // Exit other screens if active
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
@@ -1419,8 +1549,8 @@ function switchToTerminal(id) {
   });
   termInfo.paneEl.classList.add('active');
 
-  // Hide welcome
-  dom.terminalWelcome.classList.add('hidden');
+  // Hide empty state if present
+  if (dom.terminalEmptyState) dom.terminalEmptyState.classList.add('hidden');
 
   // Focus and fit
   requestAnimationFrame(() => {
@@ -1457,14 +1587,14 @@ function closeTerminal(id) {
     state.worktreeActiveTerminal.delete(wtPath);
   }
 
-  // Switch to another terminal within the SAME worktree, or show welcome
+  // Switch to another terminal within the SAME worktree, or show empty state
   if (state.activeTerminalId === id) {
     const remaining = getTerminalsForWorktree(wtPath);
     if (remaining.length > 0) {
       switchToTerminal(remaining[remaining.length - 1]);
     } else {
       state.activeTerminalId = null;
-      dom.terminalWelcome.classList.remove('hidden');
+      if (dom.terminalEmptyState) dom.terminalEmptyState.classList.remove('hidden');
     }
   }
 }
@@ -1737,6 +1867,8 @@ function showWorktreeContextMenu(project, wt, x, y) {
     x,
     y,
     html: `
+      ${menuItemHTML({ action: 'open-terminal', icon: icons.terminal, label: 'Open in Terminal' })}
+      ${menuDividerHTML()}
       ${canAddSubWorktree ? `${menuItemHTML({ action: 'add-sub-worktree', icon: icons.plus, label: 'Add nested worktree' })}${menuDividerHTML()}` : ''}
       ${menuItemHTML({ action: 'merge-to-local-branch', icon: icons.gitBranch, label: 'Merge to local branch' })}
       ${menuDividerHTML()}
@@ -1746,6 +1878,10 @@ function showWorktreeContextMenu(project, wt, x, y) {
   });
 
   bindMenuActions(menu, {
+    'open-terminal': () => {
+      switchWorktreeContext(wt.path);
+      showTerminalScreen();
+    },
     'add-sub-worktree': () => showAddSubWorktreeModal(project, wt),
     'merge-to-local-branch': () => showMergeWorktreeModal(project, wt),
     'force-remove-worktree': () => showForceRemoveWorktreeModal(project, wt),
@@ -1867,15 +2003,6 @@ dom.tabNewBtn.addEventListener('click', (e) => {
 bindWorktreeQuickAction(dom.btnAntigravity, (wtPath) => window.api.openInAntigravity(wtPath), 'Opening Antigravity...');
 bindWorktreeQuickAction(dom.btnAntigravityAgent, (wtPath) => window.api.openInAntigravityAgent(wtPath), 'Opening Agent Manager...');
 
-if (dom.btnScrcpyMirror) {
-  dom.btnScrcpyMirror.addEventListener('click', async () => {
-    showToast('Launching Screen Mirror...', 'info');
-    const res = await window.api.scrcpyMirror();
-    if (res && !res.success) {
-      showToast(`Mirror failed: ${res.error || 'Failed to start scrcpy'}`, 'error');
-    }
-  });
-}
 
 if (dom.btnScrcpyCapture) {
   dom.btnScrcpyCapture.addEventListener('click', async () => {
@@ -1893,8 +2020,21 @@ if (dom.btnScrcpyCapture) {
 
 if (dom.btnFigma) {
   dom.btnFigma.addEventListener('click', async () => {
-    showToast('Opening Figma...', 'info');
-    await window.api.openInFigma();
+    const { activeProject } = getActiveProjectAndWorktree();
+    const figmaUrl = (activeProject?.figmaUrl || '').trim();
+    if (figmaUrl) {
+      showToast(`Opening Figma for ${activeProject?.name || 'project'}...`, 'info');
+      const res = await window.api.openInFigma(figmaUrl);
+      if (res && !res.success && res.error) {
+        showToast(`Failed to open Figma: ${res.error}`, 'error');
+      }
+    } else {
+      showToast('Opening Figma Desktop...', 'info');
+      const res = await window.api.openInFigma();
+      if (res && !res.success && res.error) {
+        showToast(`Failed to open Figma: ${res.error}`, 'error');
+      }
+    }
   });
 }
 
@@ -1912,34 +2052,822 @@ if (dom.btnObsidian) {
 bindWorktreeQuickAction(dom.btnVsCode, (wtPath) => window.api.openInEditor(wtPath), 'Opening Spec Editor...');
 bindWorktreeQuickAction(dom.btnExplorer, (wtPath) => window.api.openInExplorer(wtPath), 'Opening Explorer...');
 
-// Welcome screen quick actions
-if (dom.welcomeBtnTerminal) {
-  dom.welcomeBtnTerminal.addEventListener('click', async () => {
-    if (state.activeWorktreePath) {
-      const activeName = state.activeWorktreePath.split(/[\\/]/).pop() || 'Terminal';
-      await createTerminal(state.activeWorktreePath, activeName);
-    } else if (state.projects && state.projects.length > 0) {
-      const p = state.projects.find((proj) => proj.path === state.selectedProjectPath) || state.projects[0];
-      const wt = (p.worktrees && p.worktrees[0]) ? p.worktrees[0].path : p.path;
-      await createTerminal(wt, p.name);
+// ═══════════════════════════════════════════════════════
+// DASHBOARD PROJECT & BA ASSET VIEWER
+// ═══════════════════════════════════════════════════════
+
+function getActiveProjectAndWorktree() {
+  const activeWtPath = state.activeWorktreePath;
+  let activeProject: any = null;
+  let activeWt: any = null;
+
+  if (activeWtPath && state.projects) {
+    for (const p of state.projects) {
+      const found = (p.worktrees || []).find((w: any) => w.path === activeWtPath);
+      if (found) {
+        activeProject = p;
+        activeWt = found;
+        break;
+      }
+    }
+  }
+
+  if (!activeProject && state.projects && state.projects.length > 0) {
+    activeProject = state.projects.find((p: any) => p.path === state.selectedProjectPath) || state.projects[0];
+    if (activeProject?.worktrees && activeProject.worktrees.length > 0) {
+      activeWt = activeProject.worktrees[0];
+    }
+  }
+
+  return { activeProject, activeWt };
+}
+
+function formatBytes(bytes: number, decimals = 1): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+async function checkDashboardAdbDevice() {
+  if (!dom.dashDeviceText || !dom.dashChipDeviceDot) return;
+  try {
+    const res = await window.api.deviceList();
+    if (res?.success && res.devices?.length) {
+      const active = res.devices.find((d: any) => d.isActive) || res.devices[0];
+      dom.dashChipDeviceDot.className = 'dash-chip-dot online';
+      const label = active.marketName || active.model || active.serial;
+      dom.dashDeviceText.textContent = `ADB: ${label} (${res.devices.length} connected)`;
+      if (dom.dashChipDevice) {
+        dom.dashChipDevice.title = `Active device: ${label} (${active.serial})\nTotal connected: ${res.devices.length}\nClick to open Device Manager`;
+      }
     } else {
-      showToast('Please open or add a project first.', 'info');
+      dom.dashChipDeviceDot.className = 'dash-chip-dot';
+      dom.dashDeviceText.textContent = 'ADB: No devices connected';
+      if (dom.dashChipDevice) {
+        dom.dashChipDevice.title = 'No Android devices connected. Click to open Device Manager';
+      }
+    }
+  } catch {
+    dom.dashChipDeviceDot.className = 'dash-chip-dot';
+    dom.dashDeviceText.textContent = 'ADB: Offline';
+  }
+}
+
+function updateSidebarFigmaButton(activeProject?: any) {
+  if (!dom.btnFigma) return;
+  if (!activeProject) {
+    const res = getActiveProjectAndWorktree();
+    activeProject = res.activeProject;
+  }
+  const figmaUrl = (activeProject?.figmaUrl || '').trim();
+  const figmaBadge = document.getElementById('btn-figma-badge');
+
+  if (figmaUrl) {
+    const name = activeProject?.name || 'Project';
+    dom.btnFigma.title = `Open Figma: ${name}\n${figmaUrl}`;
+    dom.btnFigma.classList.add('has-link');
+    if (figmaBadge) {
+      figmaBadge.textContent = 'Linked';
+      figmaBadge.className = 'workspace-tool-pill connected';
+      figmaBadge.style.display = 'inline-flex';
+    }
+  } else {
+    dom.btnFigma.title = 'Open Figma Desktop (No link configured for active project)';
+    dom.btnFigma.classList.remove('has-link');
+    if (figmaBadge) {
+      figmaBadge.style.display = 'none';
+    }
+  }
+}
+
+function renderDashboardFigma(activeProject: any) {
+  updateSidebarFigmaButton(activeProject);
+  if (!dom.dashFigmaBody) return;
+  const figmaUrl = (activeProject.figmaUrl || '').trim();
+
+  if (figmaUrl) {
+    if (dom.dashFigmaStatusPill) {
+      dom.dashFigmaStatusPill.textContent = 'Linked';
+      dom.dashFigmaStatusPill.className = 'dash-status-pill connected';
+    }
+    if (dom.dashBtnOpenFigma) dom.dashBtnOpenFigma.style.display = 'inline-flex';
+    if (dom.dashBtnBrowserFigma) dom.dashBtnBrowserFigma.style.display = 'inline-flex';
+
+    const parsed = parseFigmaUrl(figmaUrl);
+    const displayName = parsed?.fileName || `${activeProject.name || 'Project'} Design`;
+    const displayUrl = formatDisplayUrl(figmaUrl);
+    const typeLabel = parsed?.type || 'Design File';
+    let typeClass = '';
+    if (typeLabel === 'Prototype') typeClass = 'prototype';
+    else if (typeLabel === 'FigJam Board') typeClass = 'board';
+
+    dom.dashFigmaBody.innerHTML = `
+      <div class="dash-figma-showcase">
+        <div class="dash-figma-accent-bar"></div>
+        <div class="dash-figma-top-bar">
+          <div class="dash-figma-tag-group">
+            <span class="dash-figma-type-pill ${typeClass}">
+              <span class="dash-figma-pulse-dot"></span>
+              ${esc(typeLabel)}
+            </span>
+            ${parsed?.nodeId ? `<span class="dash-figma-sub-pill">Node: ${esc(parsed.nodeId)}</span>` : ''}
+          </div>
+          <div class="dash-figma-top-actions">
+            <button type="button" class="dash-figma-icon-btn" id="dash-btn-copy-figma" title="Copy Figma Link" aria-label="Copy Figma Link">
+              ${icons.copy || ''}
+            </button>
+            <button type="button" class="dash-figma-icon-btn" id="dash-btn-edit-inline-figma" title="Edit Figma Link" aria-label="Edit Figma Link">
+              ${EDIT_PENCIL_SVG}
+            </button>
+            <button type="button" class="dash-figma-icon-btn danger" id="dash-btn-clear-figma" title="Clear Figma Link" aria-label="Clear Figma Link">
+              ${icons.trash || ''}
+            </button>
+          </div>
+        </div>
+
+        <div class="dash-figma-main-info">
+          <div class="dash-figma-brand-emblem" title="Figma Design">
+            ${FIGMA_COLORED_LOGO}
+          </div>
+          <div class="dash-figma-meta">
+            <h4 class="dash-figma-title" title="${esc(displayName)}">${esc(displayName)}</h4>
+            <a href="${esc(figmaUrl)}" class="dash-figma-url-pill" id="dash-figma-url-anchor" title="${esc(figmaUrl)}" target="_blank">
+              <span class="dash-figma-url-text">${esc(displayUrl)}</span>
+              ${icons.link || ''}
+            </a>
+          </div>
+        </div>
+
+        <div class="dash-figma-action-footer">
+          <button type="button" class="btn-figma-launch" id="dash-btn-card-open-figma" title="Launch Figma Desktop App">
+            ${icons.figma || '<img src="icons/figma.svg" width="12" height="12" />'}
+            <span>Open in Figma</span>
+          </button>
+          <button type="button" class="btn-figma-browser" id="dash-btn-card-browser-figma" title="Open Figma link in browser">
+            ${icons.link || ''}
+            <span>Browser</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    const cardOpenBtn = dom.dashFigmaBody.querySelector('#dash-btn-card-open-figma');
+    cardOpenBtn?.addEventListener('click', async () => {
+      showToast('Opening Figma...', 'info');
+      await window.api.openInFigma(figmaUrl);
+    });
+
+    const cardBrowserBtn = dom.dashFigmaBody.querySelector('#dash-btn-card-browser-figma');
+    cardBrowserBtn?.addEventListener('click', async () => {
+      await window.api.openExternal(figmaUrl);
+    });
+
+    const copyBtn = dom.dashFigmaBody.querySelector('#dash-btn-copy-figma');
+    copyBtn?.addEventListener('click', () => {
+      navigator.clipboard.writeText(figmaUrl);
+      showToast('Figma URL copied to clipboard', 'info');
+    });
+
+    const urlAnchor = dom.dashFigmaBody.querySelector('#dash-figma-url-anchor');
+    urlAnchor?.addEventListener('click', (e: Event) => {
+      e.preventDefault();
+      void window.api.openExternal(figmaUrl);
+    });
+
+    const editBtn = dom.dashFigmaBody.querySelector('#dash-btn-edit-inline-figma');
+    editBtn?.addEventListener('click', () => {
+      renderFigmaInlineEdit(activeProject, figmaUrl);
+    });
+
+    const clearBtn = dom.dashFigmaBody.querySelector('#dash-btn-clear-figma');
+    clearBtn?.addEventListener('click', async () => {
+      const res = await window.api.updateProjectMetadata(activeProject.path, { figmaUrl: '' });
+      if (res?.success) {
+        showToast('Figma link cleared', 'info');
+        activeProject.figmaUrl = '';
+        renderDashboardFigma(activeProject);
+      } else {
+        showToast(`Failed to clear: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    });
+  } else {
+    if (dom.dashFigmaStatusPill) {
+      dom.dashFigmaStatusPill.textContent = 'Not Linked';
+      dom.dashFigmaStatusPill.className = 'dash-status-pill';
+    }
+    if (dom.dashBtnOpenFigma) dom.dashBtnOpenFigma.style.display = 'none';
+    if (dom.dashBtnBrowserFigma) dom.dashBtnBrowserFigma.style.display = 'none';
+
+    dom.dashFigmaBody.innerHTML = `
+      <div class="dash-figma-empty-showcase">
+        <div class="dash-figma-empty-icon-wrap">
+          <div class="dash-figma-empty-icon" title="Figma">
+            ${FIGMA_COLORED_LOGO}
+          </div>
+        </div>
+        <div class="dash-figma-empty-content">
+          <div class="dash-figma-input-wrapper">
+            <input type="text" class="dash-figma-input" id="dash-figma-quick-input" placeholder="Paste Figma design or prototype link..." autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn-figma-link-submit" id="dash-figma-quick-save">Link</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const quickInput = dom.dashFigmaBody.querySelector('#dash-figma-quick-input') as HTMLInputElement;
+    const quickSave = dom.dashFigmaBody.querySelector('#dash-figma-quick-save') as HTMLButtonElement;
+
+    quickSave?.addEventListener('click', async () => {
+      const url = quickInput?.value.trim();
+      if (!url) {
+        showToast('Please enter a Figma URL', 'error');
+        return;
+      }
+      const res = await window.api.updateProjectMetadata(activeProject.path, { figmaUrl: url });
+      if (res?.success) {
+        showToast('Figma link saved', 'success');
+        activeProject.figmaUrl = url;
+        renderDashboardFigma(activeProject);
+      } else {
+        showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    });
+
+    quickInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        quickSave?.click();
+      }
+    });
+  }
+}
+
+function renderFigmaInlineEdit(activeProject: any, currentUrl: string) {
+  if (!dom.dashFigmaBody) return;
+  dom.dashFigmaBody.innerHTML = `
+    <div class="dash-figma-edit-showcase">
+      <div class="dash-figma-edit-header">
+        ${icons.figma || ''}
+        <span>Edit Figma Link</span>
+      </div>
+      <div class="dash-figma-input-wrapper">
+        <input type="text" class="dash-figma-input" id="dash-figma-edit-input" value="${esc(currentUrl)}" placeholder="https://www.figma.com/design/..." autocomplete="off" spellcheck="false" />
+        <button type="button" class="btn-figma-link-submit" id="dash-figma-edit-save">Save</button>
+        <button type="button" class="btn-secondary btn-small" id="dash-figma-edit-cancel">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  const editInput = dom.dashFigmaBody.querySelector('#dash-figma-edit-input') as HTMLInputElement;
+  const editSave = dom.dashFigmaBody.querySelector('#dash-figma-edit-save') as HTMLButtonElement;
+  const editCancel = dom.dashFigmaBody.querySelector('#dash-figma-edit-cancel') as HTMLButtonElement;
+
+  editInput?.focus();
+  editInput?.select();
+
+  editSave?.addEventListener('click', async () => {
+    const url = editInput?.value.trim();
+    const res = await window.api.updateProjectMetadata(activeProject.path, { figmaUrl: url });
+    if (res?.success) {
+      showToast(url ? 'Figma link updated' : 'Figma link cleared', 'success');
+      activeProject.figmaUrl = url;
+      renderDashboardFigma(activeProject);
+    } else {
+      showToast(`Failed to update: ${res?.error || 'Unknown error'}`, 'error');
+    }
+  });
+
+  editCancel?.addEventListener('click', () => {
+    renderDashboardFigma(activeProject);
+  });
+
+  editInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      editSave?.click();
+    } else if (e.key === 'Escape') {
+      editCancel?.click();
     }
   });
 }
-if (dom.welcomeBtnMirror) {
-  dom.welcomeBtnMirror.addEventListener('click', () => {
-    if (dom.btnScrcpyMirror) dom.btnScrcpyMirror.click();
+
+function renderDashboardApk(activeProject: any) {
+  if (!dom.dashApkList) return;
+  const apkFiles = Array.isArray(activeProject.apkFiles) ? activeProject.apkFiles : [];
+
+  if (dom.dashApkBadge) {
+    dom.dashApkBadge.textContent = `${apkFiles.length} APK${apkFiles.length === 1 ? '' : 's'}`;
+  }
+
+  if (apkFiles.length === 0) {
+    dom.dashApkList.innerHTML = `
+      <div style="text-align: center; padding: 14px 12px; color: var(--text-muted); font-size: 12px;">
+        No APK builds linked yet.
+      </div>
+    `;
+    return;
+  }
+
+  dom.dashApkList.innerHTML = apkFiles.map((apk: any) => `
+    <div class="dash-apk-item" data-apk-id="${esc(apk.id)}">
+      <div class="dash-apk-item-left">
+        <div class="dash-apk-file-icon">
+          ${icons.device || '<img src="icons/device.svg" width="16" height="16" />'}
+        </div>
+        <div class="dash-apk-meta-group">
+          <div class="dash-apk-name-row">
+            <span class="dash-apk-title" title="${esc(apk.name)}">${esc(apk.name)}</span>
+            <span class="dash-apk-size-pill">${formatBytes(apk.size)}</span>
+          </div>
+          <span class="dash-apk-path" title="${esc(apk.path)}">${esc(apk.path)}</span>
+        </div>
+      </div>
+      <div class="dash-apk-item-actions">
+        <button type="button" class="btn-apk-install" data-action="install-apk" data-path="${esc(apk.path)}" data-name="${esc(apk.name)}" title="Install this APK to connected Android device via adb">
+          ${icons.download || ''}
+          <span>Install to Device</span>
+        </button>
+        <button type="button" class="dash-icon-btn" data-action="reveal-apk" data-path="${esc(apk.path)}" title="Reveal in File Explorer">
+          ${icons.folder || ''}
+        </button>
+        <button type="button" class="dash-icon-btn" data-action="remove-apk" data-id="${esc(apk.id)}" title="Remove APK from project">
+          ${icons.trash || ''}
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  dom.dashApkList.querySelectorAll('[data-action="install-apk"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const apkPath = target.dataset.path;
+      const apkName = target.dataset.name || 'APK';
+      if (!apkPath) return;
+
+      const originalHtml = target.innerHTML;
+      target.setAttribute('disabled', 'true');
+      target.innerHTML = `<span class="spinner" style="width:12px; height:12px; border-width:2px;"></span> Installing...`;
+      showToast(`Installing ${apkName} on Android device...`, 'info');
+
+      try {
+        const res = await window.api.installApk({ apkPath });
+        if (res.success) {
+          showToast(`Successfully installed ${apkName}!`, 'success');
+        } else {
+          showToast(`Install failed: ${res.error || 'Check device connection'}`, 'error');
+        }
+      } catch (err: any) {
+        showToast(`Install error: ${err.message}`, 'error');
+      } finally {
+        target.removeAttribute('disabled');
+        target.innerHTML = originalHtml;
+      }
+    });
+  });
+
+  dom.dashApkList.querySelectorAll('[data-action="reveal-apk"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const apkPath = target.dataset.path;
+      if (apkPath) {
+        void window.api.openInExplorer(apkPath);
+      }
+    });
+  });
+
+  dom.dashApkList.querySelectorAll('[data-action="remove-apk"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const apkId = target.dataset.id;
+      if (!apkId) return;
+
+      const res = await window.api.removeProjectApk(activeProject.path, apkId);
+      if (res?.success) {
+        showToast('APK removed from project', 'info');
+        activeProject.apkFiles = (activeProject.apkFiles || []).filter((a: any) => a.id !== apkId);
+        renderDashboardApk(activeProject);
+      } else {
+        showToast(`Failed: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    });
   });
 }
-if (dom.welcomeBtnCapture) {
-  dom.welcomeBtnCapture.addEventListener('click', () => {
-    if (dom.btnScrcpyCapture) dom.btnScrcpyCapture.click();
+
+function renderDashboardCompetitors(activeProject: any, activeWt: any) {
+  if (!dom.dashCompetitorList) return;
+  const competitors = Array.isArray(activeProject.competitors) ? activeProject.competitors : [];
+
+  if (dom.dashCompBadge) {
+    dom.dashCompBadge.textContent = `${competitors.length} Competitor${competitors.length === 1 ? '' : 's'}`;
+  }
+
+  if (competitors.length === 0) {
+    dom.dashCompetitorList.innerHTML = `
+      <div style="text-align: center; padding: 14px 12px; color: var(--text-muted); font-size: 12px; grid-column: 1 / -1;">
+        No competitor apps configured yet.
+      </div>
+    `;
+    return;
+  }
+
+  dom.dashCompetitorList.innerHTML = competitors.map((comp: any) => `
+    <div class="dash-comp-card" data-comp-id="${esc(comp.id)}">
+      <div class="dash-comp-card-top">
+        <div class="dash-comp-title-group">
+          <h4 class="dash-comp-name">${esc(comp.name)}</h4>
+          <div class="dash-comp-badges">
+            <span class="dash-comp-platform-tag">${esc(comp.platform || 'Android')}</span>
+            ${comp.packageName ? `<span class="dash-comp-pkg-tag" title="Click to copy package ID" data-action="copy-pkg" data-pkg="${esc(comp.packageName)}">${esc(comp.packageName)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      ${comp.url ? `
+        <a href="${esc(comp.url)}" class="dash-comp-url" data-action="open-url" data-url="${esc(comp.url)}" title="${esc(comp.url)}">
+          🔗 ${esc(comp.url)}
+        </a>
+      ` : ''}
+
+      ${comp.notes ? `
+        <div class="dash-comp-notes" title="${esc(comp.notes)}">
+          ${esc(comp.notes)}
+        </div>
+      ` : ''}
+
+      <div class="dash-comp-card-actions">
+        <button type="button" class="btn-secondary btn-small" data-action="run-competitor" data-pkg="${esc(comp.packageName || comp.name)}" title="Copy slash command /ba-competitor for BAKit agent">
+          ${icons.agentToolkit || ''}
+          <span>/ba-competitor</span>
+        </button>
+
+        <div class="dash-comp-btn-group">
+          ${comp.url ? `
+            <button type="button" class="dash-icon-btn" data-action="open-url" data-url="${esc(comp.url)}" title="Open store/app link in browser">
+              ${icons.link || ''}
+            </button>
+          ` : ''}
+          <button type="button" class="dash-icon-btn" data-action="edit-comp" data-id="${esc(comp.id)}" title="Edit competitor details">
+            ${icons.code || '✎'}
+          </button>
+          <button type="button" class="dash-icon-btn" data-action="delete-comp" data-id="${esc(comp.id)}" title="Delete competitor">
+            ${icons.trash || ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="open-url"]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      const url = (e.currentTarget as HTMLElement).dataset.url;
+      if (url) void window.api.openExternal(url);
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="copy-pkg"]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      const pkg = (e.currentTarget as HTMLElement).dataset.pkg;
+      if (pkg) {
+        navigator.clipboard.writeText(pkg);
+        showToast(`Copied package ID: ${pkg}`, 'info');
+      }
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="run-competitor"]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      const pkg = (e.currentTarget as HTMLElement).dataset.pkg || 'app';
+      const cmd = `/ba-competitor ${pkg} onboarding`;
+      navigator.clipboard.writeText(cmd);
+      showToast(`Copied command: ${cmd} — paste into Antigravity!`, 'success');
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="edit-comp"]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLElement).dataset.id;
+      const comp = competitors.find((c: any) => c.id === id);
+      if (comp) {
+        openCompetitorModal({
+          project: activeProject,
+          competitor: comp,
+          dom,
+          icons,
+          configureModalFooter,
+          showModal,
+          hideModal,
+          showToast,
+          focusModalInputLater,
+          bindModalEnterSubmit,
+          withAsyncButtonState,
+          onSuccess: (updated: any) => {
+            activeProject.competitors = updated.competitors;
+            renderDashboardCompetitors(activeProject, activeWt);
+          },
+        });
+      }
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="delete-comp"]').forEach((el) => {
+    el.addEventListener('click', async (e) => {
+      const id = (e.currentTarget as HTMLElement).dataset.id;
+      if (!id) return;
+      const res = await window.api.removeProjectCompetitor(activeProject.path, id);
+      if (res?.success) {
+        showToast('Competitor removed', 'info');
+        activeProject.competitors = (activeProject.competitors || []).filter((c: any) => c.id !== id);
+        renderDashboardCompetitors(activeProject, activeWt);
+      } else {
+        showToast(`Failed: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    });
   });
 }
-if (dom.welcomeBtnToolkit) {
-  dom.welcomeBtnToolkit.addEventListener('click', () => {
-    if (dom.btnAgentToolkit) dom.btnAgentToolkit.click();
+
+function renderDashboardViewer() {
+  const { activeProject, activeWt } = getActiveProjectAndWorktree();
+
+  if (!dom.dashboardViewer || !dom.dashboardEmptyState) return;
+
+  if (!activeProject) {
+    updateSidebarFigmaButton(null);
+    dom.dashboardEmptyState.style.display = 'flex';
+    dom.dashboardViewer.style.display = 'none';
+    return;
+  }
+
+  dom.dashboardEmptyState.style.display = 'none';
+  dom.dashboardViewer.style.display = 'flex';
+
+  if (dom.dashProjectName) dom.dashProjectName.textContent = activeProject.name;
+  if (dom.dashBranchBadge) {
+    dom.dashBranchBadge.textContent = activeWt ? (activeWt.branch || activeWt.name) : 'main';
+  }
+  const currentPath = activeWt ? activeWt.path : activeProject.path;
+  if (dom.dashProjectPath) {
+    dom.dashProjectPath.textContent = currentPath;
+    dom.dashProjectPath.title = currentPath;
+  }
+  if (dom.dashWtText) {
+    const wtCount = (activeProject.worktrees || []).length;
+    dom.dashWtText.textContent = `${wtCount} Worktree${wtCount === 1 ? '' : 's'}`;
+  }
+
+  void checkDashboardAdbDevice();
+  renderDashboardFigma(activeProject);
+  renderDashboardApk(activeProject);
+  renderDashboardCompetitors(activeProject, activeWt);
+}
+
+// ── Dashboard Event Listeners ──
+if (dom.btnDashboardAddFirst) {
+  dom.btnDashboardAddFirst.addEventListener('click', () => {
+    if (dom.btnAddProject) dom.btnAddProject.click();
+  });
+}
+
+if (dom.dashBtnCopyPath) {
+  dom.dashBtnCopyPath.addEventListener('click', () => {
+    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    const currentPath = activeWt ? activeWt.path : activeProject?.path;
+    if (currentPath) {
+      navigator.clipboard.writeText(currentPath);
+      showToast('Project path copied to clipboard', 'info');
+    }
+  });
+}
+
+if (dom.dashBtnRevealPath) {
+  dom.dashBtnRevealPath.addEventListener('click', () => {
+    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    const currentPath = activeWt ? activeWt.path : activeProject?.path;
+    if (currentPath) {
+      void window.api.openInExplorer(currentPath);
+    }
+  });
+}
+
+if (dom.dashBtnRefreshAdb) {
+  dom.dashBtnRefreshAdb.addEventListener('click', async () => {
+    showToast('Checking ADB devices...', 'info');
+    await checkDashboardAdbDevice();
+  });
+}
+
+if (dom.dashChipDevice) {
+  dom.dashChipDevice.style.cursor = 'pointer';
+  dom.dashChipDevice.addEventListener('click', () => {
+    void showDeviceManagerScreen();
+  });
+}
+
+if (dom.dashChipWorktree) {
+  dom.dashChipWorktree.style.cursor = 'pointer';
+  dom.dashChipWorktree.addEventListener('click', () => {
+    if (dom.workspaceSidebar && dom.workspaceSidebar.classList.contains('workspace-sidebar-collapsed')) {
+      dom.btnToggleWorkspaceSidebar?.click();
+    }
+  });
+}
+
+if (dom.dashChipBakit) {
+  dom.dashChipBakit.style.cursor = 'pointer';
+  dom.dashChipBakit.addEventListener('click', () => {
+    if (dom.btnAgentToolkit) {
+      dom.btnAgentToolkit.click();
+    }
+  });
+}
+
+function applyDashboardViewMode(mode: 'grid' | 'list') {
+  if (!dom.dashboardViewer) return;
+  if (mode === 'grid') {
+    dom.dashboardViewer.classList.add('dash-grid-mode');
+    dom.dashboardViewer.classList.remove('dash-list-mode');
+    dom.dashBtnViewGrid?.classList.add('active');
+    dom.dashBtnViewList?.classList.remove('active');
+  } else {
+    dom.dashboardViewer.classList.add('dash-list-mode');
+    dom.dashboardViewer.classList.remove('dash-grid-mode');
+    dom.dashBtnViewList?.classList.add('active');
+    dom.dashBtnViewGrid?.classList.remove('active');
+  }
+  try {
+    localStorage.setItem('baspace_dashboard_view_mode', mode);
+  } catch {}
+}
+
+const initialDashViewMode = (localStorage.getItem('baspace_dashboard_view_mode') || 'grid') as 'grid' | 'list';
+applyDashboardViewMode(initialDashViewMode);
+
+if (dom.dashBtnViewGrid) {
+  dom.dashBtnViewGrid.addEventListener('click', () => {
+    applyDashboardViewMode('grid');
+  });
+}
+
+if (dom.dashBtnViewList) {
+  dom.dashBtnViewList.addEventListener('click', () => {
+    applyDashboardViewMode('list');
+  });
+}
+
+if (dom.dashBtnAddApk) {
+  dom.dashBtnAddApk.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (!activeProject) {
+      showToast('Please select a project first', 'error');
+      return;
+    }
+    const apkFile = await window.api.selectApkFile();
+    if (apkFile) {
+      const res = await window.api.addProjectApk(activeProject.path, apkFile);
+      if (res?.success) {
+        showToast(`Linked APK: ${apkFile.name}`, 'success');
+        activeProject.apkFiles = res.project.apkFiles;
+        renderDashboardApk(activeProject);
+      } else {
+        showToast(`Failed to link APK: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    }
+  });
+}
+
+if (dom.dashLinkBrowseApk) {
+  dom.dashLinkBrowseApk.addEventListener('click', () => {
+    if (dom.dashBtnAddApk) dom.dashBtnAddApk.click();
+  });
+}
+
+if (dom.dashApkDropzone) {
+  dom.dashApkDropzone.addEventListener('dragover', (e: DragEvent) => {
+    e.preventDefault();
+    dom.dashApkDropzone.classList.add('dragover');
+  });
+  dom.dashApkDropzone.addEventListener('dragleave', () => {
+    dom.dashApkDropzone.classList.remove('dragover');
+  });
+  dom.dashApkDropzone.addEventListener('drop', async (e: DragEvent) => {
+    e.preventDefault();
+    dom.dashApkDropzone.classList.remove('dragover');
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (!activeProject) {
+      showToast('Please select a project first', 'error');
+      return;
+    }
+
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i] as any;
+      const filePath = file.path;
+      if (!filePath) continue;
+      if (!filePath.toLowerCase().endsWith('.apk')) {
+        showToast(`Skipped non-APK: ${file.name}`, 'info');
+        continue;
+      }
+      const res = await window.api.addProjectApk(activeProject.path, {
+        name: file.name,
+        path: filePath,
+        size: file.size,
+      });
+      if (res?.success) {
+        activeProject.apkFiles = res.project.apkFiles;
+        showToast(`Added APK: ${file.name}`, 'success');
+      }
+    }
+    renderDashboardApk(activeProject);
+  });
+}
+
+if (dom.dashBtnOpenFigma) {
+  dom.dashBtnOpenFigma.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    showToast('Opening Figma...', 'info');
+    await window.api.openInFigma(activeProject?.figmaUrl || undefined);
+  });
+}
+
+if (dom.dashBtnBrowserFigma) {
+  dom.dashBtnBrowserFigma.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (activeProject?.figmaUrl) {
+      await window.api.openExternal(activeProject.figmaUrl);
+    }
+  });
+}
+
+if (dom.dashBtnAddCompetitor) {
+  dom.dashBtnAddCompetitor.addEventListener('click', () => {
+    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    if (!activeProject) {
+      showToast('Please select a project first', 'error');
+      return;
+    }
+    openCompetitorModal({
+      project: activeProject,
+      dom,
+      icons,
+      configureModalFooter,
+      showModal,
+      hideModal,
+      showToast,
+      focusModalInputLater,
+      bindModalEnterSubmit,
+      withAsyncButtonState,
+      onSuccess: (updated: any) => {
+        activeProject.competitors = updated.competitors;
+        renderDashboardCompetitors(activeProject, activeWt);
+      },
+    });
+  });
+}
+
+if (dom.dashBtnSyncConfig) {
+  dom.dashBtnSyncConfig.addEventListener('click', async () => {
+    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    if (!activeProject) {
+      showToast('Please select a project first', 'error');
+      return;
+    }
+    showToast('Syncing to .agents/config/ba-project-config.md...', 'info');
+    const res = await window.api.syncBaProjectConfig({
+      projectPath: activeProject.path,
+      worktreePath: activeWt?.path,
+    });
+    if (res?.success) {
+      showToast('Successfully synced to ba-project-config.md!', 'success');
+    } else {
+      showToast(`Sync failed: ${res?.error || 'Unknown error'}`, 'error');
+    }
+  });
+}
+
+// Terminal screen controls
+if (dom.btnTerminalScreen) {
+  dom.btnTerminalScreen.addEventListener('click', () => {
+    if (isTerminalScreenVisible()) {
+      hideTerminalScreen();
+    } else {
+      void showTerminalScreen();
+    }
+  });
+}
+if (dom.btnCloseTerminalScreen) {
+  dom.btnCloseTerminalScreen.addEventListener('click', hideTerminalScreen);
+}
+if (dom.btnTerminalScreenNew) {
+  dom.btnTerminalScreenNew.addEventListener('click', () => {
+    createNewTerminalTab();
+  });
+}
+if (dom.btnTerminalEmptyNew) {
+  dom.btnTerminalEmptyNew.addEventListener('click', () => {
+    createNewTerminalTab();
   });
 }
 
@@ -2151,6 +3079,8 @@ function updateSidebarActiveState() {
     if (titlebarBranch) titlebarBranch.textContent = 'Ready';
     if (welcomeStatusName) welcomeStatusName.textContent = 'Add or select a project to get started';
   }
+
+  renderDashboardViewer();
 }
 
 function attachSelectedProjectEvents(project) {
@@ -2205,20 +3135,12 @@ function attachSelectedProjectEvents(project) {
       showWorktreeContextMenu(project, wt, e.clientX, e.clientY);
     });
 
-    wtEl.addEventListener('click', async (e) => {
+    wtEl.addEventListener('click', (e) => {
       const target = e.target;
       if (target instanceof Element && target.closest('.sidebar-wt-actions')) return;
       const wtPath = wtEl.dataset.wtPath || '';
-      const wtName = wtEl.dataset.wtName || '';
-
-      const wtTerminals = getTerminalsForWorktree(wtPath);
-      if (wtTerminals.length > 0) {
+      if (wtPath) {
         switchWorktreeContext(wtPath);
-      } else {
-        await createTerminal(wtPath, wtName, {
-          worktreePath: wtPath,
-        });
-        prewarmAllTools();
       }
     });
 
@@ -2470,8 +3392,12 @@ async function showSettingsScreen() {
     if (dom.settingsAutoRefreshInterval) dom.settingsAutoRefreshInterval.value = String(state.settings.autoRefreshInterval || 10);
   }
 
+  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
+  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   dom.settingsScreen.classList.remove('hidden');
 
   try {
@@ -2549,8 +3475,12 @@ async function showSymlinkScreen() {
   if (dom.symlinkScreenActiveName) dom.symlinkScreenActiveName.textContent = activeWorktreeName;
   if (dom.symlinkScreenActivePath) dom.symlinkScreenActivePath.textContent = activeWorktreePath || 'Please select a worktree first.';
 
+  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
+  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   dom.settingsScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.remove('hidden');
 
   if (dom.symlinkScreenNewPath) dom.symlinkScreenNewPath.value = '';
@@ -2937,8 +3867,12 @@ async function showAgentToolkitScreen() {
   if (dom.agentToolkitActiveName) dom.agentToolkitActiveName.textContent = activeWorktreeName;
   if (dom.agentToolkitActivePath) dom.agentToolkitActivePath.textContent = activeWorktreePath || 'Please select a worktree first.';
 
+  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
+  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.remove('hidden');
 
   await refreshAgentToolkitStatus();
@@ -2946,6 +3880,33 @@ async function showAgentToolkitScreen() {
 
 function hideAgentToolkitScreen() {
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  fitActiveTerminal();
+  startAutoRefreshLoop();
+}
+
+// ── Device Manager Screen ──────────────────────────────────
+const deviceManagerScreen = new DeviceManagerScreen({
+  dom,
+  showToast,
+  getActiveWorktreePath: () => state.activeWorktreePath,
+  refreshDashboardDeviceChip: checkDashboardAdbDevice,
+  icons,
+});
+
+async function showDeviceManagerScreen() {
+  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
+  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
+  dom.settingsScreen?.classList.add('hidden');
+  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
+  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.add('active');
+
+  await deviceManagerScreen.show();
+}
+
+function hideDeviceManagerScreen() {
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+  deviceManagerScreen.hide();
   fitActiveTerminal();
   startAutoRefreshLoop();
 }
@@ -3346,20 +4307,20 @@ if (dom.btnAgentToolkit) {
   });
 }
 
-
-
-
-
-const { showModal, hideModal, showToast, initializeModalPrimitives } = createModalPrimitives(dom);
-initializeModalPrimitives();
-
-// ── Utilities ──────────────────────────────────────────
-function esc(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+if (dom.btnDeviceManager) {
+  dom.btnDeviceManager.addEventListener('click', () => {
+    void showDeviceManagerScreen();
+  });
 }
+
+if (dom.btnCloseDeviceManagerScreen) {
+  dom.btnCloseDeviceManagerScreen.addEventListener('click', hideDeviceManagerScreen);
+}
+
+
+
+
+
 
 // ── Auto Refresh ───────────────────────────────────────
 let autoRefreshIntervalId = null;
@@ -3406,6 +4367,10 @@ window.addEventListener('keydown', (e) => {
       dom.modalCloseBtn?.click();
       return;
     }
+    if (dom.terminalScreen && !dom.terminalScreen.classList.contains('hidden')) {
+      hideTerminalScreen();
+      return;
+    }
     if (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) {
       dom.btnCloseSettings?.click();
       return;
@@ -3418,6 +4383,10 @@ window.addEventListener('keydown', (e) => {
       dom.btnCloseAgentToolkitScreen?.click();
       return;
     }
+    if (dom.deviceManagerScreen && !dom.deviceManagerScreen.classList.contains('hidden')) {
+      dom.btnCloseDeviceManagerScreen?.click();
+      return;
+    }
   }
 
   // 2. Ctrl+, / Cmd+, opens/toggles Settings
@@ -3427,6 +4396,17 @@ window.addEventListener('keydown', (e) => {
       showSettingsScreen();
     } else if (dom.settingsScreen) {
       hideSettingsScreen();
+    }
+    return;
+  }
+
+  // 3. Ctrl+N / Cmd+N opens terminal screen or creates a new tab
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+    e.preventDefault();
+    if (!isTerminalScreenVisible()) {
+      void showTerminalScreen();
+    } else {
+      createNewTerminalTab();
     }
     return;
   }
