@@ -291,6 +291,10 @@
             <p class="terminal-screen-subtitle">Interactive shell sessions for <span id="terminal-screen-active-name" class="terminal-screen-wt-highlight">active workspace</span></p>
           </div>
           <div class="terminal-screen-actions">
+            <button type="button" class="btn-secondary btn-small" id="btn-terminal-screen-scrcpy" title="Open Scrcpy CLI session">
+              <img src="icons/screen.svg" width="12" height="12" alt="" />
+              <span>Scrcpy CLI</span>
+            </button>
             <button type="button" class="btn-secondary btn-small" id="btn-terminal-screen-new" title="New Terminal (Ctrl+N)">
               <img src="icons/plus.svg" width="12" height="12" alt="" />
               <span>New Terminal</span>
@@ -327,10 +331,16 @@
               </div>
               <h3>No Active Terminal</h3>
               <p>There are no open terminal sessions for this worktree.</p>
-              <button type="button" class="btn-primary btn-small" id="btn-terminal-empty-new">
-                <img src="icons/plus.svg" width="12" height="12" alt="" />
-                <span>Launch New Terminal</span>
-              </button>
+              <div class="terminal-empty-actions" style="display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 4px;">
+                <button type="button" class="btn-primary btn-small" id="btn-terminal-empty-new">
+                  <img src="icons/plus.svg" width="12" height="12" alt="" />
+                  <span>Launch New Terminal</span>
+                </button>
+                <button type="button" class="btn-secondary btn-small" id="btn-terminal-empty-scrcpy" title="Launch Scrcpy CLI session">
+                  <img src="icons/screen.svg" width="12" height="12" alt="" />
+                  <span>Launch Scrcpy CLI</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

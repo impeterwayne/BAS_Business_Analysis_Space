@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { extractPlayStorePackageName, inferAppNameFromPackage, parseBenchmarkFlows } = require('../domain/project');
 
 function buildFallbackWorktrees(projectPath) {
   return [{
@@ -133,12 +134,16 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     const project = workspaceConfig.projects.find((entry) => entry.path === projectPath);
     if (!project) return { success: false, error: 'Project not found' };
     if (!Array.isArray(project.competitors)) project.competitors = [];
+    const compUrl = (competitor.url || '').trim();
+    const pkgName = (competitor.packageName || '').trim() || extractPlayStorePackageName(compUrl);
+    const name = (competitor.name || '').trim() || inferAppNameFromPackage(pkgName) || 'Android Competitor';
     const compEntry = {
       id: competitor.id || ('comp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)),
-      name: (competitor.name || '').trim(),
-      url: (competitor.url || '').trim(),
-      packageName: (competitor.packageName || '').trim(),
-      platform: competitor.platform || 'Android',
+      name,
+      url: compUrl,
+      iconUrl: (competitor.iconUrl || '').trim(),
+      packageName: pkgName,
+      platform: 'Android',
       notes: (competitor.notes || '').trim(),
       addedAt: competitor.addedAt || now(),
     };
@@ -154,13 +159,17 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     if (!Array.isArray(project.competitors)) project.competitors = [];
     const index = project.competitors.findIndex((c) => c.id === competitor.id);
     if (index === -1) return { success: false, error: 'Competitor not found' };
+    const existing = project.competitors[index];
+    const compUrl = competitor.url !== undefined ? competitor.url.trim() : (existing.url || '');
+    const pkgName = competitor.packageName !== undefined ? competitor.packageName.trim() : (existing.packageName || extractPlayStorePackageName(compUrl));
     project.competitors[index] = {
-      ...project.competitors[index],
-      name: (competitor.name !== undefined ? competitor.name : project.competitors[index].name).trim(),
-      url: (competitor.url !== undefined ? competitor.url : project.competitors[index].url).trim(),
-      packageName: (competitor.packageName !== undefined ? competitor.packageName : project.competitors[index].packageName).trim(),
-      platform: competitor.platform !== undefined ? competitor.platform : project.competitors[index].platform,
-      notes: (competitor.notes !== undefined ? competitor.notes : project.competitors[index].notes).trim(),
+      ...existing,
+      name: (competitor.name !== undefined ? competitor.name : existing.name).trim(),
+      url: compUrl,
+      iconUrl: competitor.iconUrl !== undefined ? (competitor.iconUrl || '').trim() : (existing.iconUrl || ''),
+      packageName: pkgName,
+      platform: 'Android',
+      notes: (competitor.notes !== undefined ? competitor.notes : existing.notes).trim(),
     };
     configStore.saveConfig();
     return { success: true, project, competitor: project.competitors[index] };
@@ -208,7 +217,11 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       // Update Competitor Apps table
       if (Array.isArray(project.competitors) && project.competitors.length > 0) {
         const compRows = project.competitors.map((c) => {
-          return `| ${c.name || 'App'} | \`${c.packageName || ''}\` | ${c.platform || 'Android'} | ${c.notes || 'onboarding, main flow'} | guest | ${c.url || ''} |`;
+          const parsed = parseBenchmarkFlows(c.notes);
+          const flowsStr = parsed.length > 0
+            ? parsed.join(', ')
+            : (c.notes ? c.notes.replace(/[\r\n|]+/g, ' ').trim() : 'onboarding, main flow');
+          return `| ${c.name || 'App'} | \`${c.packageName || ''}\` | Android | ${flowsStr} | guest | ${c.url || ''} |`;
         }).join('\n');
 
         const compTable = `| App | Package | Platform | Flows of interest | Account to use | Notes |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n${compRows}`;

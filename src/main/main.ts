@@ -1407,8 +1407,8 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('scrcpy:capture-ui', async (_, { worktreePath, prefix, serial } = {}) => {
-    return deviceService.captureUi({ worktreePath, prefix, serial });
+  ipcMain.handle('scrcpy:capture-ui', async (_, opts: { worktreePath?: string; prefix?: string; serial?: string } = {}) => {
+    return deviceService.captureUi({ worktreePath: opts.worktreePath, prefix: opts.prefix, serial: opts.serial });
   });
 
   // ── Quick git commands ───────────────────────────────

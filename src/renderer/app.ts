@@ -17,6 +17,9 @@ const {
   buildWorktreeTree: getDomainBuildWorktreeTree,
   parseFigmaUrl,
   formatDisplayUrl,
+  parseBenchmarkFlows,
+  formatFlowSlug,
+  buildBenchmarkSlashCommand,
 } = require('../domain');
 
 const { initializeRendererLifecycle } = require('./lifecycle');
@@ -159,9 +162,11 @@ const dom = {
   terminalScreen: $('#terminal-screen'),
   btnCloseTerminalScreen: $('#btn-close-terminal-screen'),
   btnTerminalScreenNew: $('#btn-terminal-screen-new'),
+  btnTerminalScreenScrcpy: $('#btn-terminal-screen-scrcpy'),
   terminalScreenActiveName: $('#terminal-screen-active-name'),
   terminalEmptyState: $('#terminal-empty-state'),
   btnTerminalEmptyNew: $('#btn-terminal-empty-new'),
+  btnTerminalEmptyScrcpy: $('#btn-terminal-empty-scrcpy'),
   tabListScroll: $('#tab-list-scroll'),
   tabNewBtn: $('#tab-new-btn'),
   tabCollapseBtn: $('#tab-collapse-btn'),
@@ -498,6 +503,8 @@ const iconRaw = {
   device: loadIcon('device'),
   figma: loadIcon('figma'),
   task: loadIcon('task'),
+  refresh: loadIcon('refresh'),
+  check: loadIcon('check'),
 };
 
 // Pre-sized icon strings matching original inline sizes
@@ -518,6 +525,8 @@ const icons = {
   'windows-terminal': iconSvg(iconRaw['windows-terminal'], 12),
   android: iconSvg(iconRaw.android, 12),
   device: iconSvg(iconRaw.device, 14),
+  refresh: iconSvg(iconRaw.refresh, 12),
+  check: iconSvg(iconRaw.check, 12),
   get antigravity() { return iconSvg(iconRaw.antigravity, 12); },
   moreVertical: iconSvg(iconRaw['more-vertical'], 12),
   copy: iconSvg(iconRaw.copy, 12),
@@ -528,6 +537,7 @@ const icons = {
   capture: iconSvg(iconRaw.capture, 14),
   figma: iconSvg(iconRaw.figma, 14),
   task: iconSvg(iconRaw.task, 14),
+  edit: iconSvg('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>', 12),
 };
 
 const FIGMA_COLORED_LOGO = `<svg width="18" height="27" viewBox="0 0 38 57" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -550,20 +560,6 @@ const TOOL_TABS: Record<string, ToolTab> = {
     prewarm: false,
     launchArgs: [],
     title: 'Open Antigravity CLI in a new terminal tab',
-    behavior: {
-      forceMouseMode: false,
-    },
-  },
-
-  scrcpyCli: {
-    key: 'scrcpyCli',
-    action: 'new-scrcpy-cli',
-    command: 'scrcpy-cli',
-    label: 'Scrcpy CLI',
-    iconKey: 'screen',
-    prewarm: false,
-    launchArgs: [],
-    title: 'Open Scrcpy CLI for Android device inspection, screen commands, and UI dump',
     behavior: {
       forceMouseMode: false,
     },
@@ -1809,6 +1805,27 @@ function createToolTab(toolKey) {
   });
 }
 
+async function launchScrcpyCliTerminal() {
+  if (!isTerminalScreenVisible()) {
+    await showTerminalScreen();
+  }
+  const { wtPath, wtName } = getActiveWorktreeInfo();
+  if (state.useExternalWt) {
+    void window.api.openWindowsTerminal({
+      cwd: wtPath,
+      launchCommand: 'scrcpy-cli',
+      launchArgs: [],
+    });
+    return;
+  }
+  await createDirectToolTerminal(wtPath, `Scrcpy CLI: ${wtName}`, {
+    command: 'scrcpy-cli',
+    launchArgs: [],
+    worktreePath: wtPath,
+    iconKey: 'screen',
+    behavior: { forceMouseMode: false },
+  });
+}
 
 function showTabDropdown() {
   hideTabDropdown();
@@ -2454,6 +2471,65 @@ function renderDashboardApk(activeProject: any) {
   });
 }
 
+const COMPETITOR_THEMES = [
+  { bg: 'linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(14, 165, 233, 0.06))', border: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8' },
+  { bg: 'linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(139, 92, 246, 0.06))', border: 'rgba(168, 85, 247, 0.35)', color: '#c084fc' },
+  { bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(5, 150, 105, 0.06))', border: 'rgba(16, 185, 129, 0.35)', color: '#34d399' },
+  { bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(217, 119, 6, 0.06))', border: 'rgba(245, 158, 11, 0.35)', color: '#fbbf24' },
+  { bg: 'linear-gradient(135deg, rgba(244, 63, 94, 0.16), rgba(225, 29, 72, 0.06))', border: 'rgba(244, 63, 94, 0.35)', color: '#fb7185' },
+  { bg: 'linear-gradient(135deg, rgba(20, 184, 166, 0.16), rgba(13, 148, 136, 0.06))', border: 'rgba(20, 184, 166, 0.35)', color: '#2dd4bf' },
+];
+
+function getCompetitorTheme(name: string) {
+  let hash = 0;
+  const str = String(name || '');
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % COMPETITOR_THEMES.length;
+  return COMPETITOR_THEMES[idx];
+}
+
+function getCompetitorInitials(name: string): string {
+  if (!name) return 'CP';
+  // Split camelCase boundaries (e.g. MoMo -> Mo Mo, YouTube -> You Tube)
+  const expanded = String(name).replace(/([a-z])([A-Z])/g, '$1 $2');
+  const clean = expanded.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  if (clean.length >= 2) {
+    return clean.slice(0, 2).toUpperCase();
+  }
+  return (clean[0] || 'C').toUpperCase();
+}
+
+function formatCompetitorUrlLabel(rawUrl: string): { label: string; full: string } {
+  if (!rawUrl) return { label: '', full: '' };
+  try {
+    const parsed = new URL(rawUrl.trim());
+    if (parsed.hostname.includes('play.google.com')) {
+      return { label: 'Google Play', full: rawUrl };
+    }
+    if (parsed.hostname.includes('apple.com')) {
+      return { label: 'App Store', full: rawUrl };
+    }
+    const cleanHost = parsed.hostname.replace(/^www\./, '');
+    return { label: cleanHost, full: rawUrl };
+  } catch {
+    return { label: 'Store Link', full: rawUrl };
+  }
+}
+
+function extractCompetitorFlows(notes: string): string {
+  if (!notes) return 'onboarding';
+  const clean = notes.replace(/[,\n\r;|\/]/g, ' ').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim();
+  const words = clean.split(/\s+/).filter(w => w.length > 1);
+  if (words.length === 0) return 'onboarding';
+  return words.slice(0, 2).join(' ').toLowerCase();
+}
+
 function renderDashboardCompetitors(activeProject: any, activeWt: any) {
   if (!dom.dashCompetitorList) return;
   const competitors = Array.isArray(activeProject.competitors) ? activeProject.competitors : [];
@@ -2464,63 +2540,168 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
   if (competitors.length === 0) {
     dom.dashCompetitorList.innerHTML = `
-      <div style="text-align: center; padding: 14px 12px; color: var(--text-muted); font-size: 12px; grid-column: 1 / -1;">
-        No competitor apps configured yet.
+      <div class="dash-comp-empty">
+        <div class="dash-comp-empty-icon">
+          ${icons.agentToolkit || '<img src="icons/agent-toolkit.svg" width="22" height="22" />'}
+        </div>
+        <div class="dash-comp-empty-title">No Competitor Apps Configured</div>
+        <div class="dash-comp-empty-desc">
+          Add rival Android apps to benchmark user flows and run automated agent audits with <code>/ba-competitor</code>.
+        </div>
+        <button type="button" class="btn-primary btn-small dash-comp-empty-btn" id="dash-btn-empty-add-comp">
+          ${icons.plus || '+'}
+          <span>Add Competitor App</span>
+        </button>
       </div>
     `;
+
+    const emptyAddBtn = dom.dashCompetitorList.querySelector('#dash-btn-empty-add-comp');
+    if (emptyAddBtn) {
+      emptyAddBtn.addEventListener('click', () => {
+        if (dom.dashBtnAddCompetitor) dom.dashBtnAddCompetitor.click();
+      });
+    }
     return;
   }
 
-  dom.dashCompetitorList.innerHTML = competitors.map((comp: any) => `
-    <div class="dash-comp-card" data-comp-id="${esc(comp.id)}">
-      <div class="dash-comp-card-top">
-        <div class="dash-comp-title-group">
-          <h4 class="dash-comp-name">${esc(comp.name)}</h4>
-          <div class="dash-comp-badges">
-            <span class="dash-comp-platform-tag">${esc(comp.platform || 'Android')}</span>
-            ${comp.packageName ? `<span class="dash-comp-pkg-tag" title="Click to copy package ID" data-action="copy-pkg" data-pkg="${esc(comp.packageName)}">${esc(comp.packageName)}</span>` : ''}
+  dom.dashCompetitorList.innerHTML = competitors.map((comp: any) => {
+    const theme = getCompetitorTheme(comp.name);
+    const initials = getCompetitorInitials(comp.name);
+    const urlInfo = formatCompetitorUrlLabel(comp.url);
+    const target = comp.packageName || comp.name;
+    const shortPkg = comp.packageName ? (comp.packageName.split('.').pop() || comp.name) : comp.name;
+    const hasIcon = Boolean(comp.iconUrl);
+    const flows = parseBenchmarkFlows(comp.notes);
+    const allFlowsSlugs = flows.map(formatFlowSlug).filter(Boolean).join(' ');
+
+    return `
+      <div class="dash-comp-card" data-comp-id="${esc(comp.id)}">
+        <div class="dash-comp-card-main">
+          <div class="dash-comp-card-header">
+            <div class="dash-comp-header-left">
+              <div class="dash-comp-avatar" style="background: ${theme.bg}; border-color: ${theme.border}; color: ${theme.color};">
+                <img src="${hasIcon ? esc(comp.iconUrl) : ''}" class="dash-comp-avatar-img" alt="${esc(comp.name)}" loading="lazy" style="${hasIcon ? '' : 'display: none;'}" />
+                <span class="dash-comp-avatar-text" style="${hasIcon ? 'display: none;' : ''}">${initials}</span>
+              </div>
+              <div class="dash-comp-identity">
+                <div class="dash-comp-name-row">
+                  <h4 class="dash-comp-name" title="${esc(comp.name)}">${esc(comp.name)}</h4>
+                </div>
+                ${comp.url ? `
+                  <div class="dash-comp-sub-row">
+                    <a href="${esc(comp.url)}" class="dash-comp-link-chip" data-action="open-url" data-url="${esc(comp.url)}" title="Open ${esc(urlInfo.label)} in browser">
+                      <span class="dash-comp-link-icon">${icons.link || ''}</span>
+                      <span>${esc(urlInfo.label)}</span>
+                      <span class="dash-comp-link-arrow">↗</span>
+                    </a>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+
+            <div class="dash-comp-top-actions">
+              <button type="button" class="dash-comp-icon-btn" data-action="edit-comp" data-id="${esc(comp.id)}" title="Edit competitor details">
+                ${icons.edit}
+              </button>
+              <button type="button" class="dash-comp-icon-btn danger" data-action="delete-comp" data-id="${esc(comp.id)}" title="Delete competitor">
+                ${icons.trash || ''}
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
 
-      ${comp.url ? `
-        <a href="${esc(comp.url)}" class="dash-comp-url" data-action="open-url" data-url="${esc(comp.url)}" title="${esc(comp.url)}">
-          🔗 ${esc(comp.url)}
-        </a>
-      ` : ''}
-
-      ${comp.notes ? `
-        <div class="dash-comp-notes" title="${esc(comp.notes)}">
-          ${esc(comp.notes)}
-        </div>
-      ` : ''}
-
-      <div class="dash-comp-card-actions">
-        <button type="button" class="btn-secondary btn-small" data-action="run-competitor" data-pkg="${esc(comp.packageName || comp.name)}" title="Copy slash command /ba-competitor for BAKit agent">
-          ${icons.agentToolkit || ''}
-          <span>/ba-competitor</span>
-        </button>
-
-        <div class="dash-comp-btn-group">
-          ${comp.url ? `
-            <button type="button" class="dash-icon-btn" data-action="open-url" data-url="${esc(comp.url)}" title="Open store/app link in browser">
-              ${icons.link || ''}
-            </button>
+          ${comp.packageName ? `
+            <div class="dash-comp-pkg-row">
+              <button type="button" class="dash-comp-pkg-chip" data-action="copy-pkg" data-pkg="${esc(comp.packageName)}" title="Click to copy package ID">
+                <span class="dash-comp-pkg-prefix">pkg:</span>
+                <code class="dash-comp-pkg-code">${esc(comp.packageName)}</code>
+                <span class="dash-comp-pkg-copy-hint">
+                  <span class="dash-comp-pkg-copy-icon">${icons.copy || ''}</span>
+                  <span class="dash-comp-pkg-copy-text">Copy</span>
+                </span>
+              </button>
+            </div>
           ` : ''}
-          <button type="button" class="dash-icon-btn" data-action="edit-comp" data-id="${esc(comp.id)}" title="Edit competitor details">
-            ${icons.code || '✎'}
-          </button>
-          <button type="button" class="dash-icon-btn" data-action="delete-comp" data-id="${esc(comp.id)}" title="Delete competitor">
-            ${icons.trash || ''}
-          </button>
+        </div>
+
+        <div class="dash-comp-bench-section">
+          <div class="dash-comp-bench-header">
+            <div class="dash-comp-bench-header-left">
+              <span class="dash-comp-bench-title">Benchmark Flows</span>
+              ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length}</span>` : ''}
+            </div>
+          </div>
+
+          ${flows.length > 0 ? `
+            <div class="dash-comp-bench-list">
+              ${flows.map((flow: string, index: number) => {
+                const slashCmd = buildBenchmarkSlashCommand(target, flow);
+                return `
+                  <div class="dash-comp-bench-item" data-action="copy-bench-cmd" data-cmd="${esc(slashCmd)}" title="Click to copy: ${esc(slashCmd)}">
+                    <div class="dash-comp-bench-item-header">
+                      <div class="dash-comp-bench-item-left">
+                        <span class="dash-comp-bench-index">${index + 1}</span>
+                        <span class="dash-comp-bench-name" title="${esc(flow)}">${esc(flow)}</span>
+                      </div>
+                      <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
+                    </div>
+                    <div class="dash-comp-bench-cmd-wrap">
+                      <code class="dash-comp-bench-code">${esc(slashCmd)}</code>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : `
+            <button type="button" class="dash-comp-bench-empty" data-action="edit-comp" data-id="${esc(comp.id)}" title="Click to add benchmark flows">
+              <span class="dash-comp-bench-empty-icon">+</span>
+              <span class="dash-comp-bench-empty-text">Add benchmark flows (e.g. Onboarding, KYC, Payment)</span>
+            </button>
+          `}
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
+
+  dom.dashCompetitorList.querySelectorAll('.dash-comp-avatar-img').forEach((imgEl: Element) => {
+    imgEl.addEventListener('error', () => {
+      const htmlImg = imgEl as HTMLElement;
+      htmlImg.style.display = 'none';
+      const fallbackText = htmlImg.parentElement?.querySelector('.dash-comp-avatar-text') as HTMLElement;
+      if (fallbackText) fallbackText.style.display = 'block';
+    });
+  });
+
+  // Auto-fetch missing icons for any competitor that has url or packageName
+  competitors.forEach((comp: any) => {
+    if (!comp.iconUrl && (comp.url || comp.packageName)) {
+      window.api?.fetchCompetitorIcon?.({
+        projectPath: activeProject?.path,
+        competitorId: comp.id,
+        url: comp.url,
+        packageName: comp.packageName,
+      }).then((res: any) => {
+        if (res && res.success && res.iconUrl) {
+          comp.iconUrl = res.iconUrl;
+          const card = dom.dashCompetitorList.querySelector(`[data-comp-id="${comp.id}"]`);
+          if (card) {
+            const avatar = card.querySelector('.dash-comp-avatar');
+            const img = avatar?.querySelector('.dash-comp-avatar-img') as HTMLImageElement;
+            const text = avatar?.querySelector('.dash-comp-avatar-text') as HTMLElement;
+            if (img && text) {
+              img.src = res.iconUrl;
+              img.style.display = 'block';
+              text.style.display = 'none';
+            }
+          }
+        }
+      }).catch(() => {});
+    }
+  });
 
   dom.dashCompetitorList.querySelectorAll('[data-action="open-url"]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const url = (e.currentTarget as HTMLElement).dataset.url;
       if (url) void window.api.openExternal(url);
     });
@@ -2528,25 +2709,52 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
   dom.dashCompetitorList.querySelectorAll('[data-action="copy-pkg"]').forEach((el) => {
     el.addEventListener('click', (e) => {
-      const pkg = (e.currentTarget as HTMLElement).dataset.pkg;
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const pkg = target.dataset.pkg;
       if (pkg) {
         navigator.clipboard.writeText(pkg);
         showToast(`Copied package ID: ${pkg}`, 'info');
+        target.classList.add('copied');
+        const hintText = target.querySelector('.dash-comp-pkg-copy-text');
+        const origText = hintText?.textContent;
+        if (hintText) hintText.textContent = 'Copied!';
+        setTimeout(() => {
+          target.classList.remove('copied');
+          if (hintText && origText) hintText.textContent = origText;
+        }, 1400);
       }
     });
   });
 
-  dom.dashCompetitorList.querySelectorAll('[data-action="run-competitor"]').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      const pkg = (e.currentTarget as HTMLElement).dataset.pkg || 'app';
-      const cmd = `/ba-competitor ${pkg} onboarding`;
-      navigator.clipboard.writeText(cmd);
+  dom.dashCompetitorList.querySelectorAll('[data-action="copy-bench-cmd"]').forEach((el: Element) => {
+    el.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const cmd = target.dataset.cmd;
+      if (!cmd) return;
+
+      void navigator.clipboard.writeText(cmd);
       showToast(`Copied command: ${cmd} — paste into Antigravity!`, 'success');
+
+      target.classList.add('copied');
+      const iconState = target.querySelector('.dash-comp-bench-icon-state') as HTMLElement;
+      const origHtml = iconState?.innerHTML;
+      if (iconState) {
+        iconState.innerHTML = `<span class="dash-bench-copied-text">✓ Copied</span>`;
+      }
+      setTimeout(() => {
+        target.classList.remove('copied');
+        if (iconState && origHtml) {
+          iconState.innerHTML = origHtml;
+        }
+      }, 1400);
     });
   });
 
   dom.dashCompetitorList.querySelectorAll('[data-action="edit-comp"]').forEach((el) => {
     el.addEventListener('click', (e) => {
+      e.stopPropagation();
       const id = (e.currentTarget as HTMLElement).dataset.id;
       const comp = competitors.find((c: any) => c.id === id);
       if (comp) {
@@ -2573,6 +2781,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
   dom.dashCompetitorList.querySelectorAll('[data-action="delete-comp"]').forEach((el) => {
     el.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const id = (e.currentTarget as HTMLElement).dataset.id;
       if (!id) return;
       const res = await window.api.removeProjectCompetitor(activeProject.path, id);
@@ -2865,9 +3074,19 @@ if (dom.btnTerminalScreenNew) {
     createNewTerminalTab();
   });
 }
+if (dom.btnTerminalScreenScrcpy) {
+  dom.btnTerminalScreenScrcpy.addEventListener('click', () => {
+    void launchScrcpyCliTerminal();
+  });
+}
 if (dom.btnTerminalEmptyNew) {
   dom.btnTerminalEmptyNew.addEventListener('click', () => {
     createNewTerminalTab();
+  });
+}
+if (dom.btnTerminalEmptyScrcpy) {
+  dom.btnTerminalEmptyScrcpy.addEventListener('click', () => {
+    void launchScrcpyCliTerminal();
   });
 }
 

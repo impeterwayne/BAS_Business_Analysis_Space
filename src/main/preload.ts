@@ -99,6 +99,9 @@ contextBridge.exposeInMainWorld('api', {
   addProjectCompetitor: (projectPath: string, competitor: any) => ipcRenderer.invoke('project:add-competitor', { projectPath, competitor }),
   updateProjectCompetitor: (projectPath: string, competitor: any) => ipcRenderer.invoke('project:update-competitor', { projectPath, competitor }),
   removeProjectCompetitor: (projectPath: string, competitorId: string) => ipcRenderer.invoke('project:remove-competitor', { projectPath, competitorId }),
+  detectCompetitorApp: (url: string) => ipcRenderer.invoke('competitor:detect-app', { url }),
+  fetchCompetitorIcon: (opts: { projectPath?: string; competitorId?: string; url?: string; packageName?: string }) =>
+    ipcRenderer.invoke('competitor:fetch-icon', opts),
   syncBaProjectConfig: (opts: { projectPath: string; worktreePath?: string }) => ipcRenderer.invoke('project:sync-ba-config', opts),
   selectApkFile: () => ipcRenderer.invoke('select-apk-file'),
   getFileInfo: (filePath: string) => ipcRenderer.invoke('get-file-info', filePath),

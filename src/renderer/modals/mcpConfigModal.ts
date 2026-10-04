@@ -335,18 +335,20 @@ async function openMcpConfigModal({
       `;
       
       card.addEventListener('click', () => {
-        const checkbox = card.querySelector('.mcp-server-checkbox');
-        checkbox.checked = !checkbox.checked;
-        handleCheckboxChange(name, checkbox.checked);
+        const checkbox = card.querySelector('.mcp-server-checkbox') as HTMLInputElement | null;
+        if (checkbox) {
+          checkbox.checked = !checkbox.checked;
+          handleCheckboxChange(name, checkbox.checked);
+        }
       });
       
       const checkmarkContainer = card.querySelector('.mcp-checkbox-container');
-      checkmarkContainer.addEventListener('click', (e) => {
+      checkmarkContainer?.addEventListener('click', (e) => {
         e.stopPropagation();
       });
       
-      const checkboxEl = card.querySelector('.mcp-server-checkbox');
-      checkboxEl.addEventListener('change', () => {
+      const checkboxEl = card.querySelector('.mcp-server-checkbox') as HTMLInputElement | null;
+      checkboxEl?.addEventListener('change', () => {
         handleCheckboxChange(name, checkboxEl.checked);
       });
       

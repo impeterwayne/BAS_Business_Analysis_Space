@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const { extractPlayStorePackageName, inferAppNameFromPackage, extractAppInfoFromHtml, getDomainFavicon } = require('../../domain/project');
+
 
 function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, deviceService }) {
   ipcMain.on('window:minimize', () => mainWindow.minimize());
@@ -78,6 +80,34 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
     workspaceService.syncBaProjectConfig(projectPath, worktreePath)
   );
 
+  ipcMain.handle('competitor:detect-app', async (_, { url }) => {
+    return detectCompetitorFromUrl(url);
+  });
+
+  ipcMain.handle('competitor:fetch-icon', async (_, { projectPath, competitorId, url, packageName }) => {
+    const query = (url || packageName || '').trim();
+    if (!query) {
+      return { success: false, error: 'No URL or package name provided' };
+    }
+
+    try {
+      const detected = await detectCompetitorFromUrl(query);
+      if (detected && detected.success && detected.iconUrl) {
+        if (projectPath && competitorId && workspaceService) {
+          workspaceService.updateProjectCompetitor(projectPath, {
+            id: competitorId,
+            iconUrl: detected.iconUrl,
+          });
+        }
+        return { success: true, iconUrl: detected.iconUrl };
+      }
+      return { success: false, error: detected?.error || 'Icon not found' };
+    } catch (err) {
+      return { success: false, error: err?.message || String(err) };
+    }
+  });
+
+
   ipcMain.handle('select-apk-file', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile'],
@@ -149,6 +179,83 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
   });
 }
 
+async function detectCompetitorFromUrl(inputUrl) {
+  if (!inputUrl || typeof inputUrl !== 'string') {
+    return { success: false, error: 'URL is required' };
+  }
+  const trimmed = inputUrl.trim();
+  const pkg = extractPlayStorePackageName(trimmed);
+  const inferred = inferAppNameFromPackage(pkg);
+
+  let targetUrl = '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.hostname.includes('google.com')) {
+        parsed.searchParams.set('hl', 'en');
+        parsed.searchParams.set('gl', 'US');
+        targetUrl = parsed.toString();
+      } else {
+        targetUrl = trimmed;
+      }
+    } catch {
+      targetUrl = trimmed;
+    }
+  } else if (pkg) {
+    targetUrl = `https://play.google.com/store/apps/details?id=${encodeURIComponent(pkg)}&hl=en&gl=US`;
+  } else {
+    targetUrl = `https://${trimmed}`;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const response = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    clearTimeout(timer);
+
+    if (response.ok) {
+      const html = await response.text();
+      const extracted = extractAppInfoFromHtml(html, pkg, inferred, targetUrl);
+      if (extracted.appName || extracted.iconUrl) {
+        return {
+          success: true,
+          appName: extracted.appName || inferred,
+          packageName: extracted.packageName || pkg,
+          iconUrl: extracted.iconUrl || getDomainFavicon(targetUrl) || '',
+          url: targetUrl,
+        };
+      }
+    }
+  } catch (_) {
+    // Network or fetch failed, fallback below
+  }
+
+  const fallbackIcon = getDomainFavicon(targetUrl);
+  // Graceful fallback: return inferred name from package name
+  if (inferred || pkg) {
+    return {
+      success: true,
+      appName: inferred,
+      packageName: pkg,
+      iconUrl: fallbackIcon || '',
+      url: targetUrl,
+      inferred: true,
+    };
+  }
+
+  return {
+    success: false,
+    error: 'Could not detect app name from the provided link.',
+  };
+}
+
 module.exports = {
   registerWorkspaceIpc,
+  detectCompetitorFromUrl,
 };

@@ -155,7 +155,8 @@ declare global {
         name: string;
         url?: string;
         packageName?: string;
-        platform?: 'Android' | 'iOS' | 'Web';
+        iconUrl?: string;
+        platform?: 'Android';
         notes?: string;
       }) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
       updateProjectCompetitor: (projectPath: string, competitor: {
@@ -163,10 +164,26 @@ declare global {
         name?: string;
         url?: string;
         packageName?: string;
-        platform?: 'Android' | 'iOS' | 'Web';
+        iconUrl?: string;
+        platform?: 'Android';
         notes?: string;
       }) => Promise<{ success: boolean; project?: any; competitor?: any; error?: string }>;
       removeProjectCompetitor: (projectPath: string, competitorId: string) => Promise<{ success: boolean; project?: any; error?: string }>;
+      detectCompetitorApp: (url: string) => Promise<{
+        success: boolean;
+        appName?: string;
+        packageName?: string;
+        iconUrl?: string;
+        url?: string;
+        inferred?: boolean;
+        error?: string;
+      }>;
+      fetchCompetitorIcon: (opts: {
+        projectPath?: string;
+        competitorId?: string;
+        url?: string;
+        packageName?: string;
+      }) => Promise<{ success: boolean; iconUrl?: string; error?: string }>;
       syncBaProjectConfig: (opts: { projectPath: string; worktreePath?: string }) => Promise<{ success: boolean; path?: string; error?: string }>;
       selectApkFile: () => Promise<{ name: string; path: string; size: number } | null>;
       getFileInfo: (filePath: string) => Promise<{ name: string; path: string; size: number; isFile: boolean } | null>;
