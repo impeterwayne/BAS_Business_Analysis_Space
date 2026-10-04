@@ -23,6 +23,9 @@ test('normalizeSettings trims values and drops blank entries', () => {
       androidStudioPath: '  studio64  ',
       antigravityPath: '  antigravity-ide  ',
       antigravityAgentPath: '  antigravity  ',
+      claudeDesktopPath: '  claude-desktop  ',
+      planeApiKey: '  plane_api_x  ',
+      projectPlaneIds: { ' D:/repo ': ' abc ', 'D:/blank': '  ' },
     }),
     {
       subworktreeBranchParents: {
@@ -31,6 +34,7 @@ test('normalizeSettings trims values and drops blank entries', () => {
       androidStudioPath: 'studio64',
       antigravityPath: 'antigravity-ide',
       antigravityAgentPath: 'antigravity',
+      claudeDesktopPath: 'claude-desktop',
       figmaPath: '',
       figmaUrl: 'https://www.figma.com',
       obsidianPath: '',
@@ -39,6 +43,10 @@ test('normalizeSettings trims values and drops blank entries', () => {
       reakitPath: '',
       autoRefreshCurrentProject: false,
       autoRefreshInterval: 10,
+      planeApiKey: 'plane_api_x',
+      planeBaseUrl: 'https://plane.itgproduct.com',
+      planeWorkspaceSlug: 'product',
+      projectPlaneIds: { 'D:/repo': 'abc' },
     }
   );
 });
@@ -49,6 +57,7 @@ test('normalizeSettings falls back for non-object input', () => {
     androidStudioPath: '',
     antigravityPath: '',
     antigravityAgentPath: '',
+    claudeDesktopPath: '',
     figmaPath: '',
     figmaUrl: 'https://www.figma.com',
     obsidianPath: '',
@@ -57,6 +66,10 @@ test('normalizeSettings falls back for non-object input', () => {
     reakitPath: '',
     autoRefreshCurrentProject: false,
     autoRefreshInterval: 10,
+    planeApiKey: '',
+    planeBaseUrl: 'https://plane.itgproduct.com',
+    planeWorkspaceSlug: 'product',
+    projectPlaneIds: {},
   });
 });
 
@@ -103,6 +116,7 @@ test('normalizeWorkspaceConfig keeps projects array and normalizes settings', ()
     androidStudioPath: '',
     antigravityPath: '',
     antigravityAgentPath: '',
+    claudeDesktopPath: '',
     figmaPath: '',
     figmaUrl: 'https://www.figma.com',
     obsidianPath: '',
@@ -111,5 +125,9 @@ test('normalizeWorkspaceConfig keeps projects array and normalizes settings', ()
     reakitPath: '',
     autoRefreshCurrentProject: false,
     autoRefreshInterval: 10,
+    planeApiKey: '',
+    planeBaseUrl: 'https://plane.itgproduct.com',
+    planeWorkspaceSlug: 'product',
+    projectPlaneIds: {},
   });
 });

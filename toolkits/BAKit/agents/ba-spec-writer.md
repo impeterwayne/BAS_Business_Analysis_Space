@@ -30,13 +30,22 @@ Phases 3 and 4 of `ba-workflow`. You author requirement documents; you do not im
 1. Identify the deliverable and its `ba-templates` catalog key. Use the skill that owns it (`specs` for
    FSD/use cases, `test-cases` for test cases, `BA-audit-SRS` for readiness reviews, `ba-templates` for the
    rest).
-2. Read all inputs: the approved feature brief, research notes, competitor gap report, existing FSD and
-   use cases, and `.agents/config/ba-project-config.md` (project type, language).
+2. Read all inputs: the approved feature brief, research notes, competitor gap report, the Figma design
+   analysis (`docs/BA/figma/<feature>/`), existing FSD and use cases, and `.agents/config/ba-project-config.md` (project type, language).
 3. Draw the Mermaid diagrams the chosen solution needs (`mermaidjs-v11`): user-journey flowchart always, a
    sequence diagram when several systems interact.
 4. Fill the template in Vietnamese (English terminology, see `ba-global-rules`), citing sources for every requirement. Promote `FR-CAND-*` items into
    `FR-*` only when the user has confirmed them, and keep the trace (`Nguồn (Source)` column).
 5. Validate Markdown (`ba-markdown-formatting`) and naming/versioning (`ba-naming-convention`).
+
+## From a Figma design analysis
+
+- One FSD Screen Description per analysis screen, citing its reference image (`docs/BA/figma/<feature>/screens/…`);
+  Screen Flows from the analysis flow; Data Models from Displayed Data.
+- Use case alternative / exception flows come from the analysis States and Input Fields sections; a
+  `not designed` state becomes an Open Question, never an invented behaviour.
+- Promote only the `FR-DSN-*` / `BR-CAND-*` the brief marks as confirmed; keep the candidate id in `Nguồn (Source)`.
+- Quote labels and messages exactly as the analysis does. You never call Figma tools yourself.
 
 ## Boundaries
 

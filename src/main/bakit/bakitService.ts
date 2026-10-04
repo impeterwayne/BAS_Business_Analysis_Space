@@ -2,6 +2,8 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { app } from 'electron';
+import { getManagedMobilerunPython } from './mobilerunSetup';
+import { venvExecutable } from '../platform';
 
 // mobilerun is registered per workspace as an Antigravity plugin: .agents/plugins/mobilerun/ with a
 // plugin.json marker and an mcp_config.json. Antigravity discovers plugins under the workspace's .agents/,
@@ -39,10 +41,11 @@ export function resolveMobilerunPython(customPath?: string): string | null {
     'D:\\Quest\\mobilerun-mcp',
   ].filter(Boolean) as string[];
   for (const dir of candidates) {
-    const python = path.join(dir, '.venv', 'Scripts', 'python.exe');
+    const python = venvExecutable(path.join(dir, '.venv'), 'python');
     if (fs.existsSync(python)) return fs.realpathSync(python);
   }
-  return null;
+  // The copy BA Space installs (Mobilerun setup) when no developer checkout is present.
+  return getManagedMobilerunPython();
 }
 
 function readMcpConfig(configPath: string): any {
@@ -88,7 +91,7 @@ export function registerMobilerunMcp(worktreePath: string, customPath?: string) 
   try {
     const pythonPath = resolveMobilerunPython(customPath);
     if (!pythonPath) {
-      return { success: false, error: 'mobilerun-mcp not found: expected <mobilerun-mcp>\\.venv\\Scripts\\python.exe next to BA Space or at D:\\Quest\\mobilerun-mcp.' };
+      return { success: false, error: 'mobilerun-mcp is not installed. Run Mobilerun setup (Python + mobilerun) from the BAKit toolkit screen first.' };
     }
     const pluginDir = path.dirname(configPath);
     fs.mkdirSync(pluginDir, { recursive: true });
@@ -133,6 +136,92 @@ export function unregisterGlobalMobilerunMcp() {
     return { success: true, configPath };
   } catch (err: any) {
     return { success: false, error: err.message, configPath };
+  }
+}
+
+// figma-mcp-android (Figma Desktop plugin bridge, launched with npx) is registered the same way, as the
+// workspace plugin .agents/plugins/figma/. The server binds 127.0.0.1:1994 for the Figma plugin, so a
+// second copy cannot run next to one from a global config: when an enabled global entry exists (the user
+// may keep it there for AndroidHarnessAGY), the workspace plugin is not added and the global one is used.
+export const FIGMA_SERVER_NAME = 'figma-mcp-android';
+const FIGMA_PACKAGE = '@impeterwayne/figma-mcp-android@latest';
+const FIGMA_PLUGIN_DIR = path.join('.agents', 'plugins', 'figma');
+
+export interface FigmaMcpStatus {
+  registered: boolean;
+  configPath: string;
+  globalRegistered: boolean;
+  globalConfigPath: string | null;
+  error?: string;
+}
+
+export function getWorkspaceFigmaConfigPath(worktreePath: string): string {
+  return path.join(worktreePath, FIGMA_PLUGIN_DIR, 'mcp_config.json');
+}
+
+// Only the global file Antigravity reads counts (same resolution as mobilerun). Any enabled entry that
+// launches figma-mcp-android counts, whatever its key.
+function findGlobalFigmaConfig(): string | null {
+  const configPath = getAntigravityMcpConfigPath();
+  try {
+    const servers = readMcpConfig(configPath).mcpServers;
+    const found = Object.entries(servers).some(([name, entry]: [string, any]) => {
+      if (!entry || entry.disabled) return false;
+      const launch = [entry.command, ...(Array.isArray(entry.args) ? entry.args : [])].join(' ');
+      return name === FIGMA_SERVER_NAME || launch.includes('figma-mcp-android');
+    });
+    return found ? configPath : null;
+  } catch (_) {
+    // An unreadable global config is not ours to judge; treat it as having no entry.
+    return null;
+  }
+}
+
+export function getFigmaMcpStatus(worktreePath: string): FigmaMcpStatus {
+  const configPath = getWorkspaceFigmaConfigPath(worktreePath);
+  const globalConfigPath = findGlobalFigmaConfig();
+  const globalRegistered = !!globalConfigPath;
+  try {
+    const registered = !!readMcpConfig(configPath).mcpServers[FIGMA_SERVER_NAME];
+    return { registered, configPath, globalRegistered, globalConfigPath };
+  } catch (err: any) {
+    return { registered: false, configPath, globalRegistered, globalConfigPath, error: `Invalid JSON in ${configPath}: ${err.message}` };
+  }
+}
+
+export function registerFigmaMcp(worktreePath: string) {
+  const configPath = getWorkspaceFigmaConfigPath(worktreePath);
+  const globalConfigPath = findGlobalFigmaConfig();
+  if (globalConfigPath) return { success: true, skipped: true, configPath, globalConfigPath };
+  try {
+    const pluginDir = path.dirname(configPath);
+    fs.mkdirSync(pluginDir, { recursive: true });
+    fs.writeFileSync(path.join(pluginDir, 'plugin.json'), JSON.stringify({
+      name: 'figma',
+      description: 'BAKit: reads the Figma design open in Figma Desktop (figma-mcp-android plugin bridge) for BA analysis.',
+    }, null, 2) + '\n', 'utf8');
+    // npx is a .cmd shim on Windows, which a bare spawn cannot start.
+    const launch = process.platform === 'win32'
+      ? { command: 'cmd', args: ['/c', 'npx', '-y', FIGMA_PACKAGE] }
+      : { command: 'npx', args: ['-y', FIGMA_PACKAGE] };
+    const config = readMcpConfig(configPath);
+    config.mcpServers[FIGMA_SERVER_NAME] = { ...(config.mcpServers[FIGMA_SERVER_NAME] || {}), ...launch };
+    writeMcpConfig(configPath, config);
+    return { success: true, skipped: false, configPath, globalConfigPath: null };
+  } catch (err: any) {
+    return { success: false, error: err.message, configPath };
+  }
+}
+
+export function unregisterFigmaMcp(worktreePath: string) {
+  const pluginDir = path.join(worktreePath, FIGMA_PLUGIN_DIR);
+  try {
+    fs.rmSync(pluginDir, { recursive: true, force: true });
+    const pluginsDir = path.dirname(pluginDir);
+    if (fs.existsSync(pluginsDir) && fs.readdirSync(pluginsDir).length === 0) fs.rmdirSync(pluginsDir);
+    return { success: true, configPath: path.join(pluginDir, 'mcp_config.json'), globalConfigPath: findGlobalFigmaConfig() };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -191,6 +280,9 @@ export function registerBakitIpc({ ipcMain }: { ipcMain: any }) {
   ipcMain.handle('bakit:mcp-register', (_: any, { worktreePath }: { worktreePath: string }) => registerMobilerunMcp(worktreePath));
   ipcMain.handle('bakit:mcp-unregister', (_: any, { worktreePath }: { worktreePath: string }) => unregisterMobilerunMcp(worktreePath));
   ipcMain.handle('bakit:mcp-unregister-global', () => unregisterGlobalMobilerunMcp());
+  ipcMain.handle('bakit:figma-mcp-status', (_: any, { worktreePath }: { worktreePath: string }) => getFigmaMcpStatus(worktreePath));
+  ipcMain.handle('bakit:figma-mcp-register', (_: any, { worktreePath }: { worktreePath: string }) => registerFigmaMcp(worktreePath));
+  ipcMain.handle('bakit:figma-mcp-unregister', (_: any, { worktreePath }: { worktreePath: string }) => unregisterFigmaMcp(worktreePath));
   ipcMain.handle('bakit:agents-md-status', (_: any, { worktreePath, sourcePath }: { worktreePath: string; sourcePath: string }) =>
     getAgentsMdBlockStatus(worktreePath, sourcePath));
   ipcMain.handle('bakit:agents-md-apply', (_: any, { worktreePath, sourcePath }: { worktreePath: string; sourcePath: string }) =>

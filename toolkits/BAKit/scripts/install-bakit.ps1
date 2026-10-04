@@ -15,15 +15,22 @@
   preserved; an existing "mobilerun" entry is left untouched unless -Force is given. Warns when an older
   global entry (%USERPROFILE%\.gemini\config\mcp_config.json) would still start it everywhere.
 
+  With -RegisterFigmaMcp, adds figma-mcp-android (npx, Figma Desktop plugin bridge) the same way, as
+  <Target>\.agents\plugins\figma\. Skipped when an enabled global entry already launches it: the server binds
+  127.0.0.1:1994 for the Figma plugin, so two copies cannot run side by side.
+
 .EXAMPLE
   .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -RegisterMcp
 .EXAMPLE
   .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -McpOnly -MobilerunPath D:\Quest\mobilerun-mcp -Device R58RB1XWAKJ
+.EXAMPLE
+  .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -RegisterFigmaMcp
 #>
 [CmdletBinding()]
 param(
   [string]$Target = (Get-Location).Path,
   [switch]$RegisterMcp,
+  [switch]$RegisterFigmaMcp,
   [switch]$McpOnly,
   [string]$MobilerunPath,
   [string]$Device,
@@ -74,7 +81,11 @@ function Resolve-MobilerunPython {
     $py = Join-Path $c '.venv\Scripts\python.exe'
     if (Test-Path $py) { return (Resolve-Path $py).Path }
   }
-  throw "mobilerun-mcp venv not found. Pass -MobilerunPath <folder containing .venv>. Tried: $($candidates -join '; ')"
+  # The copy BA Space installs (Mobilerun setup); .installed is written only after a complete install.
+  $managed = Join-Path $env:LOCALAPPDATA 'BA Space\mobilerun\mcp'
+  $py = Join-Path $managed '.venv\Scripts\python.exe'
+  if ((Test-Path (Join-Path $managed '.installed')) -and (Test-Path $py)) { return (Resolve-Path $py).Path }
+  throw "mobilerun-mcp venv not found. Run Mobilerun setup in BA Space, or pass -MobilerunPath <folder containing .venv>. Tried: $(($candidates + $managed) -join '; ')"
 }
 
 function Get-AntigravityMcpConfigPath {
@@ -125,6 +136,55 @@ function Register-MobilerunMcp {
   Write-Host "Registered mobilerun MCP ($python) as a workspace plugin in $configPath. Restart the Antigravity agent to load it."
 }
 
+function Find-GlobalFigmaMcp {
+  # Only the global file Antigravity reads counts (same resolution as mobilerun).
+  foreach ($p in @(Get-AntigravityMcpConfigPath)) {
+    if (-not (Test-Path $p)) { continue }
+    $raw = [System.IO.File]::ReadAllText($p)
+    if (-not $raw.Trim()) { continue }
+    try { $cfg = $raw | ConvertFrom-Json } catch { continue }
+    if (-not $cfg.mcpServers) { continue }
+    foreach ($s in $cfg.mcpServers.PSObject.Properties) {
+      if ($s.Value.disabled) { continue }
+      $launch = (@($s.Value.command) + @($s.Value.args)) -join ' '
+      if ($s.Name -eq 'figma-mcp-android' -or $launch -match 'figma-mcp-android') { return $p }
+    }
+  }
+  return $null
+}
+
+function Register-FigmaMcp {
+  $global = Find-GlobalFigmaMcp
+  if ($global) {
+    Write-Host "figma-mcp-android is already registered globally in $global; this workspace uses it. No workspace plugin added."
+    return
+  }
+  $pluginDir = Join-Path (Resolve-Path $Target).Path '.agents\plugins\figma'
+  $configPath = Join-Path $pluginDir 'mcp_config.json'
+  if (-not (Test-Path $pluginDir)) { New-Item -ItemType Directory -Force $pluginDir | Out-Null }
+  $manifest = [pscustomobject]@{ name = 'figma'; description = 'BAKit: reads the Figma design open in Figma Desktop (figma-mcp-android plugin bridge) for BA analysis.' }
+  [System.IO.File]::WriteAllText((Join-Path $pluginDir 'plugin.json'), ($manifest | ConvertTo-Json), $Utf8NoBom)
+
+  $config = [pscustomobject]@{ mcpServers = [pscustomobject]@{} }
+  if (Test-Path $configPath) {
+    $raw = [System.IO.File]::ReadAllText($configPath)
+    if ($raw.Trim()) { $config = $raw | ConvertFrom-Json }
+    if (-not $config.PSObject.Properties['mcpServers']) {
+      $config | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{})
+    }
+  }
+  if ($config.mcpServers.PSObject.Properties['figma-mcp-android'] -and -not $Force) {
+    Write-Host "figma-mcp-android is already registered in $configPath (use -Force to replace it)."
+    return
+  }
+  # npx is a .cmd shim on Windows, which a bare spawn cannot start.
+  $entry = [pscustomobject]@{ command = 'cmd'; args = @('/c', 'npx', '-y', '@impeterwayne/figma-mcp-android@latest') }
+  if ($config.mcpServers.PSObject.Properties['figma-mcp-android']) { $config.mcpServers.PSObject.Properties.Remove('figma-mcp-android') }
+  $config.mcpServers | Add-Member -NotePropertyName 'figma-mcp-android' -NotePropertyValue $entry
+  [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 20), $Utf8NoBom)
+  Write-Host "Registered figma-mcp-android as a workspace plugin in $configPath. Run the plugin in Figma Desktop and restart the Antigravity agent."
+}
+
 if (-not $McpOnly) {
   $Target = (Resolve-Path $Target).Path
   $agentsDir = Join-Path $Target '.agents'
@@ -173,4 +233,5 @@ if (-not $McpOnly) {
   Write-Host "BAKit installed into $agentsDir"
 }
 
-if ($RegisterMcp -or $McpOnly) { Register-MobilerunMcp }
+if ($RegisterMcp -or ($McpOnly -and -not $RegisterFigmaMcp)) { Register-MobilerunMcp }
+if ($RegisterFigmaMcp) { Register-FigmaMcp }

@@ -1,7 +1,8 @@
-import { spawn, execFileSync } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
+import { isWin, findOnPath, PYTHON_COMMAND } from '../platform';
 
 export interface ReaExecutableInfo {
   file: string;
@@ -29,9 +30,9 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
       if (stats.isFile()) {
         const ext = path.extname(trimmed).toLowerCase();
         if (ext === '.py') {
-          return { file: 'python', argsPrefix: [trimmed], reaDir: path.dirname(trimmed), sourceType: 'script' };
+          return { file: PYTHON_COMMAND, argsPrefix: [trimmed], reaDir: path.dirname(trimmed), sourceType: 'script' };
         }
-        if (ext === '.bat' || ext === '.cmd') {
+        if (isWin && (ext === '.bat' || ext === '.cmd')) {
           return { file: 'cmd.exe', argsPrefix: ['/d', '/c', trimmed], reaDir: path.dirname(trimmed), sourceType: 'batch' };
         }
         return { file: trimmed, argsPrefix: [], reaDir: path.dirname(trimmed), sourceType: 'executable' };
@@ -39,11 +40,11 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
       if (stats.isDirectory()) {
         const batPath = path.join(trimmed, 'rea.bat');
         const pyPath = path.join(trimmed, 'rea.py');
-        if (fs.existsSync(batPath)) {
+        if (isWin && fs.existsSync(batPath)) {
           return { file: 'cmd.exe', argsPrefix: ['/d', '/c', batPath], reaDir: trimmed, sourceType: 'batch' };
         }
         if (fs.existsSync(pyPath)) {
-          return { file: 'python', argsPrefix: [pyPath], reaDir: trimmed, sourceType: 'script' };
+          return { file: PYTHON_COMMAND, argsPrefix: [pyPath], reaDir: trimmed, sourceType: 'script' };
         }
       }
     }
@@ -64,34 +65,23 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
     if (fs.existsSync(dir)) {
       const batPath = path.join(dir, 'rea.bat');
       const pyPath = path.join(dir, 'rea.py');
-      if (fs.existsSync(batPath)) {
+      if (isWin && fs.existsSync(batPath)) {
         return { file: 'cmd.exe', argsPrefix: ['/d', '/c', batPath], reaDir: dir, sourceType: 'batch' };
       }
       if (fs.existsSync(pyPath)) {
-        return { file: 'python', argsPrefix: [pyPath], reaDir: dir, sourceType: 'script' };
+        return { file: PYTHON_COMMAND, argsPrefix: [pyPath], reaDir: dir, sourceType: 'script' };
       }
     }
   }
 
-  // 3. Check where.exe for global rea binary
-  if (process.platform === 'win32') {
-    try {
-      const output = execFileSync('where.exe', ['rea'], {
-        encoding: 'utf-8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }).trim();
-      const matches = output.split(/\r?\n/).filter(Boolean);
-      const exe = matches.find(m => /\.exe$/i.test(m)) || matches.find(m => /\.(cmd|bat)$/i.test(m)) || matches[0];
-      if (exe) {
-        const ext = path.extname(exe).toLowerCase();
-        if (ext === '.bat' || ext === '.cmd') {
-          return { file: 'cmd.exe', argsPrefix: ['/d', '/c', exe], reaDir: path.dirname(exe), sourceType: 'batch' };
-        }
-        return { file: exe, argsPrefix: [], reaDir: path.dirname(exe), sourceType: 'executable' };
-      }
-    } catch (_) {
-      // not on PATH
+  // 3. Check PATH for a global rea binary
+  const exe = findOnPath('rea');
+  if (exe) {
+    const ext = path.extname(exe).toLowerCase();
+    if (isWin && (ext === '.bat' || ext === '.cmd')) {
+      return { file: 'cmd.exe', argsPrefix: ['/d', '/c', exe], reaDir: path.dirname(exe), sourceType: 'batch' };
     }
+    return { file: exe, argsPrefix: [], reaDir: path.dirname(exe), sourceType: 'executable' };
   }
 
   // 4. Default fallback to global 'rea'

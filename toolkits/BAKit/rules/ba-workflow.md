@@ -5,13 +5,14 @@ trigger: always_on
 # BA Workflow
 
 How the BAKit agents, skills and slash-command workflows chain from an idea (or a competitor app) to a
-QA handoff. Adapted from the BA_Flow 4-phase workflow, with a competitor discovery phase in front.
+QA handoff. Adapted from the BA_Flow 4-phase workflow, with competitor and design (Figma) discovery in front.
 
 ## Toolchain
 
 | Phase | Lead agent | Skills | Slash command |
 | :--- | :--- | :--- | :--- |
 | 0. Competitor discovery (optional) | `ba-lead` → `code-scout`, `competitor-analyst`, `evidence-verifier` | `apk-code-index`, `competitor-app-analysis`, `mobilerun`, `ba-templates` | `/ba-competitor` |
+| 0. Design discovery (optional) | `ba-lead` → `figma-analyst` | `figma-ba-analysis`, `ba-templates` (`figma-analysis`) | `/ba-figma` |
 | 1. Research & problem breakdown | `ba-researcher` | `problem-solving`, `sequential-thinking`, `document-extraction` | — |
 | 2. Ideation & trade-offs | `ba-brainstormer` | `brainstorm-features`, `ba-templates` (`feature-brief`) | — |
 | 3. Modeling & specification | `ba-spec-writer` | `mermaidjs-v11`, `specs`, `ba-templates` | `/ba-spec`, `/ba-template` |
@@ -29,6 +30,15 @@ their notes into an exploration plan. Then drive the app on the connected device
 server, one flow at a time, capture evidence, and write the competitor profile, screen inventory and flow
 analyses; `evidence-verifier` checks them before they reach the user. When our product reference is available, finish with
 the comparison / gap report; its `GAP-*` and `FR-CAND-*` items become inputs to Phase 2.
+
+### Phase 0 — Design discovery
+
+Use when a Figma design exists for the feature (a figma.com link, "write the SRS from the design").
+`figma-analyst` reads the design through the `figma-mcp-android` MCP server (Figma Desktop plugin bridge) and
+writes a design analysis under `docs/BA/figma/<feature>/`: screens with reference images, flow, fields and
+visible validation, designed and missing states, copy, data, annotations, `FR-DSN-*` / `BR-CAND-*` candidates
+and open questions. When the design already reflects an agreed scope, the user may take it straight to
+Phase 3 (`/ba-figma … then spec`); otherwise its candidates and questions feed Phase 2.
 
 ### Phase 1 — Research & discovery
 

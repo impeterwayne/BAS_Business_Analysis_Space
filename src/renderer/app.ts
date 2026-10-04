@@ -16,6 +16,8 @@ const {
   canCreateNestedWorktree: getDomainCanCreateNestedWorktree,
   buildWorktreeTree: getDomainBuildWorktreeTree,
   parseFigmaUrl,
+  parseFirebaseUrl,
+  parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,
   formatFlowSlug,
@@ -27,9 +29,11 @@ const { initializeRendererLifecycle } = require('./lifecycle');
 const { openCreateBranchModal } = require('./modals/createBranchModal');
 const { openAddWorktreeModal, openAddSubWorktreeModal, openMergeWorktreeModal, openForceRemoveWorktreeModal } = require('./modals/worktreeModals');
 const { openCompetitorModal } = require('./modals/competitorModal');
+const { openMobilerunSetupModal } = require('./modals/mobilerunSetupModal');
 const { createModalHelpers } = require('./ui/modalHelpers');
 const { createModalPrimitives } = require('./ui/modalPrimitives');
 const { DeviceManagerScreen } = require('./screens/deviceManagerScreen');
+const { createPlaneTaskScreen } = require('./screens/planeTaskScreen');
 
 type TerminalBehavior = {
   forceMouseMode: boolean;
@@ -82,6 +86,7 @@ const state: {
     androidStudioPath?: string;
     antigravityPath?: string;
     antigravityAgentPath?: string;
+    claudeDesktopPath?: string;
     figmaPath?: string;
     figmaUrl?: string;
     obsidianPath?: string;
@@ -90,6 +95,10 @@ const state: {
     reakitPath?: string;
     autoRefreshCurrentProject?: boolean;
     autoRefreshInterval?: number;
+    planeApiKey?: string;
+    planeBaseUrl?: string;
+    planeWorkspaceSlug?: string;
+    projectPlaneIds?: Record<string, string>;
     symlinkTargets?: Array<{ name: string; targetPath: string }>;
   };
   useExternalWt: boolean;
@@ -109,6 +118,8 @@ const state: {
   projects: [],
   settings: {
     subworktreeBranchParents: {},
+    autoRefreshCurrentProject: false,
+    autoRefreshInterval: 10,
   },
   useExternalWt: false,
   workspaceSidebarCollapsed: false,
@@ -142,8 +153,6 @@ const dom = {
   btnAddProject: $('#btn-add-project'),
   btnAddFirst: $('#btn-add-first'),
   btnRefreshAll: $('#btn-refresh-all'),
-  settingsAutoRefresh: $('#settings-auto-refresh'),
-  settingsAutoRefreshInterval: $('#settings-auto-refresh-interval'),
   toggleExternalWt: $('#toggle-external-wt'),
   projectsContainer: $('#projects-container'),
   loadingState: $('#loading-state'),
@@ -172,7 +181,6 @@ const dom = {
   btnAndroidStudio: $('#btn-android-studio'),
   btnAntigravity: $('#btn-antigravity'),
   btnAntigravityAgent: $('#btn-antigravity-agent'),
-  btnScrcpyCapture: $('#btn-scrcpy-capture'),
   btnFigma: $('#btn-figma'),
   btnObsidian: $('#btn-obsidian'),
   dashboardEmptyState: $('#dashboard-empty-state'),
@@ -189,6 +197,14 @@ const dom = {
   dashFigmaBody: $('#dash-figma-body'),
   dashBtnOpenFigma: $('#dash-btn-open-figma'),
   dashBtnBrowserFigma: $('#dash-btn-browser-figma'),
+  dashFirebaseStatusPill: $('#dash-firebase-status-pill'),
+  dashFirebaseBody: $('#dash-firebase-body'),
+  dashBtnBrowserFirebase: $('#dash-btn-browser-firebase'),
+  dashLegacyDocsStatusPill: $('#dash-legacy-docs-status-pill'),
+  dashLegacyDocsActions: $('#dash-legacy-docs-actions'),
+  dashLegacyDocsBody: $('#dash-legacy-docs-body'),
+  dashBtnBrowserPrd: $('#dash-btn-browser-prd'),
+  dashBtnBrowserChecklist: $('#dash-btn-browser-checklist'),
   dashSectionCompetitors: $('#dash-section-competitors'),
   dashBtnImportCompApk: $('#dash-btn-import-comp-apk'),
   dashCompBadge: $('#dash-comp-badge'),
@@ -208,6 +224,10 @@ const dom = {
   tabResizeHandle: $('#tab-resize-handle'),
   settingsAntigravityPath: $('#settings-antigravity-path'),
   settingsAntigravityAgentPath: $('#settings-antigravity-agent-path'),
+  settingsClaudeDesktopPath: $('#settings-claude-desktop-path') as HTMLInputElement | null,
+  settingsPlaneApiKey: $('#settings-plane-api-key') as HTMLInputElement | null,
+  btnCopyPlaneApiKey: $('#btn-copy-plane-api-key') as HTMLButtonElement | null,
+  btnSavePlaneApiKey: $('#btn-save-plane-api-key') as HTMLButtonElement | null,
   settingsAndroidStudioPath: $('#settings-android-studio-path'),
   settingsFigmaPath: $('#settings-figma-path'),
   settingsFigmaUrl: $('#settings-figma-url'),
@@ -217,6 +237,7 @@ const dom = {
   settingsReaKitPath: $('#settings-reakit-path') as HTMLInputElement | null,
   btnBrowseAntigravity: $('#btn-browse-antigravity'),
   btnBrowseAntigravityAgent: $('#btn-browse-antigravity-agent'),
+  btnBrowseClaudeDesktop: $('#btn-browse-claude-desktop'),
   btnBrowseAndroidStudio: $('#btn-browse-android-studio'),
   btnBrowseFigma: $('#btn-browse-figma'),
   btnBrowseObsidian: $('#btn-browse-obsidian'),
@@ -243,12 +264,26 @@ const dom = {
   btnDeviceManager: $('#btn-device-manager'),
   deviceManagerScreen: $('#device-manager-screen'),
   btnCloseDeviceManagerScreen: $('#btn-close-device-manager-screen'),
+  deviceRemoteScreen: $('#device-remote-screen'),
+  btnCloseDeviceRemoteScreen: $('#btn-close-device-remote-screen'),
+  btnBackToDeviceList: $('#btn-dm-back-to-list'),
+  btnClaudeDesktop: $('#btn-claude-desktop'),
+  btnPlaneTasks: $('#btn-plane-tasks'),
+  planeTaskScreen: $('#plane-task-screen'),
 };
 
 const WORKSPACE_SIDEBAR_COLLAPSED_KEY = 'codingspace.workspaceSidebarCollapsed';
 const TAB_SIDEBAR_COLLAPSED_KEY = 'codingspace.tabSidebarCollapsed';
 
 // ── Window Controls ────────────────────────────────────
+// platform-darwin hides the custom buttons (native traffic lights are shown) and makes room for them.
+document.body.classList.add(`platform-${window.api.platform}`);
+const EXTERNAL_TERMINAL_LABEL = window.api.platform === 'win32' ? 'Windows Terminal' : 'External Terminal';
+const externalWtToggle = document.querySelector('label.workspace-toggle[title*="Windows Terminal"]');
+if (externalWtToggle && window.api.platform !== 'win32') {
+  externalWtToggle.setAttribute('title', 'Open worktrees in an external terminal window');
+}
+
 dom.btnMinimize.addEventListener('click', () => window.api.minimize());
 dom.btnMaximize.addEventListener('click', () => window.api.maximize());
 dom.btnClose.addEventListener('click', () => window.api.close());
@@ -279,6 +314,7 @@ function setupBrowseButton(btn, input) {
 
 setupBrowseButton(dom.btnBrowseAntigravity, dom.settingsAntigravityPath);
 setupBrowseButton(dom.btnBrowseAntigravityAgent, dom.settingsAntigravityAgentPath);
+setupBrowseButton(dom.btnBrowseClaudeDesktop, dom.settingsClaudeDesktopPath);
 setupBrowseButton(dom.btnBrowseAndroidStudio, dom.settingsAndroidStudioPath);
 setupBrowseButton(dom.btnBrowseFigma, dom.settingsFigmaPath);
 setupBrowseButton(dom.btnBrowseObsidian, dom.settingsObsidianPath);
@@ -304,9 +340,70 @@ if (dom.btnBrowseObsidianVault && dom.settingsObsidianVault) {
   });
 }
 
+if (dom.btnCopyPlaneApiKey && dom.settingsPlaneApiKey) {
+  dom.btnCopyPlaneApiKey.addEventListener('click', async () => {
+    const apiKey = dom.settingsPlaneApiKey?.value?.trim() || state.settings?.planeApiKey || '';
+    if (!apiKey) {
+      showToast('No Plane API key to copy', 'warning');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(apiKey);
+      showToast('Plane API key copied to clipboard!', 'success');
+      const btn = dom.btnCopyPlaneApiKey;
+      if (btn) {
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<img src="icons/check.svg" width="14" height="14" alt="" /><span>Copied!</span>';
+        btn.classList.add('btn-copied');
+        setTimeout(() => {
+          btn.innerHTML = originalHtml;
+          btn.classList.remove('btn-copied');
+        }, 1800);
+      }
+    } catch (_) {
+      showToast('Failed to copy Plane API key to clipboard', 'error');
+    }
+  });
+}
+
+if (dom.btnSavePlaneApiKey && dom.settingsPlaneApiKey) {
+  dom.btnSavePlaneApiKey.addEventListener('click', async () => {
+    const btn = dom.btnSavePlaneApiKey;
+    const originalHtml = btn?.innerHTML || '';
+    try {
+      if (btn) btn.disabled = true;
+      await saveSettingsFromUI();
+      const hasKey = !!(dom.settingsPlaneApiKey?.value?.trim());
+      showToast(hasKey ? 'Plane API key saved successfully!' : 'Plane API key cleared', 'success');
+      if (btn) {
+        btn.innerHTML = '<img src="icons/check.svg" width="14" height="14" alt="" /><span>Saved!</span>';
+        setTimeout(() => {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+        }, 1800);
+      }
+    } catch (err: any) {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+      showToast(`Failed to save Plane API key: ${err?.message || err}`, 'error');
+    }
+  });
+
+  dom.settingsPlaneApiKey.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      dom.btnSavePlaneApiKey?.click();
+    }
+  });
+}
+
 const settingsInputs = [
   dom.settingsAntigravityPath,
   dom.settingsAntigravityAgentPath,
+  dom.settingsClaudeDesktopPath,
+  dom.settingsPlaneApiKey,
   dom.settingsAndroidStudioPath,
   dom.settingsFigmaPath,
   dom.settingsFigmaUrl,
@@ -322,22 +419,6 @@ for (const input of settingsInputs) {
   }
 }
 
-if (dom.settingsAutoRefresh) {
-  dom.settingsAutoRefresh.addEventListener('change', async () => {
-    await saveSettingsFromUI();
-    startAutoRefreshLoop();
-  });
-}
-if (dom.settingsAutoRefreshInterval) {
-  dom.settingsAutoRefreshInterval.addEventListener('change', async () => {
-    await saveSettingsFromUI();
-    startAutoRefreshLoop();
-  });
-  dom.settingsAutoRefreshInterval.addEventListener('input', async () => {
-    await saveSettingsFromUI();
-    startAutoRefreshLoop();
-  });
-}
 
 // ── Add Project ────────────────────────────────────────
 dom.btnAddProject.addEventListener('click', addProject);
@@ -505,6 +586,7 @@ const iconRaw = {
   capture: loadIcon('capture'),
   device: loadIcon('device'),
   figma: loadIcon('figma'),
+  firebase: loadIcon('firebase'),
   task: loadIcon('task'),
   refresh: loadIcon('refresh'),
   check: loadIcon('check'),
@@ -545,6 +627,7 @@ const icons = {
   screen: iconSvg(iconRaw.screen, 14),
   capture: iconSvg(iconRaw.capture, 14),
   figma: iconSvg(iconRaw.figma, 14),
+  firebase: iconSvg(iconRaw.firebase, 14),
   task: iconSvg(iconRaw.task, 14),
   edit: iconSvg('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>', 12),
 };
@@ -557,7 +640,13 @@ const FIGMA_COLORED_LOGO = `<svg width="18" height="27" viewBox="0 0 38 57" fill
   <path d="M0 28.5C0 33.7467 4.25329 38 9.5 38H19V19H9.5C4.25329 19 0 23.2533 0 28.5Z" fill="#A259FF"/>
 </svg>`;
 
-const EDIT_PENCIL_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+const FIREBASE_COLORED_LOGO = `<svg width="22" height="28" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M1 24 4.6 1.4a.6.6 0 0 1 1.12-.2L9.6 8.4Z" fill="#FFA000"/>
+  <path d="M12.7 11.3 9.6 5.4 1 24Z" fill="#F57F17"/>
+  <path d="M1 24 15.5 7.7a.6.6 0 0 1 1 .3L23 24l-9.9 5.6a2.2 2.2 0 0 1-2.2 0Z" fill="#FFCA28"/>
+</svg>`;
+
+const EDIT_PENCIL_SVG =`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
 
 const TOOL_TABS: Record<string, ToolTab> = {
   agy: {
@@ -810,11 +899,16 @@ const { showModal, hideModal, showToast, initializeModalPrimitives } = createMod
 initializeModalPrimitives();
 
 // ── Utilities ──────────────────────────────────────────
+// Safe for text and for attribute values: quotes are escaped too, so a value containing `"` cannot end
+// the attribute early (it used to cut copied commands off at the first quote).
 function esc(str: any) {
   if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function syncWorktreePathInput(pathInput, baseDir, projectName) {
@@ -1372,6 +1466,7 @@ function isTerminalScreenVisible() {
 }
 
 async function showTerminalScreen() {
+  concealPlaneTaskScreen();
   // Exit other screens
   dom.settingsScreen?.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
@@ -1384,6 +1479,7 @@ async function showTerminalScreen() {
     dom.btnTerminalScreen.classList.add('active');
   }
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
 
   const activeWorktreePath = state.activeWorktreePath;
@@ -1427,6 +1523,7 @@ function hideTerminalScreen() {
 
 /** Switch the active worktree context */
 function switchWorktreeContext(wtPath) {
+  concealPlaneTaskScreen();
   // Exit other screens if active
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
@@ -1512,6 +1609,7 @@ async function openProjectWorkspaceAndTerminal(projectPath) {
 }
 
 function switchToTerminal(id) {
+  concealPlaneTaskScreen();
   // Exit other screens if active
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
@@ -1824,7 +1922,7 @@ function showTabDropdown() {
       ${menuItemHTML({
         action: 'new-terminal',
         icon: state.useExternalWt ? icons['windows-terminal'] : icons.terminal,
-        label: state.useExternalWt ? 'Windows Terminal' : 'Terminal',
+        label: state.useExternalWt ? EXTERNAL_TERMINAL_LABEL : 'Terminal',
         iconClass: state.useExternalWt ? 'windows-terminal-icon' : 'terminal-icon',
       })}
       ${renderToolDropdownItems()}
@@ -2012,21 +2110,15 @@ dom.tabNewBtn.addEventListener('click', (e) => {
 // Tab bar external tool buttons
 bindWorktreeQuickAction(dom.btnAntigravity, (wtPath) => window.api.openInAntigravity(wtPath), 'Opening Antigravity...');
 bindWorktreeQuickAction(dom.btnAntigravityAgent, (wtPath) => window.api.openInAntigravityAgent(wtPath), 'Opening Agent Manager...');
+dom.btnClaudeDesktop?.addEventListener('click', async () => {
+  const wtPath = getRequiredActiveWorktreePath();
+  if (!wtPath) return;
+  showToast('Opening Claude Desktop (Code mode)...', 'info');
+  const res = await window.api.openInClaudeDesktop(wtPath);
+  if (!res?.success) showToast(res?.error || 'Failed to open Claude Desktop', 'error');
+});
 
 
-if (dom.btnScrcpyCapture) {
-  dom.btnScrcpyCapture.addEventListener('click', async () => {
-    const activeWorktreePath = getRequiredActiveWorktreePath();
-    if (!activeWorktreePath) return;
-    showToast('Capturing screenshot and UI hierarchy...', 'info');
-    const res = await window.api.scrcpyCaptureUi({ worktreePath: activeWorktreePath });
-    if (res?.success) {
-      showToast(`UI evidence captured: ${res.relativeScreenshot}`, 'success');
-    } else {
-      showToast(`UI Capture failed: ${res?.error || 'Make sure device is connected'}`, 'error');
-    }
-  });
-}
 
 if (dom.btnFigma) {
   dom.btnFigma.addEventListener('click', async () => {
@@ -2288,6 +2380,178 @@ function renderDashboardFigma(activeProject: any) {
   }
 }
 
+async function saveProjectFirebaseUrl(activeProject: any, url: string, successMsg: string) {
+  const res = await window.api.updateProjectMetadata(activeProject.path, { firebaseUrl: url });
+  if (res?.success) {
+    showToast(successMsg, url ? 'success' : 'info');
+    activeProject.firebaseUrl = url;
+    renderDashboardFirebase(activeProject);
+  } else {
+    showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
+  }
+}
+
+function renderDashboardFirebase(activeProject: any) {
+  if (!dom.dashFirebaseBody) return;
+  const firebaseUrl = (activeProject.firebaseUrl || '').trim();
+
+  if (!firebaseUrl) {
+    if (dom.dashFirebaseStatusPill) {
+      dom.dashFirebaseStatusPill.textContent = 'Not Linked';
+      dom.dashFirebaseStatusPill.className = 'dash-status-pill';
+    }
+    if (dom.dashBtnBrowserFirebase) dom.dashBtnBrowserFirebase.style.display = 'none';
+
+    dom.dashFirebaseBody.innerHTML = `
+      <div class="dash-figma-empty-showcase firebase">
+        <div class="dash-figma-empty-icon-wrap">
+          <div class="dash-figma-empty-icon" title="Firebase">
+            ${FIREBASE_COLORED_LOGO}
+          </div>
+        </div>
+        <div class="dash-figma-empty-content">
+          <div class="dash-figma-input-wrapper">
+            <input type="text" class="dash-figma-input" id="dash-firebase-quick-input" placeholder="Paste Firebase console link (console.firebase.google.com/project/...)" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn-figma-link-submit firebase" id="dash-firebase-quick-save">Link</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const quickInput = dom.dashFirebaseBody.querySelector('#dash-firebase-quick-input') as HTMLInputElement;
+    const quickSave = dom.dashFirebaseBody.querySelector('#dash-firebase-quick-save') as HTMLButtonElement;
+    quickSave?.addEventListener('click', () => {
+      const url = quickInput?.value.trim();
+      if (!url) {
+        showToast('Please enter a Firebase console URL', 'error');
+        return;
+      }
+      if (!parseFirebaseUrl(url)) {
+        showToast('That does not look like a valid URL', 'error');
+        return;
+      }
+      void saveProjectFirebaseUrl(activeProject, url, 'Firebase link saved');
+    });
+    quickInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') quickSave?.click();
+    });
+    return;
+  }
+
+  if (dom.dashFirebaseStatusPill) {
+    dom.dashFirebaseStatusPill.textContent = 'Linked';
+    dom.dashFirebaseStatusPill.className = 'dash-status-pill connected';
+  }
+  if (dom.dashBtnBrowserFirebase) dom.dashBtnBrowserFirebase.style.display = 'inline-flex';
+
+  const parsed = parseFirebaseUrl(firebaseUrl);
+  const displayName = parsed?.projectId || `${activeProject.name || 'Project'} Firebase`;
+  const displayUrl = formatDisplayUrl(firebaseUrl);
+
+  dom.dashFirebaseBody.innerHTML = `
+    <div class="dash-figma-showcase firebase">
+      <div class="dash-figma-accent-bar"></div>
+      <div class="dash-figma-top-bar">
+        <div class="dash-figma-tag-group">
+          <span class="dash-figma-type-pill firebase">
+            <span class="dash-figma-pulse-dot"></span>
+            ${esc(parsed?.section || 'Console')}
+          </span>
+          ${parsed && !parsed.isConsole ? '<span class="dash-figma-sub-pill">External link</span>' : ''}
+        </div>
+        <div class="dash-figma-top-actions">
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-copy-firebase" title="Copy Firebase Link" aria-label="Copy Firebase Link">
+            ${icons.copy || ''}
+          </button>
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-edit-inline-firebase" title="Edit Firebase Link" aria-label="Edit Firebase Link">
+            ${EDIT_PENCIL_SVG}
+          </button>
+          <button type="button" class="dash-figma-icon-btn danger" id="dash-btn-clear-firebase" title="Clear Firebase Link" aria-label="Clear Firebase Link">
+            ${icons.trash || ''}
+          </button>
+        </div>
+      </div>
+
+      <div class="dash-figma-main-info">
+        <div class="dash-figma-brand-emblem" title="Firebase">
+          ${FIREBASE_COLORED_LOGO}
+        </div>
+        <div class="dash-figma-meta">
+          <h4 class="dash-figma-title" title="${esc(displayName)}">${esc(displayName)}</h4>
+          <a href="${esc(firebaseUrl)}" class="dash-figma-url-pill" id="dash-firebase-url-anchor" title="${esc(firebaseUrl)}" target="_blank">
+            <span class="dash-figma-url-text">${esc(displayUrl)}</span>
+            ${icons.link || ''}
+          </a>
+        </div>
+      </div>
+
+      <div class="dash-figma-action-footer">
+        <button type="button" class="btn-figma-launch firebase" id="dash-btn-card-open-firebase" title="Open Firebase console in browser">
+          ${icons.firebase || ''}
+          <span>Open Console</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const openConsole = () => { void window.api.openExternal(firebaseUrl); };
+  dom.dashFirebaseBody.querySelector('#dash-btn-card-open-firebase')?.addEventListener('click', openConsole);
+  dom.dashFirebaseBody.querySelector('#dash-firebase-url-anchor')?.addEventListener('click', (e: Event) => {
+    e.preventDefault();
+    openConsole();
+  });
+  dom.dashFirebaseBody.querySelector('#dash-btn-copy-firebase')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(firebaseUrl);
+    showToast('Firebase URL copied to clipboard', 'info');
+  });
+  dom.dashFirebaseBody.querySelector('#dash-btn-edit-inline-firebase')?.addEventListener('click', () => {
+    renderFirebaseInlineEdit(activeProject, firebaseUrl);
+  });
+  dom.dashFirebaseBody.querySelector('#dash-btn-clear-firebase')?.addEventListener('click', () => {
+    void saveProjectFirebaseUrl(activeProject, '', 'Firebase link cleared');
+  });
+}
+
+function renderFirebaseInlineEdit(activeProject: any, currentUrl: string) {
+  if (!dom.dashFirebaseBody) return;
+  dom.dashFirebaseBody.innerHTML = `
+    <div class="dash-figma-edit-showcase">
+      <div class="dash-figma-edit-header">
+        ${icons.firebase || ''}
+        <span>Edit Firebase Link</span>
+      </div>
+      <div class="dash-figma-input-wrapper">
+        <input type="text" class="dash-figma-input" id="dash-firebase-edit-input" value="${esc(currentUrl)}" placeholder="https://console.firebase.google.com/project/..." autocomplete="off" spellcheck="false" />
+        <button type="button" class="btn-figma-link-submit firebase" id="dash-firebase-edit-save">Save</button>
+        <button type="button" class="btn-secondary btn-small" id="dash-firebase-edit-cancel">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  const editInput = dom.dashFirebaseBody.querySelector('#dash-firebase-edit-input') as HTMLInputElement;
+  const editSave = dom.dashFirebaseBody.querySelector('#dash-firebase-edit-save') as HTMLButtonElement;
+  const editCancel = dom.dashFirebaseBody.querySelector('#dash-firebase-edit-cancel') as HTMLButtonElement;
+
+  editInput?.focus();
+  editInput?.select();
+
+  editSave?.addEventListener('click', () => {
+    const url = editInput?.value.trim() || '';
+    if (url && !parseFirebaseUrl(url)) {
+      showToast('That does not look like a valid URL', 'error');
+      return;
+    }
+    void saveProjectFirebaseUrl(activeProject, url, url ? 'Firebase link updated' : 'Firebase link cleared');
+  });
+  editCancel?.addEventListener('click', () => {
+    renderDashboardFirebase(activeProject);
+  });
+  editInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') editSave?.click();
+    else if (e.key === 'Escape') editCancel?.click();
+  });
+}
+
 function renderFigmaInlineEdit(activeProject: any, currentUrl: string) {
   if (!dom.dashFigmaBody) return;
   dom.dashFigmaBody.innerHTML = `
@@ -2336,8 +2600,409 @@ function renderFigmaInlineEdit(activeProject: any, currentUrl: string) {
   });
 }
 
-function renderDashboardApk(_activeProject?: any) {
-  // Standalone APK dashboard section was integrated into the Competitor UI
+const PRD_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`;
+
+const CHECKLIST_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
+
+function normalizeDocInputUrl(url: string): string {
+  const trimmed = (url || '').trim();
+  if (!trimmed) return '';
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+function isValidHttpDocUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+async function saveProjectLegacyPrdUrl(activeProject: any, url: string, successMsg: string) {
+  const res = await window.api.updateProjectMetadata(activeProject.path, { legacyPrdUrl: url });
+  if (res?.success) {
+    showToast(successMsg, url ? 'success' : 'info');
+    activeProject.legacyPrdUrl = url;
+    renderDashboardLegacyDocs(activeProject);
+  } else {
+    showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
+  }
+}
+
+async function saveProjectLegacyChecklistUrl(activeProject: any, url: string, successMsg: string) {
+  const res = await window.api.updateProjectMetadata(activeProject.path, { legacyChecklistUrl: url });
+  if (res?.success) {
+    showToast(successMsg, url ? 'success' : 'info');
+    activeProject.legacyChecklistUrl = url;
+    renderDashboardLegacyDocs(activeProject);
+  } else {
+    showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
+  }
+}
+
+function renderLegacyPrdSlot(activeProject: any, isEditing = false) {
+  const slot = dom.dashLegacyDocsBody?.querySelector('#dash-legacy-prd-slot');
+  if (!slot) return;
+  const prdUrl = (activeProject.legacyPrdUrl || '').trim();
+
+  if (isEditing) {
+    slot.innerHTML = `
+      <div class="dash-legacy-edit-card prd">
+        <div class="dash-legacy-edit-header prd">
+          ${PRD_ICON_SVG}
+          <span>Edit PRD Link</span>
+        </div>
+        <div class="dash-legacy-input-wrapper">
+          <input type="text" class="dash-legacy-input" id="dash-legacy-prd-edit-input" value="${esc(prdUrl)}" placeholder="https://docs.google.com/document/... or Confluence link" autocomplete="off" spellcheck="false" />
+          <button type="button" class="btn-legacy-submit prd" id="dash-legacy-prd-edit-save">Save</button>
+          <button type="button" class="btn-secondary btn-small" id="dash-legacy-prd-edit-cancel">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    const editInput = slot.querySelector('#dash-legacy-prd-edit-input') as HTMLInputElement;
+    const editSave = slot.querySelector('#dash-legacy-prd-edit-save') as HTMLButtonElement;
+    const editCancel = slot.querySelector('#dash-legacy-prd-edit-cancel') as HTMLButtonElement;
+
+    editInput?.focus();
+    editInput?.select();
+
+    editSave?.addEventListener('click', () => {
+      const raw = editInput?.value.trim() || '';
+      if (!raw) {
+        void saveProjectLegacyPrdUrl(activeProject, '', 'PRD link cleared');
+        return;
+      }
+      const normalized = normalizeDocInputUrl(raw);
+      if (!isValidHttpDocUrl(normalized)) {
+        showToast('Please enter a valid URL', 'error');
+        return;
+      }
+      void saveProjectLegacyPrdUrl(activeProject, normalized, 'PRD link updated');
+    });
+
+    editCancel?.addEventListener('click', () => {
+      renderLegacyPrdSlot(activeProject, false);
+    });
+
+    editInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') editSave?.click();
+      else if (e.key === 'Escape') editCancel?.click();
+    });
+    return;
+  }
+
+  if (!prdUrl) {
+    slot.innerHTML = `
+      <div class="dash-legacy-empty-card prd">
+        <div class="dash-legacy-empty-icon prd" title="PRD">
+          ${PRD_ICON_SVG}
+        </div>
+        <div class="dash-legacy-empty-content">
+          <div class="dash-legacy-empty-label">
+            <span>PRD</span>
+            <span class="dash-legacy-empty-subtext">(Product Requirement Document)</span>
+          </div>
+          <div class="dash-legacy-input-wrapper">
+            <input type="text" class="dash-legacy-input" id="dash-legacy-prd-input" placeholder="Paste PRD link (Google Docs, Confluence, Notion...)" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn-legacy-submit prd" id="dash-legacy-prd-save">Link</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const input = slot.querySelector('#dash-legacy-prd-input') as HTMLInputElement;
+    const saveBtn = slot.querySelector('#dash-legacy-prd-save') as HTMLButtonElement;
+
+    saveBtn?.addEventListener('click', () => {
+      const raw = input?.value.trim();
+      if (!raw) {
+        showToast('Please enter a PRD link', 'error');
+        return;
+      }
+      const normalized = normalizeDocInputUrl(raw);
+      if (!isValidHttpDocUrl(normalized)) {
+        showToast('Please enter a valid URL', 'error');
+        return;
+      }
+      void saveProjectLegacyPrdUrl(activeProject, normalized, 'PRD link saved');
+    });
+
+    input?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') saveBtn?.click();
+    });
+    return;
+  }
+
+  const parsed = parseDocUrl(prdUrl);
+  const displayName = parsed?.service ? `${parsed.service} PRD` : 'Product Requirement Document';
+  const displayUrl = formatDisplayUrl(prdUrl);
+
+  slot.innerHTML = `
+    <div class="dash-legacy-item-card prd">
+      <div class="dash-legacy-accent-bar"></div>
+      <div class="dash-legacy-top-bar">
+        <div class="dash-legacy-tag-group">
+          <span class="dash-legacy-type-pill prd">
+            <span class="dash-legacy-pulse-dot"></span>
+            PRD
+          </span>
+          ${parsed?.service ? `<span class="dash-figma-sub-pill">${esc(parsed.service)}</span>` : ''}
+        </div>
+        <div class="dash-figma-top-actions">
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-copy-prd" title="Copy PRD Link" aria-label="Copy PRD Link">
+            ${icons.copy || ''}
+          </button>
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-edit-prd" title="Edit PRD Link" aria-label="Edit PRD Link">
+            ${EDIT_PENCIL_SVG}
+          </button>
+          <button type="button" class="dash-figma-icon-btn danger" id="dash-btn-clear-prd" title="Clear PRD Link" aria-label="Clear PRD Link">
+            ${icons.trash || ''}
+          </button>
+        </div>
+      </div>
+
+      <div class="dash-legacy-main-info">
+        <div class="dash-legacy-emblem prd" title="PRD">
+          ${PRD_ICON_SVG}
+        </div>
+        <div class="dash-legacy-meta">
+          <h4 class="dash-legacy-title" title="${esc(displayName)}">${esc(displayName)}</h4>
+          <a href="${esc(prdUrl)}" class="dash-figma-url-pill" id="dash-prd-url-anchor" title="${esc(prdUrl)}" target="_blank">
+            <span class="dash-figma-url-text">${esc(displayUrl)}</span>
+            ${icons.link || ''}
+          </a>
+        </div>
+      </div>
+
+      <div class="dash-legacy-action-footer">
+        <button type="button" class="btn-legacy-doc-launch" id="dash-btn-card-open-prd" title="Open PRD in browser">
+          ${icons.link || ''}
+          <span>Open in Browser</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const openPrd = () => { void window.api.openExternal(prdUrl); };
+  slot.querySelector('#dash-btn-card-open-prd')?.addEventListener('click', openPrd);
+  slot.querySelector('#dash-prd-url-anchor')?.addEventListener('click', (e: Event) => {
+    e.preventDefault();
+    openPrd();
+  });
+  slot.querySelector('#dash-btn-copy-prd')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(prdUrl);
+    showToast('PRD URL copied to clipboard', 'info');
+  });
+  slot.querySelector('#dash-btn-edit-prd')?.addEventListener('click', () => {
+    renderLegacyPrdSlot(activeProject, true);
+  });
+  slot.querySelector('#dash-btn-clear-prd')?.addEventListener('click', () => {
+    void saveProjectLegacyPrdUrl(activeProject, '', 'PRD link cleared');
+  });
+}
+
+function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
+  const slot = dom.dashLegacyDocsBody?.querySelector('#dash-legacy-checklist-slot');
+  if (!slot) return;
+  const checklistUrl = (activeProject.legacyChecklistUrl || '').trim();
+
+  if (isEditing) {
+    slot.innerHTML = `
+      <div class="dash-legacy-edit-card checklist">
+        <div class="dash-legacy-edit-header checklist">
+          ${CHECKLIST_ICON_SVG}
+          <span>Edit Checklist Link</span>
+        </div>
+        <div class="dash-legacy-input-wrapper">
+          <input type="text" class="dash-legacy-input" id="dash-legacy-checklist-edit-input" value="${esc(checklistUrl)}" placeholder="https://docs.google.com/spreadsheets/... or Notion link" autocomplete="off" spellcheck="false" />
+          <button type="button" class="btn-legacy-submit checklist" id="dash-legacy-checklist-edit-save">Save</button>
+          <button type="button" class="btn-secondary btn-small" id="dash-legacy-checklist-edit-cancel">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    const editInput = slot.querySelector('#dash-legacy-checklist-edit-input') as HTMLInputElement;
+    const editSave = slot.querySelector('#dash-legacy-checklist-edit-save') as HTMLButtonElement;
+    const editCancel = slot.querySelector('#dash-legacy-checklist-edit-cancel') as HTMLButtonElement;
+
+    editInput?.focus();
+    editInput?.select();
+
+    editSave?.addEventListener('click', () => {
+      const raw = editInput?.value.trim() || '';
+      if (!raw) {
+        void saveProjectLegacyChecklistUrl(activeProject, '', 'Checklist link cleared');
+        return;
+      }
+      const normalized = normalizeDocInputUrl(raw);
+      if (!isValidHttpDocUrl(normalized)) {
+        showToast('Please enter a valid URL', 'error');
+        return;
+      }
+      void saveProjectLegacyChecklistUrl(activeProject, normalized, 'Checklist link updated');
+    });
+
+    editCancel?.addEventListener('click', () => {
+      renderLegacyChecklistSlot(activeProject, false);
+    });
+
+    editInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') editSave?.click();
+      else if (e.key === 'Escape') editCancel?.click();
+    });
+    return;
+  }
+
+  if (!checklistUrl) {
+    slot.innerHTML = `
+      <div class="dash-legacy-empty-card checklist">
+        <div class="dash-legacy-empty-icon checklist" title="Checklist">
+          ${CHECKLIST_ICON_SVG}
+        </div>
+        <div class="dash-legacy-empty-content">
+          <div class="dash-legacy-empty-label">
+            <span>Checklist</span>
+            <span class="dash-legacy-empty-subtext">(QA & Acceptance Checklist)</span>
+          </div>
+          <div class="dash-legacy-input-wrapper">
+            <input type="text" class="dash-legacy-input" id="dash-legacy-checklist-input" placeholder="Paste Checklist link (Google Sheets, Notion, Excel...)" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn-legacy-submit checklist" id="dash-legacy-checklist-save">Link</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const input = slot.querySelector('#dash-legacy-checklist-input') as HTMLInputElement;
+    const saveBtn = slot.querySelector('#dash-legacy-checklist-save') as HTMLButtonElement;
+
+    saveBtn?.addEventListener('click', () => {
+      const raw = input?.value.trim();
+      if (!raw) {
+        showToast('Please enter a Checklist link', 'error');
+        return;
+      }
+      const normalized = normalizeDocInputUrl(raw);
+      if (!isValidHttpDocUrl(normalized)) {
+        showToast('Please enter a valid URL', 'error');
+        return;
+      }
+      void saveProjectLegacyChecklistUrl(activeProject, normalized, 'Checklist link saved');
+    });
+
+    input?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') saveBtn?.click();
+    });
+    return;
+  }
+
+  const parsed = parseDocUrl(checklistUrl);
+  const displayName = parsed?.service ? `${parsed.service} Checklist` : 'QA & Acceptance Checklist';
+  const displayUrl = formatDisplayUrl(checklistUrl);
+
+  slot.innerHTML = `
+    <div class="dash-legacy-item-card checklist">
+      <div class="dash-legacy-accent-bar"></div>
+      <div class="dash-legacy-top-bar">
+        <div class="dash-legacy-tag-group">
+          <span class="dash-legacy-type-pill checklist">
+            <span class="dash-legacy-pulse-dot"></span>
+            Checklist
+          </span>
+          ${parsed?.service ? `<span class="dash-figma-sub-pill">${esc(parsed.service)}</span>` : ''}
+        </div>
+        <div class="dash-figma-top-actions">
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-copy-checklist" title="Copy Checklist Link" aria-label="Copy Checklist Link">
+            ${icons.copy || ''}
+          </button>
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-edit-checklist" title="Edit Checklist Link" aria-label="Edit Checklist Link">
+            ${EDIT_PENCIL_SVG}
+          </button>
+          <button type="button" class="dash-figma-icon-btn danger" id="dash-btn-clear-checklist" title="Clear Checklist Link" aria-label="Clear Checklist Link">
+            ${icons.trash || ''}
+          </button>
+        </div>
+      </div>
+
+      <div class="dash-legacy-main-info">
+        <div class="dash-legacy-emblem checklist" title="Checklist">
+          ${CHECKLIST_ICON_SVG}
+        </div>
+        <div class="dash-legacy-meta">
+          <h4 class="dash-legacy-title" title="${esc(displayName)}">${esc(displayName)}</h4>
+          <a href="${esc(checklistUrl)}" class="dash-figma-url-pill" id="dash-checklist-url-anchor" title="${esc(checklistUrl)}" target="_blank">
+            <span class="dash-figma-url-text">${esc(displayUrl)}</span>
+            ${icons.link || ''}
+          </a>
+        </div>
+      </div>
+
+      <div class="dash-legacy-action-footer">
+        <button type="button" class="btn-legacy-doc-launch" id="dash-btn-card-open-checklist" title="Open Checklist in browser">
+          ${icons.link || ''}
+          <span>Open in Browser</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const openChecklist = () => { void window.api.openExternal(checklistUrl); };
+  slot.querySelector('#dash-btn-card-open-checklist')?.addEventListener('click', openChecklist);
+  slot.querySelector('#dash-checklist-url-anchor')?.addEventListener('click', (e: Event) => {
+    e.preventDefault();
+    openChecklist();
+  });
+  slot.querySelector('#dash-btn-copy-checklist')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(checklistUrl);
+    showToast('Checklist URL copied to clipboard', 'info');
+  });
+  slot.querySelector('#dash-btn-edit-checklist')?.addEventListener('click', () => {
+    renderLegacyChecklistSlot(activeProject, true);
+  });
+  slot.querySelector('#dash-btn-clear-checklist')?.addEventListener('click', () => {
+    void saveProjectLegacyChecklistUrl(activeProject, '', 'Checklist link cleared');
+  });
+}
+
+function renderDashboardLegacyDocs(activeProject: any) {
+  if (!dom.dashLegacyDocsBody) return;
+  const prdUrl = (activeProject.legacyPrdUrl || '').trim();
+  const checklistUrl = (activeProject.legacyChecklistUrl || '').trim();
+  const linkedCount = (prdUrl ? 1 : 0) + (checklistUrl ? 1 : 0);
+
+  if (dom.dashLegacyDocsStatusPill) {
+    if (linkedCount === 2) {
+      dom.dashLegacyDocsStatusPill.textContent = '2/2 Linked';
+      dom.dashLegacyDocsStatusPill.className = 'dash-status-pill connected';
+    } else if (linkedCount === 1) {
+      dom.dashLegacyDocsStatusPill.textContent = '1/2 Linked';
+      dom.dashLegacyDocsStatusPill.className = 'dash-status-pill partial';
+    } else {
+      dom.dashLegacyDocsStatusPill.textContent = 'Not Linked';
+      dom.dashLegacyDocsStatusPill.className = 'dash-status-pill';
+    }
+  }
+
+  if (dom.dashBtnBrowserPrd) {
+    dom.dashBtnBrowserPrd.style.display = prdUrl ? 'inline-flex' : 'none';
+  }
+  if (dom.dashBtnBrowserChecklist) {
+    dom.dashBtnBrowserChecklist.style.display = checklistUrl ? 'inline-flex' : 'none';
+  }
+
+  dom.dashLegacyDocsBody.innerHTML = `
+    <div class="dash-legacy-docs-list">
+      <div id="dash-legacy-prd-slot"></div>
+      <div id="dash-legacy-checklist-slot"></div>
+    </div>
+  `;
+
+  renderLegacyPrdSlot(activeProject, false);
+  renderLegacyChecklistSlot(activeProject, false);
 }
 
 const COMPETITOR_THEMES = [
@@ -3168,6 +3833,8 @@ function renderDashboardViewer() {
     dom.dashProjectPath.title = currentPath;
   }
   renderDashboardFigma(activeProject);
+  renderDashboardFirebase(activeProject);
+  renderDashboardLegacyDocs(activeProject);
   renderDashboardCompetitors(activeProject, activeWt);
 }
 
@@ -3354,6 +4021,33 @@ if (dom.dashBtnBrowserFigma) {
     const { activeProject } = getActiveProjectAndWorktree();
     if (activeProject?.figmaUrl) {
       await window.api.openExternal(activeProject.figmaUrl);
+    }
+  });
+}
+
+if (dom.dashBtnBrowserFirebase) {
+  dom.dashBtnBrowserFirebase.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (activeProject?.firebaseUrl) {
+      await window.api.openExternal(activeProject.firebaseUrl);
+    }
+  });
+}
+
+if (dom.dashBtnBrowserPrd) {
+  dom.dashBtnBrowserPrd.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (activeProject?.legacyPrdUrl) {
+      await window.api.openExternal(activeProject.legacyPrdUrl);
+    }
+  });
+}
+
+if (dom.dashBtnBrowserChecklist) {
+  dom.dashBtnBrowserChecklist.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (activeProject?.legacyChecklistUrl) {
+      await window.api.openExternal(activeProject.legacyChecklistUrl);
     }
   });
 }
@@ -3930,11 +4624,12 @@ async function saveSettingsFromUI() {
     }
     return trimmed;
   };
-  const intervalVal = parseInt(dom.settingsAutoRefreshInterval ? dom.settingsAutoRefreshInterval.value : '10', 10);
   const nextSettings = {
     ...state.settings,
     antigravityPath: dom.settingsAntigravityPath ? cleanVal(dom.settingsAntigravityPath.value) : '',
     antigravityAgentPath: dom.settingsAntigravityAgentPath ? cleanVal(dom.settingsAntigravityAgentPath.value) : '',
+    claudeDesktopPath: dom.settingsClaudeDesktopPath ? cleanVal(dom.settingsClaudeDesktopPath.value) : '',
+    planeApiKey: dom.settingsPlaneApiKey ? dom.settingsPlaneApiKey.value.trim() : (state.settings?.planeApiKey || ''),
     androidStudioPath: dom.settingsAndroidStudioPath ? cleanVal(dom.settingsAndroidStudioPath.value) : '',
     figmaPath: dom.settingsFigmaPath ? cleanVal(dom.settingsFigmaPath.value) : '',
     figmaUrl: dom.settingsFigmaUrl ? dom.settingsFigmaUrl.value.trim() : (state.settings?.figmaUrl || 'https://www.figma.com'),
@@ -3942,16 +4637,19 @@ async function saveSettingsFromUI() {
     obsidianVault: dom.settingsObsidianVault ? dom.settingsObsidianVault.value.trim() : (state.settings?.obsidianVault || ''),
     scrcpyPath: dom.settingsScrcpyPath ? cleanVal(dom.settingsScrcpyPath.value) : '',
     reakitPath: dom.settingsReaKitPath ? cleanVal(dom.settingsReaKitPath.value) : '',
-    autoRefreshCurrentProject: dom.settingsAutoRefresh ? dom.settingsAutoRefresh.checked : false,
-    autoRefreshInterval: isNaN(intervalVal) || intervalVal < 1 ? 10 : intervalVal,
+    autoRefreshCurrentProject: state.settings?.autoRefreshCurrentProject ?? false,
+    autoRefreshInterval: state.settings?.autoRefreshInterval ?? 10,
   };
   state.settings = await window.api.updateSettings(nextSettings);
 }
 
 async function showSettingsScreen() {
+  concealPlaneTaskScreen();
   if (state.settings) {
     if (dom.settingsAntigravityPath) dom.settingsAntigravityPath.value = state.settings.antigravityPath || 'detecting...';
     if (dom.settingsAntigravityAgentPath) dom.settingsAntigravityAgentPath.value = state.settings.antigravityAgentPath || 'detecting...';
+    if (dom.settingsClaudeDesktopPath) dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || 'detecting...';
+    if (dom.settingsPlaneApiKey) dom.settingsPlaneApiKey.value = state.settings.planeApiKey || '';
     if (dom.settingsAndroidStudioPath) dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || 'detecting...';
     if (dom.settingsFigmaPath) dom.settingsFigmaPath.value = state.settings.figmaPath || '';
     if (dom.settingsFigmaUrl) dom.settingsFigmaUrl.value = state.settings.figmaUrl || 'https://www.figma.com';
@@ -3959,8 +4657,6 @@ async function showSettingsScreen() {
     if (dom.settingsObsidianVault) dom.settingsObsidianVault.value = state.settings.obsidianVault || '';
     if (dom.settingsScrcpyPath) dom.settingsScrcpyPath.value = state.settings.scrcpyPath || 'detecting...';
     if (dom.settingsReaKitPath) dom.settingsReaKitPath.value = state.settings.reakitPath || 'detecting...';
-    if (dom.settingsAutoRefresh) dom.settingsAutoRefresh.checked = !!state.settings.autoRefreshCurrentProject;
-    if (dom.settingsAutoRefreshInterval) dom.settingsAutoRefreshInterval.value = String(state.settings.autoRefreshInterval || 10);
   }
 
   if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
@@ -3968,6 +4664,7 @@ async function showSettingsScreen() {
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   dom.settingsScreen.classList.remove('hidden');
 
@@ -3979,6 +4676,9 @@ async function showSettingsScreen() {
       }
       if (dom.settingsAntigravityAgentPath) {
         dom.settingsAntigravityAgentPath.value = state.settings.antigravityAgentPath || detected.antigravityAgentPath || 'not detected';
+      }
+      if (dom.settingsClaudeDesktopPath) {
+        dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || detected.claudeDesktopPath || 'not detected';
       }
       if (dom.settingsAndroidStudioPath) {
         dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || detected.androidStudioPath || 'not detected';
@@ -4007,6 +4707,9 @@ async function showSettingsScreen() {
       }
       if (dom.settingsAntigravityAgentPath) {
         dom.settingsAntigravityAgentPath.value = state.settings.antigravityAgentPath || 'not detected';
+      }
+      if (dom.settingsClaudeDesktopPath) {
+        dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || 'not detected';
       }
       if (dom.settingsAndroidStudioPath) {
         dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || 'not detected';
@@ -4040,6 +4743,7 @@ async function hideSettingsScreen() {
 
 // ── Symlink Screen ─────────────────────────────────────
 async function showSymlinkScreen() {
+  concealPlaneTaskScreen();
   const activeWorktreePath = state.activeWorktreePath;
   const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'No active project';
 
@@ -4051,6 +4755,7 @@ async function showSymlinkScreen() {
   dom.settingsScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.remove('hidden');
 
@@ -4432,6 +5137,7 @@ async function showForceRemoveWorktreeModal(project, wt) {
 
 // ── Agent Toolkit Screen ───────────────────────────────────
 async function showAgentToolkitScreen() {
+  concealPlaneTaskScreen();
   const activeWorktreePath = state.activeWorktreePath;
   const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'No active project';
 
@@ -4443,6 +5149,7 @@ async function showAgentToolkitScreen() {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.remove('hidden');
 
@@ -4463,12 +5170,57 @@ const deviceManagerScreen = new DeviceManagerScreen({
   icons,
 });
 
+// ── Plane Task Screen ──────────────────────────────────
+const planeTaskScreen = createPlaneTaskScreen({
+  dom,
+  icons,
+  getProjects: () => state.projects,
+  getSettings: () => state.settings,
+  updateSettings: async (settings) => {
+    state.settings = await window.api.updateSettings(settings);
+  },
+  getActiveWorktreePath: () => state.activeWorktreePath,
+  showToast,
+  showModal,
+  hideModal,
+  configureModalFooter,
+  openSettings: () => {
+    void showSettingsScreen();
+    setTimeout(() => {
+      dom.settingsPlaneApiKey?.focus();
+      dom.settingsPlaneApiKey?.select();
+    }, 60);
+  },
+  hideOtherScreens: () => {
+    if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
+    if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
+    dom.settingsScreen?.classList.add('hidden');
+    if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
+    if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+    if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+    if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
+    if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+  },
+  onHidden: () => {
+    fitActiveTerminal();
+    startAutoRefreshLoop();
+  },
+});
+
+// Plain DOM toggle with no planeTaskScreen reference, so any screen function can call it safely.
+function concealPlaneTaskScreen() {
+  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
+  if (dom.btnPlaneTasks) dom.btnPlaneTasks.classList.remove('active');
+}
+
 async function showDeviceManagerScreen() {
+  concealPlaneTaskScreen();
   if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
   if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   dom.settingsScreen?.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.add('active');
 
   await deviceManagerScreen.show();
@@ -4481,20 +5233,51 @@ function hideDeviceManagerScreen() {
   startAutoRefreshLoop();
 }
 
+function openMobilerunSetup({ intro = '', onReady = null, onDismiss = null }: { intro?: string; onReady?: (() => Promise<void>) | null; onDismiss?: (() => void) | null } = {}) {
+  return openMobilerunSetupModal({
+    dom, configureModalFooter, showModal, hideModal, showToast, esc, api: window.api, intro, onReady, onDismiss,
+  });
+}
+
+// Offer Mobilerun setup on launch when Python or mobilerun is missing, or when this build bundles a newer
+// mobilerun-mcp than the installed one. "Not now" is remembered per bundled wheel, so it comes back once
+// after an app update ships a new wheel; the BAKit toolkit screen offers it any time.
+const MOBILERUN_SETUP_DISMISSED_KEY = 'baspace.mobilerunSetupDismissed';
+
+async function checkMobilerunSetupOnLaunch() {
+  const status = await window.api.getMobilerunSetupStatus();
+  if (status.mcpPython && !status.mcpOutdated && status.cliPath) return;
+  const dismissKey = status.bundledWheelId || 'no-bundle';
+  try {
+    if (localStorage.getItem(MOBILERUN_SETUP_DISMISSED_KEY) === dismissKey) return;
+  } catch (_) { /* storage unavailable: still offer */ }
+  // Never cover a dialog the user already has open.
+  if (dom.modalOverlay && dom.modalOverlay.style.display !== 'none') return;
+  void openMobilerunSetup({
+    intro: status.mcpPython && status.mcpOutdated
+      ? 'This BA Space version bundles a newer mobilerun-mcp. Update the installed copy so BAKit agents get the new server.'
+      : 'BAKit competitor analysis drives Android apps through mobilerun, which needs Python. BA Space can install Python 3.13 and the bundled mobilerun for you.',
+    onDismiss: () => {
+      try { localStorage.setItem(MOBILERUN_SETUP_DISMISSED_KEY, dismissKey); } catch (_) { /* ignore */ }
+    },
+  });
+}
+
 // Toolkit components to link/manage
 const BAKIT_COMPONENTS = [
   {
     id: 'bakit_agents',
     toolkit: 'bakit',
     name: 'BA Agent Roster',
-    folderName: '.agents\\agents',
+    folderName: '.agents/agents',
     sourceFolder: 'agents',
-    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
+    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, figma-analyst, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
     gitExcludePatterns: [
       '.agents/agents/ba-lead.md',
       '.agents/agents/code-scout.md',
       '.agents/agents/competitor-analyst.md',
       '.agents/agents/evidence-verifier.md',
+      '.agents/agents/figma-analyst.md',
       '.agents/agents/ba-researcher.md',
       '.agents/agents/ba-brainstormer.md',
       '.agents/agents/ba-spec-writer.md'
@@ -4503,15 +5286,16 @@ const BAKIT_COMPONENTS = [
   {
     id: 'bakit_skills',
     toolkit: 'bakit',
-    name: 'BA Skills & Templates (specs, competitor analysis, audits, test cases)',
-    folderName: '.agents\\skills',
+    name: 'BA Skills & Templates (specs, competitor & Figma analysis, audits, test cases)',
+    folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: 'ba-templates catalog, apk-code-index (jadx), competitor-app-analysis, mobilerun, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
+    description: 'ba-templates catalog, apk-code-index (jadx), competitor-app-analysis, mobilerun, figma-ba-analysis, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
       '.agents/skills/apk-code-index/',
       '.agents/skills/competitor-app-analysis/',
       '.agents/skills/mobilerun/',
+      '.agents/skills/figma-ba-analysis/',
       '.agents/skills/specs/',
       '.agents/skills/test-cases/',
       '.agents/skills/BA-audit-SRS/',
@@ -4529,18 +5313,19 @@ const BAKIT_COMPONENTS = [
     name: 'BA Rules, Slash Workflows & Project Config',
     isMulti: true,
     folders: [
-      { name: '.agents\\rules', source: 'rules', pattern: '.agents/rules/' },
-      { name: '.agents\\workflows', source: 'workflows', pattern: '.agents/workflows/' },
+      { name: '.agents/rules', source: 'rules', pattern: '.agents/rules/' },
+      { name: '.agents/workflows', source: 'workflows', pattern: '.agents/workflows/' },
       // The project config is filled in per project: never overwrite it, never delete it.
-      { name: '.agents\\config', source: 'config', pattern: '.agents/config/', preserveExisting: true, keepOnRemove: true }
+      { name: '.agents/config', source: 'config', pattern: '.agents/config/', preserveExisting: true, keepOnRemove: true }
     ],
-    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety) and /ba-competitor, /ba-template, /ba-spec, /ba-review, /ba-testcases, /ba-device-check.',
+    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety, Figma routing) and /ba-competitor, /ba-figma, /ba-template, /ba-spec, /ba-review, /ba-testcases, /ba-device-check.',
     gitExcludePatterns: [
       '.agents/rules/ba-global-rules.md',
       '.agents/rules/ba-workflow.md',
       '.agents/rules/ba-naming-convention.md',
       '.agents/rules/ba-device-automation.md',
       '.agents/rules/ba-markdown-formatting.md',
+      '.agents/rules/ba-figma.md',
       '.agents/workflows/ba-*.md'
     ]
   },
@@ -4549,7 +5334,7 @@ const BAKIT_COMPONENTS = [
     toolkit: 'bakit',
     kind: 'agentsmd',
     name: 'Delegation Rule (AGENTS.md)',
-    sourceFile: 'agents-md\\AGENTS.block.md',
+    sourceFile: 'agents-md/AGENTS.block.md',
     description: 'Adds a marked block to the worktree AGENTS.md so the main Antigravity session plans and dispatches subagents (invoke_subagent) instead of doing the work itself. Your own AGENTS.md content is kept.',
     gitExcludePatterns: []
   },
@@ -4559,6 +5344,14 @@ const BAKIT_COMPONENTS = [
     kind: 'mcp',
     name: 'Mobilerun MCP (workspace plugin)',
     description: 'Adds the mobilerun server as an Antigravity plugin in this worktree (.agents/plugins/mobilerun) so agents can drive competitor apps on the connected Android device. Other workspaces are not affected.',
+    gitExcludePatterns: []
+  },
+  {
+    id: 'bakit_figma_mcp',
+    toolkit: 'bakit',
+    kind: 'mcp',
+    name: 'Figma MCP (workspace plugin)',
+    description: 'Adds figma-mcp-android (npx) as an Antigravity plugin in this worktree (.agents/plugins/figma) so /ba-figma can read the design open in Figma Desktop. Needs Node.js and the figma-mcp-android plugin running in Figma Desktop. Skipped when already registered globally.',
     gitExcludePatterns: []
   }
 ];
@@ -4576,15 +5369,14 @@ async function refreshAgentToolkitStatus() {
     return;
   }
 
-  const cleanPath = (p: string) => p.replace(/\//g, '\\');
-  const pPath = cleanPath(projectPath);
+  const pPath = projectPath.replace(/[\\/]+$/, '');
 
   // 1. Determine toolkit source directories
   const defaultSources = await window.api.getDefaultToolkitSources();
 
   let bakitPath = defaultSources.bakitPath;
-  if (!(await window.api.pathExists(bakitPath)) && (await window.api.pathExists(pPath + '\\toolkits\\BAKit'))) {
-    bakitPath = pPath + '\\toolkits\\BAKit';
+  if (!(await window.api.pathExists(bakitPath)) && (await window.api.pathExists(pPath + '/toolkits/BAKit'))) {
+    bakitPath = pPath + '/toolkits/BAKit';
   }
 
   const srcBaseFor = (_comp: any) => bakitPath;
@@ -4605,9 +5397,18 @@ async function refreshAgentToolkitStatus() {
         try {
           const st = await window.api.getAgentsMdBlockStatus({
             worktreePath: activeWorktreePath,
-            sourcePath: srcBaseFor(comp) + '\\' + comp.sourceFile
+            sourcePath: srcBaseFor(comp) + '/' + comp.sourceFile
           });
           return { id: comp.id, name: comp.name, sourceExists: st.sourceExists, exists: st.installed };
+        } catch (e) {
+          return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
+        }
+      }
+      if (comp.id === 'bakit_figma_mcp') {
+        try {
+          const mcp = await window.api.getFigmaMcpStatus({ worktreePath: activeWorktreePath });
+          // A global entry serves this workspace too (and holds the plugin port), so it counts as active.
+          return { id: comp.id, name: comp.name, sourceExists: true, exists: mcp.registered || mcp.globalRegistered };
         } catch (e) {
           return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
         }
@@ -4615,7 +5416,8 @@ async function refreshAgentToolkitStatus() {
       if (comp.kind === 'mcp') {
         try {
           const mcp = await window.api.getMobilerunMcpStatus({ worktreePath: activeWorktreePath });
-          return { id: comp.id, name: comp.name, sourceExists: mcp.registered || !!mcp.pythonPath, exists: mcp.registered };
+          // Without an interpreter the checkbox opens Mobilerun setup (Python + mobilerun) instead.
+          return { id: comp.id, name: comp.name, sourceExists: true, exists: mcp.registered, needsInstall: !mcp.pythonPath };
         } catch (e) {
           return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
         }
@@ -4627,12 +5429,12 @@ async function refreshAgentToolkitStatus() {
         if (comp.isMulti) {
           const folderChecks = await Promise.all(comp.folders.map(async (f: any) => {
             const rel = f.source || f.name;
-            return await window.api.pathExists(srcBase + '\\' + rel);
+            return await window.api.pathExists(srcBase + '/' + rel);
           }));
           sourceExists = folderChecks.every(v => v);
         } else {
           const rel = comp.sourceFolder || comp.folderName;
-          sourceExists = await window.api.pathExists(srcBase + '\\' + rel);
+          sourceExists = await window.api.pathExists(srcBase + '/' + rel);
         }
       } catch (err) {
         sourceExists = false;
@@ -4646,7 +5448,7 @@ async function refreshAgentToolkitStatus() {
             const status = await window.api.checkToolkitStatus({
               worktreePath: activeWorktreePath,
               name: f.name,
-              sourcePath: srcBase + '\\' + rel
+              sourcePath: srcBase + '/' + rel
             });
             return status.exists;
           } catch (e) {
@@ -4660,7 +5462,7 @@ async function refreshAgentToolkitStatus() {
           const status = await window.api.checkToolkitStatus({
             worktreePath: activeWorktreePath,
             name: comp.folderName,
-            sourcePath: srcBase + '\\' + rel
+            sourcePath: srcBase + '/' + rel
           });
           exists = status.exists;
         } catch (e) {
@@ -4676,7 +5478,7 @@ async function refreshAgentToolkitStatus() {
       };
     }));
 
-    const getStatus = (id: string) => statuses.find(s => s.id === id) || { exists: false, sourceExists: false };
+    const getStatus = (id: string): any => statuses.find(s => s.id === id) || { exists: false, sourceExists: false };
 
     function renderComponentItem(compItem: any) {
       const stateItem = getStatus(compItem.id);
@@ -4685,7 +5487,10 @@ async function refreshAgentToolkitStatus() {
       let disabledAttr = '';
       let opacityStyle = '';
 
-      if (!stateItem.sourceExists) {
+      if (stateItem.needsInstall) {
+        badgeHTML = `<span class="symlink-status-badge symlink-status-unlinked" style="background: rgba(245, 166, 35, 0.12); color: rgb(245, 166, 35); border: 1px solid rgba(245, 166, 35, 0.3);" title="Python or mobilerun is not installed. Tick the box to install it.">Needs Setup</span>`;
+        if (stateItem.exists) checked = 'checked';
+      } else if (!stateItem.sourceExists) {
         badgeHTML = `<span class="symlink-status-badge symlink-status-unlinked" style="background: rgba(239, 68, 68, 0.15); color: rgb(248, 113, 113); border: 1px solid rgba(239, 68, 68, 0.25);">Source Missing</span>`;
         disabledAttr = 'disabled';
         opacityStyle = 'opacity: 0.65;';
@@ -4697,7 +5502,9 @@ async function refreshAgentToolkitStatus() {
       }
 
       let compIcon = '';
-      if (compItem.kind === 'mcp') {
+      if (compItem.id === 'bakit_figma_mcp') {
+        compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.figma}</span>`;
+      } else if (compItem.kind === 'mcp') {
         compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.android}</span>`;
       } else if (compItem.id.includes('antigravity')) {
         compIcon = `<span style="display: inline-flex; align-items: center; justify-content: center; color: var(--accent-default); width: 16px; height: 16px;">${icons.antigravity}</span>`;
@@ -4714,9 +5521,9 @@ async function refreshAgentToolkitStatus() {
       return `
         <div class="symlink-item" style="margin-bottom: 8px; border-radius: var(--radius-md); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-elevated); border: 1px solid var(--border-subtle); ${opacityStyle}">
           <label class="symlink-label" style="cursor: ${stateItem.sourceExists ? 'pointer' : 'not-allowed'}; display: flex; align-items: center; gap: 8px; width: 100%;">
-            <input type="checkbox" class="agent-toolkit-checkbox" data-id="${compItem.id}" ${checked} ${disabledAttr} style="margin-right: 4px; cursor: ${stateItem.sourceExists ? 'pointer' : 'not-allowed'};" />
+            <input type="checkbox" class="agent-toolkit-checkbox" data-id="${compItem.id}" ${stateItem.needsInstall ? 'data-needs-install="true"' : ''} ${checked} ${disabledAttr} style="margin-right: 4px;" />
             ${compIcon}
-            <div>
+            <div class="symlink-info">
               <span class="symlink-name" style="font-size: 13px; font-weight: 600; color: var(--text-default);">${compItem.name}</span>
               <div style="font-size: 11px; color: var(--text-tertiary);">${compItem.description || ''}</div>
             </div>
@@ -4744,7 +5551,7 @@ async function refreshAgentToolkitStatus() {
             </div>
             <div class="symlink-info">
               <span class="symlink-name" style="font-size: 15px; font-weight: 700; color: var(--text-default);">BAKit — Antigravity BA Toolkit</span>
-              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">BA agents, template catalog, and competitor app analysis over the mobilerun MCP server.</div>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">BA agents, template catalog, competitor app analysis over the mobilerun MCP server, and Figma design analysis over figma-mcp-android.</div>
             </div>
           </div>
           ${bakitBadge}
@@ -4799,7 +5606,7 @@ async function refreshAgentToolkitStatus() {
             if (isChecked) {
               const res = await window.api.applyAgentsMdBlock({
                 worktreePath: activeWorktreePath,
-                sourcePath: srcBase + '\\' + comp.sourceFile
+                sourcePath: srcBase + '/' + comp.sourceFile
               });
               if (!res.success) throw new Error(res.error || 'Failed to update AGENTS.md');
               showToast(`Delegation rule written to ${res.agentsMdPath}. Start a new Antigravity conversation to load it.`, 'success');
@@ -4811,7 +5618,40 @@ async function refreshAgentToolkitStatus() {
             return;
           }
 
+          if (comp.id === 'bakit_figma_mcp') {
+            if (isChecked) {
+              const res = await window.api.registerFigmaMcp({ worktreePath: activeWorktreePath });
+              if (!res.success) throw new Error(res.error || 'Failed to register Figma MCP');
+              if (res.skipped) {
+                showToast(`figma-mcp-android is already registered globally in ${res.globalConfigPath}; this workspace uses it. No workspace plugin added.`, 'info');
+              } else {
+                showToast(`Registered figma-mcp-android in ${res.configPath}. Run the plugin in Figma Desktop and restart the Antigravity agent.`, 'success');
+              }
+            } else {
+              const res = await window.api.unregisterFigmaMcp({ worktreePath: activeWorktreePath });
+              if (!res.success) throw new Error(res.error || 'Failed to unregister Figma MCP');
+              // The global entry is the user's (AndroidHarnessAGY may rely on it): point at it, never edit it.
+              showToast(res.globalConfigPath
+                ? `Workspace plugin removed. figma-mcp-android is still registered globally in ${res.globalConfigPath}; edit that file to stop it.`
+                : `Removed figma-mcp-android from ${res.configPath}.`, res.globalConfigPath ? 'info' : 'success');
+            }
+            return;
+          }
+
           if (comp.kind === 'mcp') {
+            if (isChecked && target.dataset.needsInstall) {
+              // Register once setup finishes; until then the refresh in finally leaves the box unticked.
+              void openMobilerunSetup({
+                intro: 'The Mobilerun MCP needs Python and mobilerun on this machine. Install them now, then the server is registered in this worktree.',
+                onReady: async () => {
+                  const res = await window.api.registerMobilerunMcp({ worktreePath: activeWorktreePath });
+                  if (res.success) showToast(`Registered mobilerun in ${res.configPath}. Restart the Antigravity agent to load it.`, 'success');
+                  else showToast(`Error: ${res.error || 'Failed to register mobilerun MCP'}`, 'error');
+                  await refreshAgentToolkitStatus();
+                },
+              });
+              return;
+            }
             if (isChecked) {
               const res = await window.api.registerMobilerunMcp({ worktreePath: activeWorktreePath });
               if (!res.success) throw new Error(res.error || 'Failed to register mobilerun MCP');
@@ -4836,11 +5676,11 @@ async function refreshAgentToolkitStatus() {
             if (comp.isMulti) {
               for (const f of comp.folders) {
                 const rel = f.source || f.name;
-                await safeDeploy(f.name, srcBase + '\\' + rel, !!f.preserveExisting);
+                await safeDeploy(f.name, srcBase + '/' + rel, !!f.preserveExisting);
               }
             } else {
               const rel = comp.sourceFolder || comp.folderName;
-              await safeDeploy(comp.folderName, srcBase + '\\' + rel);
+              await safeDeploy(comp.folderName, srcBase + '/' + rel);
             }
 
             await window.api.updateGitExclude({
@@ -4857,11 +5697,11 @@ async function refreshAgentToolkitStatus() {
               for (const f of comp.folders) {
                 if (f.keepOnRemove) continue;
                 const rel = f.source || f.name;
-                await safeRemove(f.name, srcBase + '\\' + rel);
+                await safeRemove(f.name, srcBase + '/' + rel);
               }
             } else {
               const rel = comp.sourceFolder || comp.folderName;
-              await safeRemove(comp.folderName, srcBase + '\\' + rel);
+              await safeRemove(comp.folderName, srcBase + '/' + rel);
             }
 
             await window.api.updateGitExclude({
@@ -4891,7 +5731,8 @@ if (dom.btnAgentToolkitApplyAll) {
   dom.btnAgentToolkitApplyAll.addEventListener('click', async () => {
     const listContainer = dom.agentToolkitListContainer;
     if (!listContainer) return;
-    const checkboxes = Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:not(:checked):not(:disabled)')) as HTMLInputElement[];
+    // Items that need Mobilerun setup open an install dialog, so Apply All leaves them to the user.
+    const checkboxes = Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:not(:checked):not(:disabled):not([data-needs-install])')) as HTMLInputElement[];
     if (checkboxes.length === 0) {
       showToast('All available toolkits are already active!', 'info');
       return;
@@ -4970,6 +5811,7 @@ initializeRendererLifecycle({
 });
 
 startAutoRefreshLoop();
+void checkMobilerunSetupOnLaunch().catch((err) => console.warn('Mobilerun setup check failed:', err));
 
 // ── Global Keyboard Shortcuts ──────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -4995,8 +5837,16 @@ window.addEventListener('keydown', (e) => {
       dom.btnCloseAgentToolkitScreen?.click();
       return;
     }
+    if (deviceManagerScreen.isRemoteScreenVisible()) {
+      void deviceManagerScreen.closeRemoteScreen(true);
+      return;
+    }
     if (dom.deviceManagerScreen && !dom.deviceManagerScreen.classList.contains('hidden')) {
       dom.btnCloseDeviceManagerScreen?.click();
+      return;
+    }
+    if (planeTaskScreen.isVisible()) {
+      planeTaskScreen.hide();
       return;
     }
   }

@@ -8,6 +8,9 @@ type OpenWindowsTerminalOptions = {
 };
 
 contextBridge.exposeInMainWorld('api', {
+  // 'win32' | 'darwin' | 'linux': the renderer adapts window chrome and labels to it.
+  platform: process.platform,
+
   // ── Window controls ──
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),
@@ -32,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   openInAndroidStudio: (path) => ipcRenderer.invoke('open-in-android-studio', path),
   openInAntigravity: (path) => ipcRenderer.invoke('open-in-antigravity', path),
   openInAntigravityAgent: (path) => ipcRenderer.invoke('open-in-antigravity-agent', path),
+  openInClaudeDesktop: (path) => ipcRenderer.invoke('open-in-claude-desktop', path),
   openInFigma: (pathOrUrl) => ipcRenderer.invoke('open-in-figma', pathOrUrl),
   openInObsidian: (pathOrVault) => ipcRenderer.invoke('open-in-obsidian', pathOrVault),
   scrcpyMirror: (serial) => ipcRenderer.invoke('scrcpy:mirror', serial),
@@ -87,6 +91,18 @@ contextBridge.exposeInMainWorld('api', {
   registerMobilerunMcp: (opts) => ipcRenderer.invoke('bakit:mcp-register', opts),
   unregisterMobilerunMcp: (opts) => ipcRenderer.invoke('bakit:mcp-unregister', opts),
   unregisterGlobalMobilerunMcp: () => ipcRenderer.invoke('bakit:mcp-unregister-global'),
+  // ── BAKit: Python + mobilerun install (app-managed venvs) ──
+  getMobilerunSetupStatus: () => ipcRenderer.invoke('mobilerun-setup:status'),
+  installMobilerun: () => ipcRenderer.invoke('mobilerun-setup:install'),
+  onMobilerunSetupLog: (callback) => {
+    const listener = (_, line) => callback(line);
+    ipcRenderer.on('mobilerun-setup:log', listener);
+    return () => ipcRenderer.removeListener('mobilerun-setup:log', listener);
+  },
+  // ── BAKit: figma-mcp-android (workspace plugin .agents/plugins/figma) ──
+  getFigmaMcpStatus: (opts) => ipcRenderer.invoke('bakit:figma-mcp-status', opts),
+  registerFigmaMcp: (opts) => ipcRenderer.invoke('bakit:figma-mcp-register', opts),
+  unregisterFigmaMcp: (opts) => ipcRenderer.invoke('bakit:figma-mcp-unregister', opts),
   // ── BAKit: delegation block in the worktree's AGENTS.md ──
   getAgentsMdBlockStatus: (opts) => ipcRenderer.invoke('bakit:agents-md-status', opts),
   applyAgentsMdBlock: (opts) => ipcRenderer.invoke('bakit:agents-md-apply', opts),
@@ -139,5 +155,13 @@ contextBridge.exposeInMainWorld('api', {
   deviceInstallApk: (opts) => ipcRenderer.invoke('device:install-apk', opts),
   deviceSendKey: (opts) => ipcRenderer.invoke('device:send-key', opts),
   deviceSetupMobilerun: (opts) => ipcRenderer.invoke('device:setup-mobilerun', opts),
+  deviceStreamStart: (opts) => ipcRenderer.invoke('device:stream-start', opts),
+  deviceStreamStop: (opts) => ipcRenderer.invoke('device:stream-stop', opts),
+  deviceStreamStatus: (opts) => ipcRenderer.invoke('device:stream-status', opts),
+  deviceStreamTouch: (opts) => ipcRenderer.invoke('device:stream-touch', opts),
+  deviceStreamKey: (opts) => ipcRenderer.invoke('device:stream-key', opts),
+  deviceStreamText: (opts) => ipcRenderer.invoke('device:stream-text', opts),
+  deviceStreamScroll: (opts) => ipcRenderer.invoke('device:stream-scroll', opts),
+  deviceStreamAction: (opts) => ipcRenderer.invoke('device:stream-action', opts),
 });
 

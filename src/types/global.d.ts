@@ -20,8 +20,19 @@ type WorktreeRemovalResult = {
 };
 
 declare global {
+  interface MobilerunSetupStatus {
+    python: { path: string; version: string } | null;
+    mcpPython: string | null;
+    mcpOutdated: boolean;
+    bundledWheelId: string | null;
+    cliPath: string | null;
+    installing: boolean;
+    installRoot: string;
+  }
+
   interface Window {
     api: {
+      platform: string;
       minimize: () => void;
       maximize: () => void;
       close: () => void;
@@ -37,11 +48,13 @@ declare global {
       openInAndroidStudio: (path: string) => Promise<any>;
       openInAntigravity: (path: string) => Promise<any>;
       openInAntigravityAgent: (path: string) => Promise<any>;
+      openInClaudeDesktop: (path: string) => Promise<{ success: boolean; method?: string; path?: string; error?: string }>;
       openInFigma: (pathOrUrl?: string) => Promise<any>;
       openInObsidian: (pathOrVault?: string) => Promise<any>;
       scrcpyMirror: (serial?: string) => Promise<any>;
-      scrcpyCaptureUi: (opts: { worktreePath: string; prefix?: string }) => Promise<{
+      scrcpyCaptureUi: (opts: { worktreePath: string; prefix?: string; serial?: string; mode?: 'screenshot' | 'dump' | 'both' }) => Promise<{
         success: boolean;
+        mode?: 'screenshot' | 'dump' | 'both';
         screenshotPath?: string;
         dumpPath?: string;
         relativeScreenshot?: string;
@@ -62,6 +75,7 @@ declare global {
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
+        claudeDesktopPath?: string;
         figmaPath?: string;
         figmaUrl?: string;
         obsidianPath?: string;
@@ -70,6 +84,10 @@ declare global {
         reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
+        planeApiKey?: string;
+        planeBaseUrl?: string;
+        planeWorkspaceSlug?: string;
+        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }>;
       updateSettings: (settings: {
@@ -77,6 +95,7 @@ declare global {
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
+        claudeDesktopPath?: string;
         figmaPath?: string;
         figmaUrl?: string;
         obsidianPath?: string;
@@ -85,12 +104,17 @@ declare global {
         reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
+        planeApiKey?: string;
+        planeBaseUrl?: string;
+        planeWorkspaceSlug?: string;
+        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }) => Promise<{
         subworktreeBranchParents?: Record<string, string>;
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
+        claudeDesktopPath?: string;
         figmaPath?: string;
         figmaUrl?: string;
         obsidianPath?: string;
@@ -99,12 +123,17 @@ declare global {
         reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
+        planeApiKey?: string;
+        planeBaseUrl?: string;
+        planeWorkspaceSlug?: string;
+        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }>;
       selectExecutable: () => Promise<string | null>;
       detectIntegrationPaths: () => Promise<{
         antigravityPath: string | null;
         antigravityAgentPath: string | null;
+        claudeDesktopPath?: string | null;
         androidStudioPath: string | null;
         scrcpyPath?: string | null;
         figmaPath?: string | null;
@@ -139,17 +168,30 @@ declare global {
       unregisterMobilerunMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; configPath?: string; error?: string }>;
       unregisterGlobalMobilerunMcp: () => Promise<{ success: boolean; configPath?: string; error?: string }>;
 
+      // ── BAKit: Python + mobilerun install (app-managed venvs under %LOCALAPPDATA%/BA Space/mobilerun) ──
+      getMobilerunSetupStatus: () => Promise<MobilerunSetupStatus>;
+      installMobilerun: () => Promise<{ success: boolean; status?: MobilerunSetupStatus; error?: string }>;
+      onMobilerunSetupLog: (callback: (line: string) => void) => () => void;
+
+      // ── BAKit: figma-mcp-android as a workspace plugin (.agents/plugins/figma) ──
+      getFigmaMcpStatus: (opts: { worktreePath: string }) => Promise<{ registered: boolean; configPath: string; globalRegistered: boolean; globalConfigPath: string | null; error?: string }>;
+      registerFigmaMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; skipped?: boolean; configPath?: string; globalConfigPath?: string | null; error?: string }>;
+      unregisterFigmaMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; configPath?: string; globalConfigPath?: string | null; error?: string }>;
+
       // ── BAKit: delegation block in the worktree's AGENTS.md ──
       getAgentsMdBlockStatus: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ installed: boolean; current: boolean; sourceExists: boolean; agentsMdPath: string }>;
       applyAgentsMdBlock: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ success: boolean; created?: boolean; agentsMdPath?: string; error?: string }>;
       removeAgentsMdBlock: (opts: { worktreePath: string }) => Promise<{ success: boolean; deleted?: boolean; agentsMdPath?: string; error?: string }>;
-      writeProjectFile: (opts: { projectPath: string; relativeFilePath: string; content: string }) => Promise<any>;
-      downloadFile: (opts: { url: string; destinationPath: string }) => Promise<any>;
+      writeProjectFile: (opts: { worktreePath: string; filename: string; content: string }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+      downloadFile: (opts: { url: string; targetFilePath: string }) => Promise<{ success: boolean; cached?: boolean; filePath?: string; error?: string }>;
 
       // ── Project Metadata, Assets & ADB ──
       updateProjectMetadata: (projectPath: string, metadata: {
         name?: string;
         figmaUrl?: string;
+        firebaseUrl?: string;
+        legacyPrdUrl?: string;
+        legacyChecklistUrl?: string;
         apkFiles?: any[];
         competitors?: any[];
       }) => Promise<{ success: boolean; project?: any; error?: string }>;
@@ -279,10 +321,62 @@ declare global {
         maxSize?: number;
         maxFps?: number;
       }) => Promise<{ success: boolean; error?: string }>;
-      deviceCaptureUi: (options: { serial?: string; worktreePath: string; prefix?: string }) => Promise<any>;
+      deviceCaptureUi: (options: {
+        serial?: string;
+        worktreePath: string;
+        prefix?: string;
+        mode?: 'screenshot' | 'dump' | 'both';
+      }) => Promise<{
+        success: boolean;
+        mode?: 'screenshot' | 'dump' | 'both';
+        screenshotPath?: string;
+        dumpPath?: string;
+        relativeScreenshot?: string;
+        relativeDump?: string;
+        error?: string;
+      }>;
       deviceInstallApk: (opts: { serial?: string; apkPath: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
       deviceSendKey: (opts: { serial: string; keycode: string | number }) => Promise<{ success: boolean; error?: string }>;
       deviceSetupMobilerun: (opts: { serial: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
+      deviceStreamStart: (opts?: { serial?: string; maxSize?: number; maxFps?: number; quality?: number }) => Promise<{
+        success: boolean;
+        streamUrl?: string;
+        width?: number;
+        height?: number;
+        deviceName?: string;
+        error?: string;
+      }>;
+      deviceStreamStop: (opts?: { serial?: string }) => Promise<{ success: boolean; error?: string }>;
+      deviceStreamStatus: (opts?: { serial?: string }) => Promise<{
+        isStreaming: boolean;
+        serial: string;
+        streamUrl: string;
+        width: number;
+        height: number;
+        deviceName: string;
+      } | null>;
+      deviceStreamTouch: (opts: {
+        serial?: string;
+        type: 'down' | 'move' | 'up' | 'tap' | 'swipe';
+        x: number;
+        y: number;
+        endX?: number;
+        endY?: number;
+        durationMs?: number;
+      }) => Promise<{ success: boolean; error?: string }>;
+      deviceStreamKey: (opts: { serial?: string; keycode: number }) => Promise<{ success: boolean; error?: string }>;
+      deviceStreamText: (opts: { serial?: string; text: string }) => Promise<{ success: boolean; error?: string }>;
+      deviceStreamScroll: (opts: {
+        serial?: string;
+        x: number;
+        y: number;
+        hScroll: number;
+        vScroll: number;
+      }) => Promise<{ success: boolean; error?: string }>;
+      deviceStreamAction: (opts: {
+        serial?: string;
+        action: 'notification' | 'settings' | 'collapse' | 'rotate' | 'wake' | 'power';
+      }) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

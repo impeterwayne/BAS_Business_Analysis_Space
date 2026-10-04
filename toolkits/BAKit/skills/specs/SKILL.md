@@ -55,6 +55,7 @@ Read the first word of the user's input after the command:
 - UC template: `.agents/skills/ba-templates/templates/use-case.md`
 - PRD input: `docs/project-overview-pdr.md`
 - Competitor findings (optional input): `docs/BA/competitor/` — candidate requirements `FR-CAND-*` may be promoted into the FSD only after the user confirms them
+- Figma design analysis (optional input): `docs/BA/figma/{feature}/` (from `/ba-figma`) — screens, flows, fields, states and messages; `FR-DSN-*` / `BR-CAND-*` are promoted only after the user confirms them
 - Output FSD: `docs/project-fsd.md`
 - Output UCs: `docs/usecases/{module}/uc-{module}-{nnn}-{slug}.md`
 - The FSD and use cases are living documents: update them in place, bump the header version and add a Change Log row

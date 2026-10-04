@@ -1,12 +1,14 @@
 import { IpcMain } from 'electron';
 import { DeviceService } from '../device/deviceService';
+import { DeviceStreamService } from '../device/deviceStreamService';
 
 interface RegisterDeviceIpcOptions {
   ipcMain: IpcMain;
   deviceService: DeviceService;
+  deviceStreamService: DeviceStreamService;
 }
 
-export function registerDeviceIpc({ ipcMain, deviceService }: RegisterDeviceIpcOptions): void {
+export function registerDeviceIpc({ ipcMain, deviceService, deviceStreamService }: RegisterDeviceIpcOptions): void {
   ipcMain.handle('device:list', async () => {
     try {
       const devices = await deviceService.listDevices();
@@ -63,5 +65,37 @@ export function registerDeviceIpc({ ipcMain, deviceService }: RegisterDeviceIpcO
 
   ipcMain.handle('device:setup-mobilerun', async (_, { serial }: { serial: string }) => {
     return deviceService.setupMobilerunPortal(serial);
+  });
+
+  ipcMain.handle('device:stream-start', async (_, options) => {
+    return deviceStreamService.startStream(options);
+  });
+
+  ipcMain.handle('device:stream-stop', async (_, options) => {
+    return deviceStreamService.stopStream(options?.serial);
+  });
+
+  ipcMain.handle('device:stream-status', async (_, options) => {
+    return deviceStreamService.getStreamInfo(options?.serial);
+  });
+
+  ipcMain.handle('device:stream-touch', async (_, options) => {
+    return deviceStreamService.injectTouch(options);
+  });
+
+  ipcMain.handle('device:stream-key', async (_, { serial, keycode }: { serial?: string; keycode: number }) => {
+    return deviceStreamService.injectKey(serial, keycode);
+  });
+
+  ipcMain.handle('device:stream-text', async (_, { serial, text }: { serial?: string; text: string }) => {
+    return deviceStreamService.injectText(serial, text);
+  });
+
+  ipcMain.handle('device:stream-scroll', async (_, options) => {
+    return deviceStreamService.injectScroll(options);
+  });
+
+  ipcMain.handle('device:stream-action', async (_, { serial, action }: { serial?: string; action: any }) => {
+    return deviceStreamService.injectAction(serial, action);
   });
 }

@@ -9,6 +9,12 @@ function killPtyProcess(proc, execSync) {
           timeout: 5000,
         });
       } catch (_) {}
+    } else if (pid) {
+      // node-pty makes the shell a session leader, so its pid is also the process group of everything
+      // started inside it; signal the group so CLIs running in the tab exit with it.
+      try {
+        process.kill(-pid, 'SIGHUP');
+      } catch (_) {}
     }
   } catch (_) {}
 }

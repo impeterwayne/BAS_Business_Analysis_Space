@@ -1,6 +1,6 @@
 {
   "name": "ba-space",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Business Analyst workspace manager with Git worktrees, screen inspection, and AI agent harnesses",
   "main": "dist/main/main.js",
   "scripts": {
@@ -8,11 +8,14 @@
     "build:preload": "esbuild src/main/preload.ts --outfile=dist/main/preload.js --platform=node --format=cjs --bundle --external:electron",
     "build:renderer": "esbuild src/renderer/app.ts --bundle --outfile=dist/renderer/app.bundle.js --platform=browser --format=iife --target=chrome120",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
+    "bundle:mobilerun": "powershell -NoProfile -ExecutionPolicy Bypass -File toolkits/BAKit/scripts/bundle-mobilerun-wheel.ps1",
     "test": "node --test src/domain/**/*.test.js",
     "start": "npm run build && electron .",
     "pack": "npm run build && electron-builder --dir",
     "make": "npm run build && electron-builder",
-    "make:win": "npm run build && electron-builder --win"
+    "make:win": "npm run build && electron-builder --win",
+    "make:mac": "npm run build && electron-builder --mac",
+    "make:linux": "npm run build && electron-builder --linux"
   },
   "keywords": [
     "business-analyst",
@@ -22,7 +25,9 @@
     "scrcpy",
     "specifications"
   ],
-  "author": "",
+  "author": {
+    "name": "impeterwayne"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/electron": "^1.4.38",
@@ -90,6 +95,68 @@
     },
     "portable": {
       "artifactName": "${productName}-${version}-Portable.${ext}"
-    }
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools",
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Development",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
+      "synopsis": "Business Analyst workspace manager"
+    },
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "impeterwayne",
+        "repo": "BAS_Business_Analysis_Space",
+        "releaseType": "draft"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/impeterwayne/BAS_Business_Analysis_Space.git"
   }
 }

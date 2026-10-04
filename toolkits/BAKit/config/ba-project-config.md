@@ -25,7 +25,8 @@ writing any deliverable. Never store passwords, OTPs or API tokens here.
 | :--- | :--- | :--- |
 | Task board (Plane / Jira) | `https://…` | Sprint tracking |
 | Confluence / Wiki | `https://…` | PRD, architecture, API specs |
-| Figma | `https://figma.com/file/…` | Design mockups, design system |
+| Figma | `https://figma.com/design/…` | Design mockups, design system (`/ba-figma` default link) |
+| Firebase | `https://console.firebase.google.com/project/…` | Analytics, Crashlytics, Remote Config |
 | Git repo | `https://…` | Source code |
 | API docs | `https://…` | Swagger / Postman |
 
@@ -66,6 +67,7 @@ Used by `competitor-app-analysis` / `/ba-competitor`. One row per app to benchma
 | Feature briefs | `docs/BA/briefs/` |
 | User stories | `docs/BA/stories/` |
 | Competitor analysis | `docs/BA/competitor/[app-slug]/` |
+| Figma design analysis | `docs/BA/figma/[feature-slug]/` |
 | FSD | `docs/project-fsd.md` |
 | Use cases | `docs/usecases/[module]/` |
 | Test cases | `docs/testcases/[module]/` |

@@ -1,12 +1,13 @@
 # BAKit Delegation Rule: this session plans, subagents do the work
 
 The session the human is talking to **plans, delegates and verifies**. It does not drive the device, does not
-read decoded competitor code in bulk, and does not author BA deliverables. That work goes to subagents
-dispatched with `invoke_subagent`. If you catch yourself about to call a `mobilerun` tool, grep through
-`jadx_src/`, or write a document under `docs/BA/`, dispatch it instead. The one file this session writes
+call Figma tools, does not read decoded competitor code in bulk, and does not author BA deliverables. That work goes to subagents
+dispatched with `invoke_subagent`. If you catch yourself about to call a `mobilerun` or `figma-mcp-android`
+tool, grep through `jadx_src/`, or write a document under `docs/BA/`, dispatch it instead. The one file this session writes
 itself is a competitor `exploration-plan.md`.
 
-The full playbook is `.agents/agents/ba-lead.md`; `/ba-competitor` is `.agents/workflows/ba-competitor.md`.
+The full playbook is `.agents/agents/ba-lead.md`; `/ba-competitor` is `.agents/workflows/ba-competitor.md`, `/ba-figma`
+(Figma design → analysis → FSD / use cases / user stories) is `.agents/workflows/ba-figma.md`.
 
 ## 1. The roster
 
@@ -15,6 +16,7 @@ The full playbook is `.agents/agents/ba-lead.md`; `/ba-competitor` is `.agents/w
 | `code-scout` | One angle on a decoded APK (`jadx_src/`): screen map, feature areas, one flow in code | 2-3 in one call |
 | `competitor-analyst` | WALK one flow on the device (mobilerun); SYNTHESIZE profile, screens, comparison | WALK: never |
 | `evidence-verifier` | Check finished competitor docs against captures and code | Alone |
+| `figma-analyst` | Read one flow of a Figma design into `docs/BA/figma/<feature>/` (figma-mcp-android) | Never: one Figma Desktop |
 | `ba-researcher` | Domain rules, regulations, prior art, URL extraction | Yes |
 | `ba-brainstormer` | Options, trade-offs, feature brief | — |
 | `ba-spec-writer` | FSD, use cases, user stories, readiness reviews, test cases | One per deliverable |
@@ -34,6 +36,7 @@ invoke_subagent(Subagents=[
   scout and a device walker in the same call.
 - **The device is a single-holder resource.** One `competitor-analyst` WALK at a time, one flow per dispatch.
   Two agents on one device corrupt each other's state.
+- **Figma Desktop is a single holder too.** One `figma-analyst` at a time; the bridge serves the one open file.
 - **The verifier runs alone, after the writers.**
 - **Shared inputs exist before a parallel wave starts.** If scouts need the code index, one scout builds it
   first, alone; never dispatch readers alongside the agent that writes what they read.
@@ -63,4 +66,4 @@ At three failed attempts on the same problem, stop and bring it to the user.
 ---
 
 The rest of BAKit lives under `.agents/`: `rules/` (always-on), `skills/`, `agents/` (the roster above),
-`workflows/` (`/ba-competitor`, `/ba-spec`, …) and `config/ba-project-config.md`.
+`workflows/` (`/ba-competitor`, `/ba-figma`, `/ba-spec`, …) and `config/ba-project-config.md`.

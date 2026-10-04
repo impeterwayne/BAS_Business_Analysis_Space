@@ -1,7 +1,9 @@
-import { exec, execSync, execFileSync, spawn } from 'child_process';
+import { exec, execFile, execSync, execFileSync, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { getManagedMobilerunCli } from '../bakit/mobilerunSetup';
+import { isWin, exeName, androidSdkDirs, findOnPath, localDataDir, unixBinDirs } from '../platform';
 const { parseAdbDevicesOutput, parseDeviceEnrichment } = require('../../domain/device');
 
 export interface DeviceInfo {
@@ -34,10 +36,13 @@ export interface MirrorOptions {
   maxFps?: number;
 }
 
+export type CaptureMode = 'screenshot' | 'dump' | 'both';
+
 export interface CaptureUiOptions {
   serial?: string;
   worktreePath: string;
   prefix?: string;
+  mode?: CaptureMode;
 }
 
 export class DeviceService {
@@ -53,14 +58,16 @@ export class DeviceService {
     }
 
     const possiblePaths = [
-      // Android SDK platform-tools in user home
-      path.join(os.homedir(), 'AppData', 'Local', 'Android', 'Sdk', 'platform-tools', 'adb.exe'),
-      process.env.ANDROID_HOME ? path.join(process.env.ANDROID_HOME, 'platform-tools', 'adb.exe') : null,
-      process.env.ANDROID_SDK_ROOT ? path.join(process.env.ANDROID_SDK_ROOT, 'platform-tools', 'adb.exe') : null,
-      // Common scrcpy bundled adb
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'adb.exe'),
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'scrcpy', 'adb.exe'),
-    ].filter(Boolean) as string[];
+      // Android SDK platform-tools (per-OS default location, ANDROID_HOME, ANDROID_SDK_ROOT)
+      ...androidSdkDirs().map((sdk) => path.join(sdk, 'platform-tools', exeName('adb'))),
+      // Common scrcpy bundled adb (Windows) / package-manager installs (macOS, Linux)
+      ...(isWin
+        ? [
+          path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'adb.exe'),
+          path.join(localDataDir(), 'Programs', 'scrcpy', 'adb.exe'),
+        ]
+        : unixBinDirs().map((dir) => path.join(dir, 'adb'))),
+    ];
 
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
@@ -69,30 +76,10 @@ export class DeviceService {
       }
     }
 
-    if (process.platform === 'win32') {
-      try {
-        const output = execFileSync('where.exe', ['adb'], {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-        const matches = output.split(/\r?\n/).filter(Boolean);
-        const resolved = matches.find((m) => /\.exe$/i.test(m)) || matches[0];
-        if (resolved && fs.existsSync(resolved)) {
-          this.cachedAdbPath = resolved;
-          return resolved;
-        }
-      } catch (_) {}
-    } else {
-      try {
-        const output = execSync('which adb', {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-        if (output && fs.existsSync(output)) {
-          this.cachedAdbPath = output;
-          return output;
-        }
-      } catch (_) {}
+    const onPath = findOnPath('adb');
+    if (onPath) {
+      this.cachedAdbPath = onPath;
+      return onPath;
     }
 
     this.cachedAdbPath = 'adb';
@@ -110,10 +97,12 @@ export class DeviceService {
       return settings.scrcpyPath;
     }
 
-    const possiblePaths = [
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'scrcpy', 'scrcpy.exe'),
-    ];
+    const possiblePaths = isWin
+      ? [
+        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
+        path.join(localDataDir(), 'Programs', 'scrcpy', 'scrcpy.exe'),
+      ]
+      : unixBinDirs().map((dir) => path.join(dir, 'scrcpy'));
 
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
@@ -122,30 +111,10 @@ export class DeviceService {
       }
     }
 
-    if (process.platform === 'win32') {
-      try {
-        const output = execFileSync('where.exe', ['scrcpy'], {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-        const matches = output.split(/\r?\n/).filter(Boolean);
-        const resolved = matches.find((m) => /\.exe$/i.test(m)) || matches[0];
-        if (resolved && fs.existsSync(resolved)) {
-          this.cachedScrcpyPath = resolved;
-          return resolved;
-        }
-      } catch (_) {}
-    } else {
-      try {
-        const output = execSync('which scrcpy', {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-        if (output && fs.existsSync(output)) {
-          this.cachedScrcpyPath = output;
-          return output;
-        }
-      } catch (_) {}
+    const onPath = findOnPath('scrcpy');
+    if (onPath) {
+      this.cachedScrcpyPath = onPath;
+      return onPath;
     }
 
     // Check if plain 'scrcpy' is accessible directly
@@ -458,7 +427,7 @@ export class DeviceService {
   }
 
   public async captureUi(options: CaptureUiOptions): Promise<any> {
-    const { worktreePath, prefix } = options;
+    const { worktreePath, prefix, mode = 'both' } = options;
     const serial = options.serial || this.activeSerial;
 
     if (!worktreePath || !fs.existsSync(worktreePath)) {
@@ -481,42 +450,89 @@ export class DeviceService {
     const serialFlag = serial ? `-s "${serial}"` : '';
     const adb = this.getAdbPath();
 
-    // Try scrcpy-cli first, fallback to adb
-    try {
-      execSync(`scrcpy-cli ${serialFlag} screenshot "${screenshotPath}"`, {
-        encoding: 'utf-8',
-        timeout: 15000,
-        windowsHide: true,
-      });
-      execSync(`scrcpy-cli ${serialFlag} ui-dump "${dumpPath}"`, {
-        encoding: 'utf-8',
-        timeout: 15000,
-        windowsHide: true,
-      });
-    } catch {
-      // Fallback to direct adb screencap and uiautomator
+    const doScreenshot = mode === 'screenshot' || mode === 'both';
+    const doDump = mode === 'dump' || mode === 'both';
+
+    let screenshotSuccess = false;
+    let dumpSuccess = false;
+    let lastError = '';
+
+    if (doScreenshot) {
       try {
-        execSync(`"${adb}" ${serialFlag} exec-out screencap -p > "${screenshotPath}"`, {
+        execSync(`scrcpy-cli ${serialFlag} screenshot "${screenshotPath}"`, {
+          encoding: 'utf-8',
           timeout: 15000,
-          shell: 'cmd.exe',
           windowsHide: true,
         });
-        execSync(`"${adb}" ${serialFlag} exec-out uiautomator dump /dev/tty > "${dumpPath}"`, {
-          timeout: 15000,
-          shell: 'cmd.exe',
-          windowsHide: true,
-        });
-      } catch (fallbackErr: any) {
-        return { success: false, error: fallbackErr?.message || 'Screenshot or UI dump failed' };
+        screenshotSuccess = fs.existsSync(screenshotPath) && fs.statSync(screenshotPath).size > 0;
+      } catch {
+        // Fallback to direct adb screencap (PNG bytes on stdout, written here so no shell redirect is needed)
+        try {
+          const png = execFileSync(adb, [...(serial ? ['-s', serial] : []), 'exec-out', 'screencap', '-p'], {
+            timeout: 15000,
+            maxBuffer: 64 * 1024 * 1024,
+            windowsHide: true,
+          });
+          fs.writeFileSync(screenshotPath, png);
+          screenshotSuccess = fs.existsSync(screenshotPath) && fs.statSync(screenshotPath).size > 0;
+        } catch (err: any) {
+          lastError = err?.message || 'Screenshot capture failed';
+        }
       }
+    }
+
+    if (doDump) {
+      try {
+        execSync(`scrcpy-cli ${serialFlag} ui-dump "${dumpPath}"`, {
+          encoding: 'utf-8',
+          timeout: 15000,
+          windowsHide: true,
+        });
+        dumpSuccess = fs.existsSync(dumpPath) && fs.statSync(dumpPath).size > 0;
+      } catch {
+        // Fallback to direct adb uiautomator dump
+        try {
+          const rawDump = execSync(`"${adb}" ${serialFlag} exec-out uiautomator dump /dev/tty`, {
+            timeout: 15000,
+            windowsHide: true,
+            encoding: 'utf-8',
+          });
+
+          const xmlStart = rawDump.indexOf('<?xml');
+          const xmlEnd = rawDump.lastIndexOf('</hierarchy>');
+          if (xmlStart !== -1 && xmlEnd !== -1) {
+            const cleanedXml = rawDump.slice(xmlStart, xmlEnd + '</hierarchy>'.length).trim();
+            fs.writeFileSync(dumpPath, cleanedXml, 'utf-8');
+            dumpSuccess = true;
+          } else {
+            // Alternative adb dump to sdcard then pull
+            execSync(`"${adb}" ${serialFlag} shell uiautomator dump /sdcard/window_dump.xml`, { timeout: 15000, windowsHide: true });
+            execSync(`"${adb}" ${serialFlag} pull /sdcard/window_dump.xml "${dumpPath}"`, { timeout: 15000, windowsHide: true });
+            dumpSuccess = fs.existsSync(dumpPath) && fs.statSync(dumpPath).size > 0;
+          }
+        } catch (fallbackErr: any) {
+          lastError = fallbackErr?.message || 'UI hierarchy dump failed';
+        }
+      }
+    }
+
+    if (doScreenshot && !screenshotSuccess && doDump && !dumpSuccess) {
+      return { success: false, error: lastError || 'Screenshot and UI dump failed' };
+    }
+    if (doScreenshot && !screenshotSuccess && !doDump) {
+      return { success: false, error: lastError || 'Screenshot capture failed' };
+    }
+    if (doDump && !dumpSuccess && !doScreenshot) {
+      return { success: false, error: lastError || 'UI hierarchy dump failed' };
     }
 
     return {
       success: true,
-      screenshotPath,
-      dumpPath,
-      relativeScreenshot: path.join('docs', 'spec', 'evidence', screenshotFilename),
-      relativeDump: path.join('docs', 'spec', 'evidence', dumpFilename),
+      mode,
+      screenshotPath: screenshotSuccess ? screenshotPath : undefined,
+      dumpPath: dumpSuccess ? dumpPath : undefined,
+      relativeScreenshot: screenshotSuccess ? path.join('docs', 'spec', 'evidence', screenshotFilename) : undefined,
+      relativeDump: dumpSuccess ? path.join('docs', 'spec', 'evidence', dumpFilename) : undefined,
     };
   }
 
@@ -691,7 +707,7 @@ export class DeviceService {
         }
 
         // 2. Fallback on Windows: PowerShell Expand-Archive
-        if (process.platform === 'win32') {
+        if (isWin) {
           const psSrc = archivePath.replace(/'/g, "''");
           const psDst = destDir.replace(/'/g, "''");
           const psCmd = `powershell -NoProfile -NonInteractive -Command "Expand-Archive -LiteralPath '${psSrc}' -DestinationPath '${psDst}' -Force"`;
@@ -699,7 +715,10 @@ export class DeviceService {
             resolve(!psErr);
           });
         } else {
-          resolve(false);
+          // GNU tar (most Linux distros) cannot read zip-based archives (.xapk/.apks); unzip can.
+          execFile('unzip', ['-o', '-q', archivePath, '-d', destDir], { timeout: 180000 }, (unzipErr) => {
+            resolve(!unzipErr);
+          });
         }
       });
     });
@@ -831,8 +850,10 @@ export class DeviceService {
     const targetSerial = serial || this.activeSerial;
     const serialArg = targetSerial ? `-d "${targetSerial}"` : '';
 
-    // Search for uv or python mobilerun CLI
+    // The CLI BA Space installs (Mobilerun setup) first, then one on PATH or in a uv project.
+    const managedCli = getManagedMobilerunCli();
     const candidateCommands = [
+      ...(managedCli ? [`"${managedCli}" setup ${serialArg}`] : []),
       `mobilerun setup ${serialArg}`,
       `uv run mobilerun setup ${serialArg}`,
     ];
@@ -853,7 +874,7 @@ export class DeviceService {
 
     return {
       success: false,
-      error: 'Mobilerun CLI not found or setup failed. Ensure mobilerun is installed in python/uv environment.',
+      error: 'Mobilerun CLI not found or setup failed. Run Mobilerun setup from the BAKit toolkit screen to install it.',
     };
   }
 }

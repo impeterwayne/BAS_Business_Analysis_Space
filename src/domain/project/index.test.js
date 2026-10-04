@@ -11,6 +11,8 @@ const {
   cleanApkAppName,
   normalizeProjectMetadata,
   parseFigmaUrl,
+  parseFirebaseUrl,
+  parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,
   formatFlowSlug,
@@ -208,6 +210,69 @@ test('parseFigmaUrl extracts file type, key, title and node-id', () => {
 
   assert.strictEqual(parseFigmaUrl(''), null);
   assert.strictEqual(parseFigmaUrl(null), null);
+});
+
+test('normalizeProjectMetadata trims firebaseUrl and defaults it to empty', () => {
+  assert.strictEqual(
+    normalizeProjectMetadata({ firebaseUrl: '  https://console.firebase.google.com/project/my-app/overview  ' }).firebaseUrl,
+    'https://console.firebase.google.com/project/my-app/overview'
+  );
+  assert.strictEqual(normalizeProjectMetadata({}).firebaseUrl, '');
+  assert.strictEqual(normalizeProjectMetadata({ firebaseUrl: 42 }).firebaseUrl, '');
+});
+
+test('parseFirebaseUrl extracts project id and console section', () => {
+  const overview = parseFirebaseUrl('https://console.firebase.google.com/project/shop-app-prod/overview');
+  assert.strictEqual(overview.isConsole, true);
+  assert.strictEqual(overview.projectId, 'shop-app-prod');
+  assert.strictEqual(overview.section, 'Overview');
+
+  const crashlytics = parseFirebaseUrl('https://console.firebase.google.com/u/0/project/shop-app-dev/crashlytics/app/android:com.shop/issues');
+  assert.strictEqual(crashlytics.projectId, 'shop-app-dev');
+  assert.strictEqual(crashlytics.section, 'Crashlytics');
+
+  const root = parseFirebaseUrl('https://console.firebase.google.com/');
+  assert.strictEqual(root.projectId, '');
+  assert.strictEqual(root.section, 'Console');
+
+  const external = parseFirebaseUrl('https://firebase.google.com/docs');
+  assert.strictEqual(external.isConsole, false);
+
+  assert.strictEqual(parseFirebaseUrl('not-a-valid-url'), null);
+  assert.strictEqual(parseFirebaseUrl(''), null);
+  assert.strictEqual(parseFirebaseUrl(null), null);
+});
+
+test('normalizeProjectMetadata trims legacyPrdUrl and legacyChecklistUrl and defaults them to empty', () => {
+  const normalized = normalizeProjectMetadata({
+    legacyPrdUrl: '  https://docs.google.com/document/d/123/edit  ',
+    legacyChecklistUrl: '  https://docs.google.com/spreadsheets/d/456/edit  ',
+  });
+  assert.strictEqual(normalized.legacyPrdUrl, 'https://docs.google.com/document/d/123/edit');
+  assert.strictEqual(normalized.legacyChecklistUrl, 'https://docs.google.com/spreadsheets/d/456/edit');
+  assert.strictEqual(normalizeProjectMetadata({}).legacyPrdUrl, '');
+  assert.strictEqual(normalizeProjectMetadata({}).legacyChecklistUrl, '');
+});
+
+test('parseDocUrl parses Google Docs, Google Sheets, Notion, Confluence, and generic URLs', () => {
+  const gdoc = parseDocUrl('https://docs.google.com/document/d/123/edit');
+  assert.strictEqual(gdoc.service, 'Google Docs');
+  assert.strictEqual(gdoc.host, 'docs.google.com');
+
+  const gsheets = parseDocUrl('https://docs.google.com/spreadsheets/d/456/edit');
+  assert.strictEqual(gsheets.service, 'Google Sheets');
+
+  const notion = parseDocUrl('https://www.notion.so/workspace/Checklist-123');
+  assert.strictEqual(notion.service, 'Notion');
+
+  const confluence = parseDocUrl('https://company.atlassian.net/wiki/spaces/PRD/pages/1');
+  assert.strictEqual(confluence.service, 'Confluence');
+
+  const generic = parseDocUrl('wiki.internal.org/doc/page');
+  assert.strictEqual(generic.service, 'wiki.internal.org');
+
+  assert.strictEqual(parseDocUrl(''), null);
+  assert.strictEqual(parseDocUrl(null), null);
 });
 
 test('formatDisplayUrl formats host and clean path', () => {

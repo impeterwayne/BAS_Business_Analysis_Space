@@ -1,8 +1,9 @@
 # BAKit — Antigravity BA Toolkit
 
 BA agents, skills, rules, slash workflows and a template catalog for an **Antigravity** workspace, plus
-registration of the **mobilerun MCP server** so the agent can drive a competitor app on a connected Android
-device and turn what it sees into BA documents.
+registration of two MCP servers: **mobilerun**, so the agent can drive a competitor app on a connected Android
+device, and **figma-mcp-android**, so it can read the design open in Figma Desktop — and turn what it sees into
+BA documents (PRD / SRS: FSD, use cases, user stories).
 
 Deliverables are written in Vietnamese; skill, rule and workflow files are in English.
 
@@ -10,18 +11,19 @@ Deliverables are written in Vietnamese; skill, rule and workflow files are in En
 
 | Toolkit folder | Deployed to | Contents |
 | :--- | :--- | :--- |
-| `agents/` | `.agents/agents/` | `ba-lead` (orchestrator, main agent), `code-scout`, `competitor-analyst`, `evidence-verifier`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer` |
+| `agents/` | `.agents/agents/` | `ba-lead` (orchestrator, main agent), `code-scout`, `competitor-analyst`, `evidence-verifier`, `figma-analyst`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer` |
 | `agents-md/` | `AGENTS.md` (marked block) | Delegation rule: the main session plans and dispatches subagents with `invoke_subagent` |
-| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `competitor-app-analysis`, `mobilerun`, `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`, `mermaidjs-v11`, `problem-solving`, `sequential-thinking` |
-| `rules/` | `.agents/rules/` | Always-on: `ba-global-rules`, `ba-workflow`, `ba-naming-convention`, `ba-device-automation`, `ba-markdown-formatting` |
-| `workflows/` | `.agents/workflows/` | `/ba-competitor`, `/ba-template`, `/ba-spec`, `/ba-review`, `/ba-testcases`, `/ba-device-check` |
+| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `competitor-app-analysis`, `mobilerun`, `figma-ba-analysis`, `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`, `mermaidjs-v11`, `problem-solving`, `sequential-thinking` |
+| `rules/` | `.agents/rules/` | Always-on: `ba-global-rules`, `ba-workflow`, `ba-naming-convention`, `ba-device-automation`, `ba-figma`, `ba-markdown-formatting` |
+| `workflows/` | `.agents/workflows/` | `/ba-competitor`, `/ba-figma`, `/ba-template`, `/ba-spec`, `/ba-review`, `/ba-testcases`, `/ba-device-check` |
 | `config/` | `.agents/config/` | `ba-project-config.md` — created once, never overwritten or removed; fill it in and commit it |
-| `mcp/` | `.agents/plugins/mobilerun/` (workspace plugin) | `mobilerun` server entry (see below) |
+| `mcp/` | `.agents/plugins/mobilerun/`, `.agents/plugins/figma/` (workspace plugins) | `mobilerun` and `figma-mcp-android` server entries (see below) |
 
 ## Install
 
 **From BA Space:** Agent Toolkit → **BAKit** group → tick the components (or *Apply All*). Tick
-**Mobilerun MCP (workspace plugin)** to register the server for this worktree.
+**Mobilerun MCP (workspace plugin)** and/or **Figma MCP (workspace plugin)** to register the servers for this
+worktree.
 
 **Without BA Space** (PowerShell):
 
@@ -31,6 +33,9 @@ Deliverables are written in Vietnamese; skill, rule and workflow files are in En
 
 # only (re)register the MCP server, pinning a device when several are attached
 .\toolkits\BAKit\scripts\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -McpOnly -Device R58RB1XWAKJ -Force
+
+# register figma-mcp-android for that workspace
+.\toolkits\BAKit\scripts\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -McpOnly -RegisterFigmaMcp
 ```
 
 Restart the Antigravity agent after registering the MCP server.
@@ -50,13 +55,68 @@ Antigravity discovers plugins under the workspace's `.agents/` and launches the 
 `%USERPROFILE%\.gemini\config\mcp_config.json`, which applies to every workspace. If an older BAKit put
 `mobilerun` there, BA Space offers to remove it when you tick the plugin, and the PowerShell installer warns.
 
-The server is found at `<mobilerun-mcp>\.venv\Scripts\python.exe`, looked up next to BA Space
-(`BA_Space\mobilerun-mcp`, symlinks resolved) and at `D:\Quest\mobilerun-mcp`. The `command` is an absolute
+### Mobilerun setup (Python + mobilerun)
+
+BA Space installs what the server needs. On first launch, and when you tick the Mobilerun MCP item while it
+shows **Needs Setup**, the Mobilerun Setup dialog checks for each piece and installs whatever is missing:
+
+| Piece | Found at | Installed to |
+|---|---|---|
+| Python 3.11-3.13 | `py -3.x`, `python` on PATH, `%LOCALAPPDATA%\Programs\Python\Python31x` | winget `Python.Python.3.13`, current user (no admin) |
+| mobilerun-mcp | a developer checkout (below), else the managed venv | `%LOCALAPPDATA%\BA Space\mobilerun\mcp\.venv`, from the wheel bundled in `mcp\` |
+| mobilerun CLI | managed venv, else `mobilerun` on PATH | `%LOCALAPPDATA%\BA Space\mobilerun\cli\.venv` (`pip install mobilerun`) |
+
+The CLI has its own venv because its dependencies conflict with mobilerun-mcp's. Device Manager's
+"Setup Portal" uses the managed CLI first.
+
+mobilerun-mcp ships inside BA Space as `mcp\mobilerun_mcp-*.whl` (its Python dependencies still come from
+PyPI). After changing `D:\Quest\mobilerun-mcp`, rebuild the bundled wheel and then the app:
+
+```powershell
+npm run bundle:mobilerun     # toolkits\BAKit\scriptsundle-mobilerun-wheel.ps1 (needs uv)
+npm run make:win
+```
+
+The managed install records the sha256 of the wheel it came from. When an app update ships a different wheel,
+the setup dialog offers **Update** on the next launch and reinstalls the package in place.
+
+A developer checkout wins over the managed copy: `<mobilerun-mcp>\.venv\Scripts\python.exe`, looked up next to
+BA Space (`BA_Space\mobilerun-mcp`, symlinks resolved) and at `D:\Quest\mobilerun-mcp`. The `command` is an absolute
 path on this machine: re-tick the component (or rerun the installer) on another machine. Pin a device per
 workspace with `"env": { "MOBILERUN_DEVICE": "<serial>" }` in that `mcp_config.json`.
 
 Device prerequisites: `adb` on PATH, USB debugging authorised, and the Mobilerun Portal accessibility
 service enabled (`mobilerun setup -d <serial>`). Run `/ba-device-check` in Antigravity to verify.
+
+## figma-mcp-android: workspace scope
+
+Same plugin mechanism as mobilerun, at `<worktree>/.agents/plugins/figma/`:
+
+```
+mcp_config.json    { "mcpServers": { "figma-mcp-android": { "command": "cmd", "args": ["/c", "npx", "-y", "@impeterwayne/figma-mcp-android@latest"] } } }
+```
+
+It is the server AndroidHarnessAGY uses: a read-only bridge to the document open in **Figma Desktop**, no Figma
+API token. Prerequisites: Node.js 18+ (`npx`), Figma Desktop, and the bridge plugin imported once
+(Plugins → Development → Import plugin from manifest) and **running in the file** you want analysed. The server
+listens on `127.0.0.1:1994` for the plugin, so only one copy can run: if an enabled global entry
+(`~/.gemini/config/mcp_config.json`, or `~/.gemini/antigravity/` when `config/` does not exist) already launches figma-mcp-android, BA Space and
+the installer leave the workspace alone and the global one is used; BA Space never edits that global entry.
+
+## How `/ba-figma` delegates
+
+`/ba-figma <figma url> <feature-slug> [then spec | then stories] [diff <previous analysis>]`
+
+| Step | Agent | Output |
+| :--- | :--- | :--- |
+| 1. Analyse (one flow at a time) | `figma-analyst` (skill `figma-ba-analysis`) | `docs/BA/figma/<feature>/<feature>_figma_<date>_v<N>.md` + `screens/*.png` |
+| 2. Verify + confirm | `ba-lead` with the user | `FR-DSN-*` / `BR-CAND-*` confirmed or struck, questions answered |
+| 3. Specify | `ba-spec-writer` (`specs analyze` or `user-stories`) | FSD screens / flows / rules / data, use cases, user stories |
+
+The analysis (template `figma-analysis` in `ba-templates`) is BA-oriented, not a dev spec: screen inventory with
+reference images, screen flow from prototype reactions, elements, input fields and visible validation, designed
+**and not designed** states, every string, displayed data, designer annotations, candidate requirements and open
+questions. Visual tokens (colours, spacing, fonts) are left to developers.
 
 ## How `/ba-competitor` delegates
 
@@ -75,8 +135,8 @@ is yours and is kept on update and removal.
 
 Decode the APK first in BA Space (Competitor → Decode, ReaKit jadx). Copying a benchmark command also syncs
 the project config, whose Competitor Apps table carries the jadx path in its **Decoded source** column; the
-command itself stays `/ba-competitor <package> <flows>` because Antigravity drops a quoted path from
-slash-command input. If no index exists yet, one scout builds it alone before the parallel scouts start.
+command itself stays short: `/ba-competitor <package> <flows>`. If no index exists yet, one scout builds it
+alone before the parallel scouts start.
 
 `apk_index.py` needs Python 3.8+ on PATH (standard library only). Its ideas come from
 [apk-reverse](https://github.com/newliver666/apk-reverse) (MIT): orient with an index, not the decompiled
@@ -94,6 +154,10 @@ AndroidHarnessAGY.
 4. `/ba-spec analyze <brief>` → FSD + use cases; `/ba-template user-stories …` for backlog items.
 5. `/ba-review <UC folder>` → readiness score + question backlog; `/ba-testcases generate <module>`.
 
+With a design instead (or as well): open the file in Figma Desktop, run the figma-mcp-android plugin, then
+`/ba-figma <figma url> <feature-slug>` → confirm the candidates → `/ba-figma … then spec` (or
+`/ba-spec analyze docs/BA/figma/<feature>/<analysis>.md`).
+
 ## Provenance
 
 - `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`,
@@ -102,6 +166,9 @@ AndroidHarnessAGY.
   (`AskUserQuestion`, `$ARGUMENTS`), a project-type step instead of the missing `detect-project-type.sh`,
   and template paths pointing at `ba-templates`.
 - `mobilerun` skill: copied from `D:\Quest\mobilerun-mcp\.agents\skills\mobilerun`.
+- `figma-ba-analysis`, `figma-analyst` and the `ba-figma` rule are adapted from AndroidHarnessAGY's
+  `figma-design-analyzer` / `figma-analyzer` / `figma` rule (same MCP server and call budget), retargeted from a
+  Compose / XML implementation spec to PRD / SRS input.
 - Templates in `ba-templates/templates/` were rewritten with bilingual headings from the BA_Flow `specs` /
   `test-cases` templates, plus new competitor-analysis templates.
 - Not included from BA_Flow: `ba-architect`, `ba-auditor`, `ba-challenger`, `Document-skills`,

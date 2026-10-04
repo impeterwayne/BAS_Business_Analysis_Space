@@ -194,7 +194,64 @@
               </div>
             </section>
 
-            <!-- Section 2: Competitors -->
+            <!-- Section 2: Firebase -->
+            <section class="dash-section-card" id="dash-section-firebase">
+              <div class="dash-section-header">
+                <div class="dash-section-title-group">
+                  <div class="dash-section-icon firebase-tint">
+                    <img src="icons/firebase.svg" width="16" height="16" alt="" />
+                  </div>
+                  <div class="dash-title-with-badge">
+                    <h3 class="dash-section-title">Firebase</h3>
+                    <span class="dash-status-pill" id="dash-firebase-status-pill">Not Linked</span>
+                  </div>
+                </div>
+                <div class="dash-section-actions">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-firebase" title="Open Firebase console in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open Console</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dash-section-body" id="dash-firebase-body">
+                <!-- Injected dynamically by JS (view card or empty state) -->
+              </div>
+            </section>
+
+            <!-- Section 3: Legacy Docs -->
+            <section class="dash-section-card" id="dash-section-legacy-docs">
+              <div class="dash-section-header">
+                <div class="dash-section-title-group">
+                  <div class="dash-section-icon legacy-docs-tint">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+                      <path d="M6 6h10"></path>
+                      <path d="M6 10h10"></path>
+                      <path d="M6 14h6"></path>
+                    </svg>
+                  </div>
+                  <div class="dash-title-with-badge">
+                    <h3 class="dash-section-title">Legacy Docs</h3>
+                    <span class="dash-status-pill" id="dash-legacy-docs-status-pill">Not Linked</span>
+                  </div>
+                </div>
+                <div class="dash-section-actions" id="dash-legacy-docs-actions">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-prd" title="Open PRD in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open PRD</span>
+                  </button>
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-checklist" title="Open Checklist in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open Checklist</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dash-section-body" id="dash-legacy-docs-body">
+                <!-- Injected dynamically by JS (PRD and Checklist items) -->
+              </div>
+            </section>
+
+            <!-- Section 4: Competitors -->
             <section class="dash-section-card" id="dash-section-competitors">
               <div class="dash-section-header">
                 <div class="dash-section-title-group">
@@ -207,7 +264,7 @@
                   </div>
                 </div>
                 <div class="dash-section-actions">
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-sync-config" title="Sync Figma & competitors to .agents/config/ba-project-config.md">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-sync-config" title="Sync Figma, Firebase, Legacy Docs & competitors to .agents/config/ba-project-config.md">
                     <img src="icons/refresh.svg" width="12" height="12" alt="" />
                     <span>Sync to Config</span>
                   </button>
@@ -300,35 +357,6 @@
 
         <div class="settings-grid">
 
-          <!-- Git & Worktree Preferences Card -->
-          <div class="settings-card">
-            <div class="settings-card-header">
-              <div class="settings-card-icon">
-                <img src="icons/refresh.svg" width="16" height="16" alt="" />
-              </div>
-              <h3 class="settings-card-title">Git & Worktrees</h3>
-            </div>
-            <div class="settings-card-body">
-              <div class="form-group-col">
-                <label class="form-label">Default Subworktree Suffix</label>
-                <input type="text" class="settings-input" value=".subworktree" readonly disabled />
-                <span class="form-hint">All subworktrees are automatically stored here relative to the root project.</span>
-              </div>
-
-              <div class="form-group-row">
-                <label class="form-label">Auto Refresh Current Project</label>
-                <label class="switch-toggle">
-                  <input type="checkbox" id="settings-auto-refresh" />
-                  <span class="switch-slider"></span>
-                </label>
-              </div>
-
-              <div class="form-group-row">
-                <label class="form-label">Auto Refresh Interval (seconds)</label>
-                <input type="number" id="settings-auto-refresh-interval" class="settings-input" style="width: 80px; text-align: right;" min="1" step="1" />
-              </div>
-            </div>
-          </div>
 
           <!-- Integrations Card -->
           <div class="settings-card">
@@ -355,6 +383,16 @@
                   <input type="text" id="settings-antigravity-agent-path" class="settings-input" placeholder="e.g. C:\Program Files\antigravity\Antigravity.exe" autocomplete="off" spellcheck="false" />
                   <button type="button" class="btn-browse" id="btn-browse-antigravity-agent" title="Browse executable">Browse</button>
                 </div>
+              </div>
+
+              <!-- Claude Desktop -->
+              <div class="form-group-col">
+                <label class="form-label">Claude Desktop path (Optional)</label>
+                <div class="input-browse-group">
+                  <input type="text" id="settings-claude-desktop-path" class="settings-input" placeholder="e.g. %LOCALAPPDATA%\AnthropicClaude\claude.exe" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="btn-browse" id="btn-browse-claude-desktop" title="Browse executable">Browse</button>
+                </div>
+                <span class="form-hint">Leave empty to open through the claude:// link registered by Claude Desktop.</span>
               </div>
 
               <!-- Figma App Path & URL -->
@@ -405,6 +443,32 @@
                 <div class="input-browse-group">
                   <input type="text" id="settings-reakit-path" class="settings-input" placeholder="e.g. D:\Quest\BA_Space\ReaKit or rea" autocomplete="off" spellcheck="false" />
                   <button type="button" class="btn-browse" id="btn-browse-reakit" title="Browse ReaKit directory">Browse</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Plane Integration Card (Global) -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <div class="settings-card-icon">
+                <img src="icons/task.svg" width="16" height="16" alt="" />
+              </div>
+              <h3 class="settings-card-title">Plane Integration (Global)</h3>
+            </div>
+            <div class="settings-card-body">
+              <div class="form-group-col">
+                <label class="form-label">Plane API Key</label>
+                <div class="input-browse-group">
+                  <input type="password" id="settings-plane-api-key" class="settings-input" placeholder="plane_api_..." autocomplete="off" spellcheck="false" />
+                  <button type="button" class="btn-browse" id="btn-copy-plane-api-key" title="Copy Plane API Key" aria-label="Copy Plane API Key">
+                    <img src="icons/copy.svg" width="14" height="14" alt="" />
+                    <span>Copy</span>
+                  </button>
+                  <button type="button" class="btn-browse btn-browse-primary" id="btn-save-plane-api-key" title="Save Plane API Key" aria-label="Save Plane API Key">
+                    <img src="icons/check.svg" width="14" height="14" alt="" />
+                    <span>Save</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -577,150 +641,457 @@
             </div>
           </div>
 
-          <!-- Main Layout Grid: Left (Devices Roster) + Right (Mirror Presets & Device Controls) -->
-          <div class="dm-grid-layout">
-
-            <!-- ── Left Column: Device Roster ── -->
-            <div class="dm-main-column">
-              <div class="settings-card" style="margin: 0; width: 100%;">
-                <div class="settings-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <div class="settings-card-icon">
-                      <img src="icons/device.svg" width="16" height="16" alt="" />
-                    </div>
-                    <h3 class="settings-card-title">Connected Android Devices</h3>
-                  </div>
-                  <span class="dash-count-badge" id="dm-roster-badge">0 Devices</span>
+          <!-- Connected Android Devices Roster (Full Width) -->
+          <div class="settings-card" style="margin: 0; width: 100%;">
+            <div class="settings-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="settings-card-icon">
+                  <img src="icons/device.svg" width="16" height="16" alt="" />
                 </div>
+                <h3 class="settings-card-title">Connected Android Devices</h3>
+              </div>
+              <span class="dash-count-badge" id="dm-roster-badge">0 Devices</span>
+            </div>
 
-                <div class="settings-card-body" style="margin-top: 14px; gap: 14px;">
-                  <!-- Dynamic Device List Container -->
-                  <div id="dm-device-list" class="dm-device-list">
-                    <!-- Populated dynamically via JS -->
-                  </div>
+            <div class="settings-card-body" style="margin-top: 14px; gap: 14px;">
+              <!-- Dynamic Device List Container -->
+              <div id="dm-device-list" class="dm-device-list">
+                <!-- Populated dynamically via JS -->
+              </div>
 
-                  <!-- Empty State when no devices attached -->
-                  <div id="dm-empty-state" class="dm-empty-state hidden">
-                    <div class="dm-empty-icon">
-                      <img src="icons/device.svg" width="36" height="36" alt="" />
-                    </div>
-                    <h4>No Android Devices Detected</h4>
-                    <p>Connect a physical Android device via USB cable or start an Android Virtual Device (AVD).</p>
-                    <div class="dm-troubleshoot-box">
-                      <span class="dm-troubleshoot-title">Troubleshooting Checklist:</span>
-                      <ul>
-                        <li>Ensure <strong>Developer Options</strong> and <strong>USB Debugging</strong> are enabled on your device.</li>
-                        <li>Accept the <strong>"Allow USB debugging?"</strong> security prompt on your phone screen.</li>
-                        <li>Check that your USB cable supports data transfer (not charging-only).</li>
-                        <li>If the device remains undetected, try clicking <strong>Restart ADB</strong> in the top header.</li>
-                      </ul>
-                    </div>
+              <!-- Empty State when no devices attached -->
+              <div id="dm-empty-state" class="dm-empty-state hidden">
+                <div class="dm-empty-icon">
+                  <img src="icons/device.svg" width="36" height="36" alt="" />
+                </div>
+                <h4>No Android Devices Detected</h4>
+                <p>Connect a physical Android device via USB cable or start an Android Virtual Device (AVD).</p>
+                <div class="dm-troubleshoot-box">
+                  <span class="dm-troubleshoot-title">Troubleshooting Checklist:</span>
+                  <ul>
+                    <li>Ensure <strong>Developer Options</strong> and <strong>USB Debugging</strong> are enabled on your device.</li>
+                    <li>Accept the <strong>"Allow USB debugging?"</strong> security prompt on your phone screen.</li>
+                    <li>Check that your USB cable supports data transfer (not charging-only).</li>
+                    <li>If the device remains undetected, try clicking <strong>Restart ADB</strong> in the top header.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Screen Mirror Presets (External Window Pop-out) -->
+          <div class="settings-card" style="margin: 0; width: 100%;">
+            <div class="settings-card-header">
+              <div class="settings-card-icon">
+                <img src="icons/screen.svg" width="16" height="16" alt="" />
+              </div>
+              <h3 class="settings-card-title">External Window Mirror</h3>
+            </div>
+            <div class="settings-card-body" style="margin-top: 12px; gap: 10px;">
+              <div class="form-group-row">
+                <label class="form-label">Stay Awake while mirroring</label>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="dm-mirror-stay-awake" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+
+              <div class="form-group-row">
+                <label class="form-label">Turn off phone screen</label>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="dm-mirror-screen-off" />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+
+              <div class="form-group-row">
+                <label class="form-label">Always on Top window</label>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="dm-mirror-always-on-top" />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+
+              <div class="form-group-col" style="margin-top: 4px;">
+                <label class="form-label">Max Resolution Limit</label>
+                <select id="dm-mirror-max-size" class="settings-input" style="padding: 6px 10px;">
+                  <option value="0">Original (Full Resolution)</option>
+                  <option value="1920">1080p (Max 1920px)</option>
+                  <option value="1280">720p (Max 1280px - High Performance)</option>
+                </select>
+              </div>
+
+              <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+                <button type="button" class="btn-secondary" id="btn-dm-launch-mirror" style="width: 100%; justify-content: center; padding: 8px 16px;">
+                  <img src="icons/screen.svg" width="14" height="14" alt="" />
+                  <span>Launch External Window</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══ Center — Device Remote & Live Mirror Dedicated Screen ═══ -->
+      <div id="device-remote-screen" class="hidden">
+        <div class="settings-container dm-remote-page-container">
+          <header class="settings-header dm-remote-page-header">
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <button type="button" class="btn-secondary btn-small" id="btn-dm-back-to-list" title="Back to Device List">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+                <span>Device List</span>
+              </button>
+
+              <div class="settings-card-icon" style="margin: 0; width: 32px; height: 32px; border-radius: 8px;">
+                <img src="icons/screen.svg" width="18" height="18" alt="" />
+              </div>
+
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h2 class="settings-title" style="margin: 0; font-size: 16px;">Device Live Remote</h2>
+                  <div class="dm-target-chip is-active" id="dm-active-target-chip" title="Active target device">
+                    <span class="dm-target-dot"></span>
+                    <span id="dm-active-target-name" class="dm-target-name">No Device</span>
                   </div>
+                </div>
+                <div class="dm-stream-subhead" style="margin-top: 2px;">
+                  <span class="dm-stream-status-badge is-standby" id="dm-stream-status-badge">
+                    <span class="dm-stream-dot"></span>
+                    <span id="dm-stream-status-text">Standby</span>
+                  </span>
+                  <span class="dm-stream-res-tag" id="dm-stream-res-tag">FHD 60fps</span>
                 </div>
               </div>
             </div>
 
-            <!-- ── Right Column: Mirror Presets & Device Controls ── -->
-            <div class="dm-side-column">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button type="button" class="btn-primary btn-small dm-btn-stream-toggle" id="btn-dm-stream-toggle" title="Start/Stop In-App Live Mirror">
+                <svg class="dm-stream-play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                <svg class="dm-stream-stop-icon hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="5" y="5" width="14" height="14" rx="2"/>
+                </svg>
+                <span id="btn-dm-stream-toggle-text">Start Mirror</span>
+              </button>
 
-              <!-- Screen Mirror Presets Card -->
-              <div class="settings-card" style="margin: 0; width: 100%;">
-                <div class="settings-card-header">
-                  <div class="settings-card-icon">
-                    <img src="icons/screen.svg" width="16" height="16" alt="" />
+              <button type="button" class="btn-close-settings" id="btn-close-device-remote-screen" title="Close Remote View (Esc)" aria-label="Close Remote View">
+                <img src="icons/close.svg" width="16" height="16" alt="" />
+              </button>
+            </div>
+          </header>
+
+          <div class="dm-stage-wrapper">
+            <!-- ── Left: Adaptive Device Viewport (Always Max) ── -->
+            <div class="dm-viewport-col">
+              <div class="dm-phone-frame" id="dm-phone-frame">
+                <div class="dm-phone-notch" id="dm-phone-notch"></div>
+
+                <!-- Idle Placeholder State -->
+                <div class="dm-phone-idle-state" id="dm-stream-idle-state">
+                  <div class="dm-phone-idle-icon">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="3" ry="3"></rect>
+                      <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                    </svg>
                   </div>
-                  <h3 class="settings-card-title">Screen Mirror (Scrcpy)</h3>
+                  <h4 class="dm-phone-idle-title">In-App Live Mirror</h4>
+                  <p class="dm-phone-idle-desc">Real-time Full HD stream at 60 FPS. Click below to start controlling your device.</p>
+                  <button type="button" class="btn-primary btn-small" id="btn-dm-phone-idle-start">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span>Start Live Mirror</span>
+                  </button>
                 </div>
-                <div class="settings-card-body" style="margin-top: 12px; gap: 10px;">
-                  <div class="form-group-row">
-                    <label class="form-label">Stay Awake while mirroring</label>
-                    <label class="switch-toggle">
-                      <input type="checkbox" id="dm-mirror-stay-awake" checked />
-                      <span class="switch-slider"></span>
-                    </label>
-                  </div>
 
-                  <div class="form-group-row">
-                    <label class="form-label">Turn off phone screen</label>
-                    <label class="switch-toggle">
-                      <input type="checkbox" id="dm-mirror-screen-off" />
-                      <span class="switch-slider"></span>
-                    </label>
-                  </div>
+                <!-- Connecting / Loading State -->
+                <div class="dm-phone-loading-state hidden" id="dm-stream-loading-state">
+                  <div class="dm-spinner"></div>
+                  <span>Connecting FHD 60FPS stream...</span>
+                </div>
 
-                  <div class="form-group-row">
-                    <label class="form-label">Always on Top window</label>
-                    <label class="switch-toggle">
-                      <input type="checkbox" id="dm-mirror-always-on-top" />
-                      <span class="switch-slider"></span>
-                    </label>
+                <!-- Active Screen Mirror State -->
+                <div class="dm-phone-active-state hidden" id="dm-stream-active-state">
+                  <div class="dm-feed-wrapper" id="dm-feed-wrapper" tabindex="0" title="Click to interact. Type directly on your keyboard to input text!">
+                    <img id="dm-live-stream-feed" class="dm-live-stream-feed" alt="Device Live Screen" draggable="false" />
+                    <div id="dm-touch-ripple-container" class="dm-touch-ripple-container"></div>
                   </div>
+                </div>
+              </div>
 
-                  <div class="form-group-col" style="margin-top: 4px;">
-                    <label class="form-label">Max Resolution Limit</label>
-                    <select id="dm-mirror-max-size" class="settings-input" style="padding: 6px 10px;">
-                      <option value="0">Original (Full Resolution)</option>
-                      <option value="1920">1080p (Max 1920px)</option>
-                      <option value="1280">720p (Max 1280px - High Performance)</option>
-                    </select>
+              <div class="dm-phone-touch-hint">
+                <span>💡 Right-Click: Back • Middle-Click: Home • Wheel: Scroll • Direct Physical Keyboard Typing</span>
+              </div>
+            </div>
+
+            <!-- ── Right: Fast Interaction Console ── -->
+            <div class="dm-fast-console">
+
+              <!-- 1. System Navigation Dock -->
+              <div class="dm-fast-section">
+                <div class="dm-fast-section-header">
+                  <span class="dm-fast-section-title">Navigation</span>
+                  <span class="dm-fast-shortcut-pill">Click &amp; Keys</span>
+                </div>
+                <div class="dm-nav-dock">
+                  <button type="button" class="dm-dock-btn dm-key-btn" data-key="4" title="Back button (KEYCODE_BACK / Right-Click / Esc)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m15 18-6-6 6-6"/>
+                    </svg>
+                    <span>Back</span>
+                    <kbd class="dm-kbd-hint">Esc</kbd>
+                  </button>
+                  <button type="button" class="dm-dock-btn dm-key-btn" data-key="3" title="Home button (KEYCODE_HOME / Middle-Click)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="7"/>
+                    </svg>
+                    <span>Home</span>
+                    <kbd class="dm-kbd-hint">Mid-Click</kbd>
+                  </button>
+                  <button type="button" class="dm-dock-btn dm-key-btn" data-key="187" title="Overview / App Switcher (KEYCODE_APP_SWITCH)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="13" height="13" x="5.5" y="5.5" rx="2"/>
+                    </svg>
+                    <span>Recents</span>
+                    <kbd class="dm-kbd-hint">App Switch</kbd>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 2. UI Evidence & Hierarchy Capture -->
+              <div class="dm-fast-section">
+                <div class="dm-fast-section-header">
+                  <span class="dm-fast-section-title">UI Evidence Capture</span>
+                  <span class="dm-fast-shortcut-pill">Instant 1-Click</span>
+                </div>
+                <div class="dm-fast-evidence-grid">
+                  <button type="button" class="dm-fast-action-btn dm-capture-btn" data-action="capture-screenshot" title="Capture high-resolution screenshot (.png)">
+                    <img src="icons/screenshot.svg" width="16" height="16" alt="" />
+                    <div class="dm-fast-btn-text">
+                      <strong>Screenshot</strong>
+                      <small>.PNG file</small>
+                    </div>
+                  </button>
+
+                  <button type="button" class="dm-fast-action-btn dm-capture-btn" data-action="capture-dump" title="Dump UI hierarchy XML (.xml)">
+                    <img src="icons/dump.svg" width="16" height="16" alt="" />
+                    <div class="dm-fast-btn-text">
+                      <strong>Dump UI</strong>
+                      <small>.XML hierarchy</small>
+                    </div>
+                  </button>
+
+                  <button type="button" class="dm-fast-action-btn dm-fast-action-combine dm-capture-btn" data-action="capture-combine" title="Capture screenshot and dump UI hierarchy (.png + .xml)">
+                    <img src="icons/combine.svg" width="16" height="16" alt="" />
+                    <div class="dm-fast-btn-text">
+                      <strong>Combine</strong>
+                      <small>PNG + XML</small>
+                    </div>
+                    <span class="dm-combine-badge">BOTH</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 3. Fast Text & Clipboard Injection -->
+              <div class="dm-fast-section">
+                <div class="dm-fast-section-header">
+                  <span class="dm-fast-section-title">Quick Text &amp; Clipboard</span>
+                  <span class="dm-fast-shortcut-pill">Direct Beam</span>
+                </div>
+                <div class="dm-fast-text-block">
+                  <div class="dm-text-input-wrap">
+                    <input type="text" id="dm-quick-text-input" class="dm-quick-text-input" placeholder="Type text or URL to inject..." />
+                    <button type="button" class="dm-text-clear-btn hidden" id="btn-dm-quick-text-clear" title="Clear text">&times;</button>
                   </div>
-
-                  <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
-                    <button type="button" class="btn-primary" id="btn-dm-launch-mirror" style="width: 100%; justify-content: center; padding: 8px 16px;">
-                      <img src="icons/screen.svg" width="14" height="14" alt="" />
-                      <span>Launch Screen Mirror</span>
+                  <div class="dm-fast-text-actions">
+                    <button type="button" class="btn-primary dm-fast-btn" id="btn-dm-quick-text-send" title="Send typed text to device (Enter)">
+                      <span>Send (Enter)</span>
+                    </button>
+                    <button type="button" class="btn-secondary dm-fast-btn dm-btn-paste-send" id="btn-dm-quick-text-paste" title="Paste clipboard and inject instantly into device">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                      <span>Paste &amp; Send</span>
                     </button>
                   </div>
                 </div>
               </div>
 
-              <!-- Quick Hardware Keys & Controls Card -->
-              <div class="settings-card" style="margin: 0; width: 100%;">
-                <div class="settings-card-header">
-                  <div class="settings-card-icon">
-                    <img src="icons/terminal.svg" width="16" height="16" alt="" />
-                  </div>
-                  <h3 class="settings-card-title">Device Controls & Hardware Keys</h3>
+              <!-- 4. Hardware Keys & Device Actions -->
+              <div class="dm-fast-section">
+                <div class="dm-fast-section-header">
+                  <span class="dm-fast-section-title">Hardware Keys</span>
+                  <span class="dm-fast-shortcut-pill">Device Events</span>
                 </div>
-                <div class="settings-card-body" style="margin-top: 12px; gap: 10px;">
-                  <p class="form-hint" style="margin: 0;">Send physical key events directly to the active target device:</p>
-                  
-                  <div class="dm-key-grid">
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-key="3" title="Home button">
-                      <span>Home</span>
-                    </button>
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-key="4" title="Back button">
-                      <span>Back</span>
-                    </button>
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-key="187" title="Recent Apps">
-                      <span>App Switcher</span>
-                    </button>
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-key="224" title="Wake up screen">
-                      <span>Wake Screen</span>
-                    </button>
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-key="223" title="Sleep / Lock screen">
-                      <span>Lock Screen</span>
-                    </button>
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-key="24" title="Volume Up">
-                      <span>Vol +</span>
-                    </button>
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-key="25" title="Volume Down">
-                      <span>Vol -</span>
-                    </button>
-                    <button type="button" class="btn-secondary btn-small dm-key-btn" data-action="capture-now" title="Capture UI and Hierarchy">
-                      <img src="icons/capture.svg" width="12" height="12" alt="" />
-                      <span>Capture UI</span>
-                    </button>
-                  </div>
+                <div class="dm-hardware-fast-grid">
+                  <button type="button" class="dm-hw-fast-btn dm-key-btn" data-key="224" title="Wake up screen (KEYCODE_WAKEUP)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+                    </svg>
+                    <span>Wake</span>
+                  </button>
+                  <button type="button" class="dm-hw-fast-btn dm-key-btn dm-hw-power" data-key="26" title="Power button (KEYCODE_POWER)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+                    </svg>
+                    <span>Power</span>
+                  </button>
+                  <button type="button" class="dm-hw-fast-btn dm-key-btn" data-key="25" title="Volume Down (KEYCODE_VOLUME_DOWN)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="15" y1="12" x2="21" y2="12"/>
+                    </svg>
+                    <span>Vol &minus;</span>
+                  </button>
+                  <button type="button" class="dm-hw-fast-btn dm-key-btn" data-key="24" title="Volume Up (KEYCODE_VOLUME_UP)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="19" y1="9" x2="19" y2="15"/><line x1="16" y1="12" x2="22" y2="12"/>
+                    </svg>
+                    <span>Vol +</span>
+                  </button>
+                  <button type="button" class="dm-hw-fast-btn dm-action-btn" data-stream-action="notification" title="Pull down notification shade">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                    </svg>
+                    <span>Notifs</span>
+                  </button>
+                  <button type="button" class="dm-hw-fast-btn dm-action-btn" data-stream-action="rotate" title="Rotate device screen">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                    <span>Rotate</span>
+                  </button>
+                  <button type="button" class="dm-hw-fast-btn dm-key-btn" data-key="82" title="Menu button (KEYCODE_MENU)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/>
+                    </svg>
+                    <span>Menu</span>
+                  </button>
                 </div>
               </div>
 
             </div>
-
           </div>
         </div>
       </div>
 
+      <!-- ═══ Center — Plane Task Management Screen ═══ -->
+      <div id="plane-task-screen" class="hidden">
+        <header class="settings-header plane-task-header">
+          <div class="settings-title-group">
+            <h2 class="settings-title" style="display: flex; align-items: center; gap: 10px;">
+              <span>Plane Task Management</span>
+              <span id="plane-status-badge" class="plane-badge badge-success" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 12px;">Connected 🟢</span>
+            </h2>
+          </div>
+          <button type="button" class="btn-close-settings" id="btn-close-plane-task-screen" title="Close Plane Tasks" aria-label="Close Plane Tasks">
+            <img src="icons/close.svg" width="16" height="16" alt="" />
+          </button>
+        </header>
+
+        <div class="plane-task-body">
+          <!-- Plane Project Setup -->
+          <div class="plane-setup-card">
+            <div class="plane-setup-content">
+              <!-- Active Worktree Info -->
+              <div class="plane-setup-worktree">
+                <span class="plane-setup-label">Active Worktree</span>
+                <div class="plane-worktree-badge">
+                  <img src="icons/folder.svg" width="14" height="14" alt="" />
+                  <span id="plane-active-worktree-name">No active project</span>
+                </div>
+              </div>
+
+              <!-- Plane Project Picker (saved for the whole repo: main worktree + every linked worktree) -->
+              <div class="plane-setup-input-group">
+                <label for="plane-project-search" class="plane-setup-label">
+                  <span>Plane Project</span>
+                </label>
+                <div class="plane-input-wrapper branch-combo">
+                  <input type="text" id="plane-project-search" class="settings-input plane-project-id-field" placeholder="Set your Plane API key first…" disabled autocomplete="off" spellcheck="false" />
+                  <div id="plane-project-dropdown" class="branch-combo-dropdown"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Pills & Search Bar -->
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+            <!-- Category Filter Pills -->
+            <div class="plane-filter-group" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="plane-filter-pill active" data-category="all">All (<span id="count-all">0</span>)</button>
+              <button type="button" class="plane-filter-pill" data-category="backlog">🔴 Backlog (<span id="count-backlog">0</span>)</button>
+              <button type="button" class="plane-filter-pill" data-category="todo">🟡 Todo (<span id="count-todo">0</span>)</button>
+              <button type="button" class="plane-filter-pill" data-category="in_progress">🔵 In Progress (<span id="count-in-progress">0</span>)</button>
+              <button type="button" class="plane-filter-pill" data-category="on_testing">🟣 On Testing (<span id="count-on-testing">0</span>)</button>
+              <button type="button" class="plane-filter-pill" data-category="done">🟢 Done (<span id="count-done">0</span>)</button>
+              <button type="button" class="plane-filter-pill" data-category="cancelled">⚪ Cancelled (<span id="count-cancelled">0</span>)</button>
+            </div>
+
+            <!-- Search & Sorting Toolbar -->
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+              <div class="plane-search-wrapper">
+                <img src="icons/search.svg" width="14" height="14" alt="" class="plane-search-icon" />
+                <input type="text" id="plane-search-input" class="settings-input" placeholder="Search tasks by ID, name, or keywords..." style="width: 100%; height: 34px; font-size: 13px; padding-left: 32px;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">Sort By:</label>
+                <select id="plane-sort-select" class="settings-input" style="height: 34px; font-size: 12px; padding: 0 10px; cursor: pointer;">
+                  <option value="priority-desc">Priority (High ➔ Low)</option>
+                  <option value="priority-asc">Priority (Low ➔ High)</option>
+                  <option value="id-asc">Sequence ID (1 ➔ N)</option>
+                  <option value="id-desc">Sequence ID (N ➔ 1)</option>
+                  <option value="title-asc">Title (A ➔ Z)</option>
+                  <option value="updated-desc">Recently Updated</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Action Buttons Row -->
+            <div class="plane-setup-actions">
+              <button type="button" class="btn-secondary plane-action-btn" id="btn-refresh-plane-tasks" title="Fetch latest tasks from Plane REST API">
+                <img src="icons/refresh.svg" width="14" height="14" alt="" />
+                <span>Fetch Tasks</span>
+              </button>
+              <button type="button" class="btn-primary plane-action-btn plane-action-btn-primary" id="btn-export-plane-tasks" title="Export tasks to plane/TASK_LIST.md">
+                <img src="icons/download.svg" width="14" height="14" alt="" />
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Table Toolbar & Interactive Table -->
+          <div class="settings-card" style="width: 100%; margin: 0; padding: 0; overflow: hidden;">
+            <div style="padding: 12px 16px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <img src="icons/task.svg" width="14" height="14" alt="" class="plane-preview-icon" />
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Task List</span>
+                <span style="font-size: 12px; color: var(--text-tertiary);">Click a task for details and links</span>
+              </div>
+              <div id="plane-table-loading" class="spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
+            </div>
+
+            <div style="overflow-x: auto; max-height: calc(100vh - 280px); min-height: 350px; overflow-y: auto;">
+              <table id="plane-tasks-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                  <tr style="background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.05em; sticky: top; top: 0;">
+                    <th style="padding: 10px 14px; width: 110px;">ID</th>
+                    <th style="padding: 10px 14px;">Task Name</th>
+                    <th style="padding: 10px 14px; width: 130px;">Status</th>
+                    <th style="padding: 10px 14px; width: 110px;">Priority</th>
+                    <th style="padding: 10px 14px; width: 110px;">Start Date</th>
+                    <th style="padding: 10px 14px; width: 130px;">Updated</th>
+                    <th style="padding: 10px 14px; width: 56px;" aria-label="Open in Plane"></th>
+                  </tr>
+                </thead>
+                <tbody id="plane-tasks-tbody">
+                  <!-- Dynamically populated in app.ts -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </main>
 
     <aside id="workspace-sidebar" class="workspace-sidebar-collapsed">
@@ -760,6 +1131,10 @@
               <span class="workspace-tool-icon"><img src="icons/antigravity.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Agent Manager</span>
             </button>
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-claude-desktop" title="Open in Claude Desktop (Code mode)" aria-label="Open in Claude Desktop (Code mode)">
+              <span class="workspace-tool-icon"><img src="icons/claude.svg" width="16" height="16" alt="" /></span>
+              <span class="workspace-tool-text">Claude Desktop</span>
+            </button>
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-figma" title="Open in Figma" aria-label="Open in Figma">
               <span class="workspace-tool-icon"><img src="icons/figma.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Figma</span>
@@ -768,6 +1143,11 @@
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-obsidian" title="Open in Obsidian" aria-label="Open in Obsidian">
               <span class="workspace-tool-icon"><img src="icons/obsidian.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Obsidian</span>
+            </button>
+            <div class="workspace-tool-separator"></div>
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-plane-tasks" title="Plane Task Management" aria-label="Plane Task Management">
+              <span class="workspace-tool-icon"><img src="icons/task.svg" width="16" height="16" alt="" /></span>
+              <span class="workspace-tool-text">Plane Tasks</span>
             </button>
           </div>
         </section>
@@ -778,10 +1158,6 @@
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-device-manager" title="Device Manager" aria-label="Device Manager">
               <span class="workspace-tool-icon"><img src="icons/device.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Device Manager</span>
-            </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-scrcpy-capture" title="Capture Screenshot and UI Dump Evidence" aria-label="Capture UI">
-              <span class="workspace-tool-icon"><img src="icons/capture.svg" width="16" height="16" alt="" /></span>
-              <span class="workspace-tool-text">Capture UI</span>
             </button>
           </div>
         </section>

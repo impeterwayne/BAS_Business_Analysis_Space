@@ -9,11 +9,19 @@ const { getWorktrees: readWorktrees, getGitInfo: readGitInfo } = require('./git/
 const { createWorkspaceConfigStore } = require('../application/workspaceConfigStore');
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
-const { registerBakitIpc } = require('./bakit/bakitService');
+const { registerBakitIpc, resolveMobilerunPython } = require('./bakit/bakitService');
+const { registerMobilerunSetupIpc } = require('./bakit/mobilerunSetup');
 const { registerReakitIpc } = require('./reakit/reakitService');
 const { DeviceService } = require('./device/deviceService');
+const { DeviceStreamService } = require('./device/deviceStreamService');
 const { registerDeviceIpc } = require('./ipc/deviceIpc');
 const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
+const {
+  isWin, isMac, findOnPath, firstExisting, buildLaunch, fixUnixPath, localDataDir, roamingConfigDir, unixBinDirs,
+} = require('./platform');
+
+// Finder/Dock launches on macOS (and desktop-file launches on Linux) start with a bare PATH.
+fixUnixPath();
 
 // ── State ──────────────────────────────────────────────
 const configPath = path.join(app.getPath('userData'), 'workspaces.json');
@@ -23,6 +31,7 @@ const workspaceService = createWorkspaceService({
   getWorktrees: (projectPath) => readWorktrees(projectPath, execSync, path, Buffer),
 });
 const deviceService = new DeviceService(() => workspaceService.getSettings());
+const deviceStreamService = new DeviceStreamService(deviceService);
 let mainWindow = null;
 const ptyProcesses = new Map(); // id -> pty process
 
@@ -37,52 +46,33 @@ function shellQuoteWindowsArg(value) {
   return `"${normalized.replace(/"/g, '""')}"`;
 }
 
+// POSIX sh/bash/zsh quoting for the macOS/Linux terminals.
+function shellQuotePosixArg(value) {
+  const normalized = String(value);
+  if (/^[\w@%+=:,./-]+$/u.test(normalized)) return normalized;
+  return `'${normalized.replace(/'/g, `'\\''`)}'`;
+}
+
 function buildShellCommand(commandOrPath, args = []) {
-  return [commandOrPath, ...args].map(shellQuoteWindowsArg).join(' ');
+  const quote = isWin ? shellQuoteWindowsArg : shellQuotePosixArg;
+  return [commandOrPath, ...args].map(quote).join(' ');
 }
 
 function resolveToolLaunch(command, extraArgs = []) {
   const launchArgs = Array.isArray(extraArgs) ? extraArgs.map((arg) => String(arg)) : [];
 
-  if (process.platform !== 'win32') {
-    return {
-      file: command,
-      args: launchArgs,
-      shellCommand: buildShellCommand(command, launchArgs),
-    };
+  // npm-installed CLIs are .cmd shims on Windows, so those win over .exe there.
+  const resolvedPath = findOnPath(command, { preferScripts: true });
+  if (!resolvedPath) {
+    throw new Error(`Tool not found on PATH: ${command}`);
   }
 
-  try {
-    const output = execFileSync('where.exe', [command], {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-
-    const matches = output.split(/\r?\n/).filter(Boolean);
-    const resolvedPath = matches.find((match) => /\.(cmd|bat)$/i.test(match))
-      || matches.find((match) => /\.exe$/i.test(match))
-      || matches[0];
-    if (!resolvedPath) {
-      throw new Error(`Tool not found on PATH: ${command}`);
-    }
-
-    const ext = path.extname(resolvedPath).toLowerCase();
-    if (ext === '.cmd' || ext === '.bat') {
-      return {
-        file: 'cmd.exe',
-        args: ['/d', '/c', resolvedPath, ...launchArgs],
-        shellCommand: buildShellCommand(resolvedPath, launchArgs),
-      };
-    }
-
-    return {
-      file: resolvedPath,
-      args: launchArgs,
-      shellCommand: buildShellCommand(resolvedPath, launchArgs),
-    };
-  } catch (error) {
-    throw new Error(error?.message || `Tool not found on PATH: ${command}`);
-  }
+  const launch = buildLaunch(resolvedPath, launchArgs);
+  return {
+    file: launch.file,
+    args: launch.args,
+    shellCommand: buildShellCommand(resolvedPath, launchArgs),
+  };
 }
 
 function getRecentCommits(dirPath, count = 5) {
@@ -230,13 +220,10 @@ function getDefaultShell() {
       if (fs.existsSync(p)) return p;
     }
     // Check if pwsh is on PATH
-    try {
-      execSync('where pwsh', { encoding: 'utf-8', timeout: 3000 });
-      return 'pwsh.exe';
-    } catch (_) {}
+    if (findOnPath('pwsh')) return 'pwsh.exe';
     return 'powershell.exe';
   }
-  return process.env.SHELL || '/bin/bash';
+  return process.env.SHELL || (isMac ? '/bin/zsh' : '/bin/bash');
 }
 
 // ── External links ─────────────────────────────────────
@@ -251,6 +238,13 @@ function openExternalUrl(url) {
   return { success: true };
 }
 
+// toolkits/ ships as an extraResource in the packaged app and sits in the repo in development.
+function getToolkitsDir() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'toolkits')
+    : path.join(app.getAppPath(), 'toolkits');
+}
+
 // ── Window ─────────────────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -258,9 +252,11 @@ function createWindow() {
     height: 920,
     minWidth: 900,
     minHeight: 600,
-    frame: false,
+    // macOS keeps its native traffic lights inset into the custom titlebar; Windows/Linux draw their own buttons.
+    frame: isMac,
     backgroundColor: '#08080d',
-    titleBarStyle: 'hidden',
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    ...(isMac ? { trafficLightPosition: { x: 14, y: 14 } } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -301,7 +297,12 @@ app.whenReady().then(() => {
   });
 
   registerBakitIpc({ ipcMain });
-  registerDeviceIpc({ ipcMain, deviceService });
+  registerMobilerunSetupIpc({
+    ipcMain,
+    resolveMcpPython: () => resolveMobilerunPython(),
+    wheelDir: path.join(getToolkitsDir(), 'BAKit', 'mcp'),
+  });
+  registerDeviceIpc({ ipcMain, deviceService, deviceStreamService });
   registerReakitIpc({ ipcMain, workspaceService, shell });
 
   ipcMain.handle('get-git-info', (_, dirPath) => getGitInfo(dirPath));
@@ -324,8 +325,8 @@ app.whenReady().then(() => {
       }
       
       if (isLink && currentTarget) {
-        const resolvedCurrent = path.resolve(worktreePath, currentTarget).toLowerCase();
-        const resolvedTarget = path.resolve(targetPath).toLowerCase();
+        const resolvedCurrent = normalizeWorktreePath(path.resolve(worktreePath, currentTarget));
+        const resolvedTarget = normalizeWorktreePath(targetPath);
         if (resolvedCurrent === resolvedTarget) {
           return { exists: true, pointsToTarget: true };
         } else {
@@ -629,11 +630,8 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle('toolkit:get-default-sources', () => {
-    const toolkitsDir = app.isPackaged
-      ? path.join(process.resourcesPath, 'toolkits')
-      : path.join(app.getAppPath(), 'toolkits');
     return {
-      bakitPath: path.join(toolkitsDir, 'BAKit'),
+      bakitPath: path.join(getToolkitsDir(), 'BAKit'),
     };
   });
 
@@ -750,9 +748,10 @@ app.whenReady().then(() => {
   ipcMain.handle('pty:create', (_, { cwd, id }) => {
     try {
       const shellPath = getDefaultShell();
+      // macOS terminals open login shells (that is where Homebrew/nvm set PATH up); Linux ones do not.
       const shellArgs = shellPath.includes('pwsh') || shellPath.includes('powershell')
         ? ['-NoLogo']
-        : [];
+        : (isMac ? ['-l'] : []);
 
       const ptyProc = pty.spawn(shellPath, shellArgs, {
         name: 'xterm-256color',
@@ -846,12 +845,59 @@ app.whenReady().then(() => {
 
   // ── Launch Actions (kept for external terminal) ──────
 
-  ipcMain.handle('open-wt', (_, { cwd, launchCommand, launchArgs = [] }) => {
-    try {
-      const args = launchCommand
-        ? ['new-tab', '-d', cwd, 'cmd.exe', '/d', '/k', resolveToolLaunch(launchCommand, launchArgs).shellCommand]
+  // AppleScript string literal: backslashes and double quotes escaped.
+  function appleScriptString(value) {
+    return `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+
+  // Linux terminal emulators in preference order, with the flag that precedes the command to run.
+  const LINUX_TERMINALS = [
+    { command: 'x-terminal-emulator', execFlag: '-e' },
+    { command: 'gnome-terminal', execFlag: '--' },
+    { command: 'konsole', execFlag: '-e' },
+    { command: 'xfce4-terminal', execFlag: '-x' },
+    { command: 'kitty', execFlag: null },
+    { command: 'alacritty', execFlag: '-e' },
+    { command: 'tilix', execFlag: '-e' },
+    { command: 'xterm', execFlag: '-e' },
+  ];
+
+  function openExternalTerminal(cwd, shellCommand) {
+    if (isWin) {
+      const args = shellCommand
+        ? ['new-tab', '-d', cwd, 'cmd.exe', '/d', '/k', shellCommand]
         : ['new-tab', '-d', cwd];
       spawn('wt.exe', args, { detached: true, stdio: 'ignore', shell: true });
+      return;
+    }
+
+    if (isMac) {
+      const script = shellCommand
+        ? `cd ${shellQuotePosixArg(cwd)} && ${shellCommand}`
+        : `cd ${shellQuotePosixArg(cwd)}`;
+      spawn('osascript', [
+        '-e', `tell application "Terminal" to do script ${appleScriptString(script)}`,
+        '-e', 'tell application "Terminal" to activate',
+      ], { detached: true, stdio: 'ignore' }).unref();
+      return;
+    }
+
+    const terminal = LINUX_TERMINALS.find((t) => findOnPath(t.command));
+    if (!terminal) {
+      throw new Error('No terminal emulator found. Install gnome-terminal, konsole, xfce4-terminal or xterm.');
+    }
+    const userShell = process.env.SHELL || '/bin/bash';
+    // Keep the window open after the tool exits by handing over to an interactive shell.
+    const args = shellCommand
+      ? [...(terminal.execFlag ? [terminal.execFlag] : []), userShell, '-c', `${shellCommand}; exec ${shellQuotePosixArg(userShell)}`]
+      : [];
+    spawn(terminal.command, args, { cwd, detached: true, stdio: 'ignore' }).unref();
+  }
+
+  ipcMain.handle('open-wt', (_, { cwd, launchCommand, launchArgs = [] }) => {
+    try {
+      const shellCommand = launchCommand ? resolveToolLaunch(launchCommand, launchArgs).shellCommand : '';
+      openExternalTerminal(cwd, shellCommand);
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -871,16 +917,7 @@ app.whenReady().then(() => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.androidStudioPath || findAndroidStudioExecutable();
-      const ext = path.extname(exe).toLowerCase();
-      let spawnFile;
-      let spawnArgs;
-      if (ext === '.cmd' || ext === '.bat') {
-        spawnFile = 'cmd.exe';
-        spawnArgs = ['/d', '/c', exe, dirPath];
-      } else {
-        spawnFile = exe;
-        spawnArgs = [dirPath];
-      }
+      const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, [dirPath]);
       const useShell = !path.isAbsolute(exe);
       spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, detached: true, stdio: 'ignore' });
       return { success: true };
@@ -890,68 +927,105 @@ app.whenReady().then(() => {
   });
 
   function detectPath(command, possiblePaths) {
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
+    return firstExisting(possiblePaths) || findOnPath(command, { preferScripts: true });
+  }
+
+  // ── Per-OS install locations ─────────────────────────
+  // Windows: exe/cmd paths. macOS: .app bundles (launched with `open -a`). Linux: binaries and launch scripts.
+  const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+  const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+  const macApps = (name) => [path.join('/Applications', name), path.join(os.homedir(), 'Applications', name)];
+
+  function antigravityCandidates() {
+    if (isWin) {
+      return [
+        path.join(localDataDir(), 'Programs', 'Antigravity IDE', 'Antigravity IDE.exe'),
+        path.join(localDataDir(), 'Programs', 'Antigravity IDE', 'bin', 'antigravity-ide.cmd'),
+        path.join(programFiles, 'Antigravity IDE', 'Antigravity IDE.exe'),
+      ];
     }
-    if (process.platform === 'win32') {
-      try {
-        const output = execFileSync('where.exe', [command], {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-        const matches = output.split(/\r?\n/).filter(Boolean);
-        const resolvedPath = matches.find((match) => /\.(cmd|bat)$/i.test(match))
-          || matches.find((match) => /\.exe$/i.test(match))
-          || matches[0];
-        if (resolvedPath && fs.existsSync(resolvedPath)) {
-          return resolvedPath;
-        }
-      } catch (_) {}
-    } else {
-      try {
-        const output = execSync(`which ${command}`, {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-        if (output && fs.existsSync(output)) {
-          return output;
-        }
-      } catch (_) {}
+    if (isMac) return macApps('Antigravity IDE.app');
+    return ['/usr/bin/antigravity-ide', '/usr/share/antigravity-ide/antigravity-ide', '/opt/Antigravity IDE/antigravity-ide'];
+  }
+
+  function antigravityAgentCandidates() {
+    if (isWin) return [path.join(localDataDir(), 'Programs', 'antigravity', 'Antigravity.exe')];
+    if (isMac) return macApps('Antigravity.app');
+    return ['/usr/bin/antigravity', '/usr/share/antigravity/antigravity', '/opt/Antigravity/antigravity'];
+  }
+
+  // `studio64` on Windows; JetBrains Toolbox and the Linux packages put `studio` / `android-studio` on PATH.
+  const androidStudioCommand = isWin ? 'studio64' : 'studio';
+
+  function androidStudioCandidates() {
+    if (isWin) {
+      return [
+        path.join(programFiles, 'Android', 'Android Studio', 'bin', 'studio64.exe'),
+        path.join(programFilesX86, 'Android', 'Android Studio', 'bin', 'studio64.exe'),
+        path.join(localDataDir(), 'Android', 'Android Studio', 'bin', 'studio64.exe'),
+      ];
     }
-    return null;
+    if (isMac) return macApps('Android Studio.app');
+    return [
+      '/opt/android-studio/bin/studio.sh',
+      '/usr/local/android-studio/bin/studio.sh',
+      path.join(os.homedir(), 'android-studio', 'bin', 'studio.sh'),
+      '/snap/bin/android-studio',
+      '/usr/bin/android-studio',
+    ];
+  }
+
+  function scrcpyCandidates() {
+    if (isWin) {
+      return [
+        path.join(programFiles, 'scrcpy', 'scrcpy.exe'),
+        path.join(localDataDir(), 'Programs', 'scrcpy', 'scrcpy.exe'),
+      ];
+    }
+    return unixBinDirs().map((dir) => path.join(dir, 'scrcpy'));
+  }
+
+  function figmaCandidates() {
+    if (isWin) {
+      return [
+        path.join(localDataDir(), 'Figma', 'Figma.exe'),
+        path.join(localDataDir(), 'Programs', 'Figma', 'Figma.exe'),
+        path.join(programFiles, 'Figma', 'Figma.exe'),
+        path.join(programFilesX86, 'Figma', 'Figma.exe'),
+      ];
+    }
+    if (isMac) return macApps('Figma.app');
+    return ['/usr/bin/figma-linux', '/usr/local/bin/figma-linux', '/snap/bin/figma-linux', '/usr/bin/figma', '/opt/figma-linux/figma-linux'];
+  }
+
+  function obsidianCandidates() {
+    if (isWin) {
+      return [
+        path.join(localDataDir(), 'Programs', 'Obsidian', 'Obsidian.exe'),
+        path.join(localDataDir(), 'Obsidian', 'Obsidian.exe'),
+        path.join(programFiles, 'Obsidian', 'Obsidian.exe'),
+        path.join(programFilesX86, 'Obsidian', 'Obsidian.exe'),
+      ];
+    }
+    if (isMac) return macApps('Obsidian.app');
+    return [
+      '/usr/bin/obsidian',
+      '/opt/Obsidian/obsidian',
+      '/snap/bin/obsidian',
+      '/var/lib/flatpak/exports/bin/md.obsidian.Obsidian',
+      path.join(os.homedir(), '.local', 'share', 'flatpak', 'exports', 'bin', 'md.obsidian.Obsidian'),
+    ];
   }
 
   ipcMain.handle('detect-integration-paths', () => {
     return {
-      antigravityPath: detectPath('antigravity-ide', [
-        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Antigravity IDE', 'Antigravity IDE.exe'),
-        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Antigravity IDE', 'bin', 'antigravity-ide.cmd'),
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Antigravity IDE', 'Antigravity IDE.exe'),
-      ]),
-      antigravityAgentPath: detectPath('antigravity', [
-        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'antigravity', 'Antigravity.exe'),
-      ]),
-      androidStudioPath: detectPath('studio64', [
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
-        path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
-        path.join(os.homedir(), 'AppData', 'Local', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
-      ]),
-      scrcpyPath: detectPath('scrcpy', [
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
-        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'scrcpy', 'scrcpy.exe'),
-      ]),
-      figmaPath: detectPath('figma', [
-        path.join(os.homedir(), 'AppData', 'Local', 'Figma', 'Figma.exe'),
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Figma', 'Figma.exe'),
-      ]),
-      obsidianPath: detectPath('obsidian', [
-        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Obsidian', 'Obsidian.exe'),
-        path.join(os.homedir(), 'AppData', 'Local', 'Obsidian', 'Obsidian.exe'),
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Obsidian', 'Obsidian.exe'),
-        path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Obsidian', 'Obsidian.exe'),
-      ]),
+      antigravityPath: detectPath('antigravity-ide', antigravityCandidates()),
+      antigravityAgentPath: detectPath('antigravity', antigravityAgentCandidates()),
+      claudeDesktopPath: findClaudeDesktopExecutable(),
+      androidStudioPath: detectPath(androidStudioCommand, androidStudioCandidates()),
+      scrcpyPath: detectPath('scrcpy', scrcpyCandidates()),
+      figmaPath: findFigmaExecutable(),
+      obsidianPath: detectPath('obsidian', obsidianCandidates()),
       obsidianVault: findDefaultObsidianVault(),
       reakitPath: detectPath('rea', [
         path.join(process.cwd(), 'toolkits', 'ReaKit'),
@@ -966,92 +1040,26 @@ app.whenReady().then(() => {
 
 
   function findAntigravityExecutable() {
-    const possiblePaths = [
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Antigravity IDE', 'Antigravity IDE.exe'),
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Antigravity IDE', 'bin', 'antigravity-ide.cmd'),
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Antigravity IDE', 'Antigravity IDE.exe'),
-    ];
-
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-
-    try {
-      return resolveToolLaunch('antigravity-ide').file;
-    } catch (_) {
-      return 'antigravity-ide';
-    }
+    return detectPath('antigravity-ide', antigravityCandidates()) || 'antigravity-ide';
   }
 
   function findAntigravityAgentExecutable() {
-    const possiblePaths = [
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'antigravity', 'Antigravity.exe'),
-    ];
-
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-
-    try {
-      return resolveToolLaunch('antigravity').file;
-    } catch (_) {
-      return 'antigravity';
-    }
+    return detectPath('antigravity', antigravityAgentCandidates()) || 'antigravity';
   }
 
   function findAndroidStudioExecutable() {
-    const possiblePaths = [
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
-      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
-      path.join(os.homedir(), 'AppData', 'Local', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
-    ];
-
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-
-    try {
-      return resolveToolLaunch('studio64').file;
-    } catch (_) {
-      return 'studio64';
-    }
+    return detectPath(androidStudioCommand, androidStudioCandidates())
+      || (isWin ? null : findOnPath('android-studio'))
+      || androidStudioCommand;
   }
 
   function findFigmaExecutable(): string | null {
-    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
-    const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
-
-    const possiblePaths = [
-      path.join(localAppData, 'Figma', 'Figma.exe'),
-      path.join(localAppData, 'Programs', 'Figma', 'Figma.exe'),
-      path.join(programFiles, 'Figma', 'Figma.exe'),
-      path.join(programFilesX86, 'Figma', 'Figma.exe'),
-      // macOS
-      '/Applications/Figma.app/Contents/MacOS/Figma',
-      path.join(os.homedir(), 'Applications', 'Figma.app', 'Contents', 'MacOS', 'Figma'),
-      // Linux
-      '/usr/bin/figma-linux',
-      '/usr/local/bin/figma-linux',
-      '/snap/bin/figma-linux',
-      '/usr/bin/figma',
-    ];
-
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
+    const found = firstExisting(figmaCandidates());
+    if (found) return found;
 
     // Check versioned directories in AppData/Local/Figma (e.g. app-126.9.11/Figma.exe)
-    const figmaBase = path.join(localAppData, 'Figma');
-    if (fs.existsSync(figmaBase)) {
+    const figmaBase = path.join(localDataDir(), 'Figma');
+    if (isWin && fs.existsSync(figmaBase)) {
       try {
         const subdirs = fs.readdirSync(figmaBase).filter((name) => name.startsWith('app-')).sort().reverse();
         for (const dir of subdirs) {
@@ -1065,39 +1073,24 @@ app.whenReady().then(() => {
       }
     }
 
-    try {
-      return resolveToolLaunch('figma').file;
-    } catch (_) {
-      return null;
-    }
+    return findOnPath('figma') || findOnPath('figma-linux');
   }
 
-  function findScrcpyExecutable() {
-    const possiblePaths = [
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'scrcpy', 'scrcpy.exe'),
-    ];
+  // Obsidian keeps its vault list in obsidian.json under %APPDATA%, ~/Library/Application Support or ~/.config.
+  function getObsidianConfigPath() {
+    return path.join(roamingConfigDir(), 'obsidian', 'obsidian.json');
+  }
 
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-
-    try {
-      return resolveToolLaunch('scrcpy').file;
-    } catch (_) {
-      return null;
-    }
+  // Windows paths compare case-insensitively; macOS/Linux paths are compared as-is.
+  function samePath(a, b) {
+    const na = path.normalize(a);
+    const nb = path.normalize(b);
+    return isWin ? na.toLowerCase() === nb.toLowerCase() : na === nb;
   }
 
   function getObsidianVaultsFromConfig(): Array<{ id: string; path: string; name: string; open?: boolean }> {
     try {
-      const configPath = path.join(
-        process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
-        'obsidian',
-        'obsidian.json'
-      );
+      const configPath = getObsidianConfigPath();
       if (!fs.existsSync(configPath)) return [];
       const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       if (!parsed || typeof parsed.vaults !== 'object') return [];
@@ -1120,34 +1113,13 @@ app.whenReady().then(() => {
   }
 
   function findObsidianExecutable() {
-    const possiblePaths = [
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Obsidian', 'Obsidian.exe'),
-      path.join(os.homedir(), 'AppData', 'Local', 'Obsidian', 'Obsidian.exe'),
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Obsidian', 'Obsidian.exe'),
-      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Obsidian', 'Obsidian.exe'),
-    ];
-
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-
-    try {
-      return resolveToolLaunch('obsidian').file;
-    } catch (_) {
-      return 'obsidian';
-    }
+    return detectPath('obsidian', obsidianCandidates()) || 'obsidian';
   }
 
   function ensureObsidianVaultRegistered(folderPath: string): { registered: boolean; vaultName: string } {
     const vaultName = path.basename(folderPath);
     try {
-      const configPath = path.join(
-        process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
-        'obsidian',
-        'obsidian.json'
-      );
+      const configPath = getObsidianConfigPath();
       const configDir = path.dirname(configPath);
       if (!fs.existsSync(configDir)) {
         fs.mkdirSync(configDir, { recursive: true });
@@ -1165,9 +1137,8 @@ app.whenReady().then(() => {
         parsed.vaults = {};
       }
 
-      const normalized = path.normalize(folderPath).toLowerCase();
       for (const item of Object.values(parsed.vaults) as any[]) {
-        if (item && item.path && path.normalize(item.path).toLowerCase() === normalized) {
+        if (item && item.path && samePath(item.path, folderPath)) {
           return { registered: true, vaultName: path.basename(item.path) };
         }
       }
@@ -1191,18 +1162,7 @@ app.whenReady().then(() => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.antigravityPath || findAntigravityExecutable();
-      const ext = path.extname(exe).toLowerCase();
-      
-      let spawnFile;
-      let spawnArgs;
-      
-      if (ext === '.cmd' || ext === '.bat') {
-        spawnFile = 'cmd.exe';
-        spawnArgs = ['/d', '/c', exe, dirPath];
-      } else {
-        spawnFile = exe;
-        spawnArgs = [dirPath];
-      }
+      const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, [dirPath]);
 
       // Launch Antigravity IDE in the worktree directory safely (no shell-escaping issues)
       spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: false, detached: true, stdio: 'ignore' });
@@ -1216,23 +1176,73 @@ app.whenReady().then(() => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.antigravityAgentPath || findAntigravityAgentExecutable();
-      const ext = path.extname(exe).toLowerCase();
-      
-      let spawnFile;
-      let spawnArgs;
-      
-      if (ext === '.cmd' || ext === '.bat') {
-        spawnFile = 'cmd.exe';
-        spawnArgs = ['/d', '/c', exe];
-      } else {
-        spawnFile = exe;
-        spawnArgs = [];
-      }
+      const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, []);
 
       // Launch Antigravity Agent Manager independently
       const cwd = path.isAbsolute(exe) ? path.dirname(exe) : undefined;
       spawn(spawnFile, spawnArgs, { cwd, shell: false, detached: true, stdio: 'ignore' });
       return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  // App execution aliases under WindowsApps are reparse points that existsSync can report as missing.
+  function claudeDesktopPathExists(candidate) {
+    try {
+      return fs.existsSync(candidate) || fs.lstatSync(candidate).isSymbolicLink() || fs.lstatSync(candidate).isFile();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function getClaudeDesktopCandidatePaths() {
+    if (isMac) return macApps('Claude.app');
+    if (!isWin) return [];
+    const localAppData = localDataDir();
+    return [
+      path.join(localAppData, 'AnthropicClaude', 'claude.exe'),
+      path.join(localAppData, 'Programs', 'Claude', 'Claude.exe'),
+      path.join(localAppData, 'Claude', 'Claude.exe'),
+      path.join(localAppData, 'Microsoft', 'WindowsApps', 'claude-desktop.exe'),
+      path.join(programFiles, 'Claude', 'Claude.exe'),
+    ];
+  }
+
+  // `claude` on PATH is usually the Claude Code CLI, so only the desktop-specific command is looked up.
+  function findClaudeDesktopExecutable() {
+    return getClaudeDesktopCandidatePaths().find(claudeDesktopPathExists) || detectPath('claude-desktop', []);
+  }
+
+  ipcMain.handle('open-in-claude-desktop', async (_, dirPath) => {
+    try {
+      const customExe = workspaceService.getSettings().claudeDesktopPath;
+      const folderUri = dirPath ? `claude://code/new?folder=${encodeURIComponent(dirPath)}` : 'claude://code/new';
+
+      // Prefer the registered claude:// protocol: it opens Code mode on the folder in the running instance.
+      if (!customExe) {
+        try {
+          await shell.openExternal(folderUri);
+          return { success: true, method: 'protocol' };
+        } catch (_) {
+          // Fall through to launching the executable
+        }
+      }
+
+      const exe = customExe || findClaudeDesktopExecutable();
+      if (!exe) {
+        return { success: false, error: 'Claude Desktop was not found. Set its path in Settings → Integrations.' };
+      }
+      const launch = buildLaunch(exe, [folderUri]);
+      const child = spawn(launch.file, launch.args, {
+        cwd: dirPath || undefined,
+        shell: false,
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.on('error', (err) => console.error('Failed to launch Claude Desktop:', err));
+      child.unref();
+      return { success: true, method: 'desktop', path: exe };
     } catch (e) {
       return { success: false, error: e.message };
     }
@@ -1248,8 +1258,8 @@ app.whenReady().then(() => {
       // 1. Search for Figma Desktop executable first!
       const exe = settings.figmaPath || findFigmaExecutable();
       if (exe && fs.existsSync(exe)) {
-        const args = target ? [target] : [];
-        const child = spawn(exe, args, { detached: true, stdio: 'ignore' });
+        const launch = buildLaunch(exe, target ? [target] : []);
+        const child = spawn(launch.file, launch.args, { detached: true, stdio: 'ignore' });
         child.unref();
         return { success: true, method: 'desktop', path: exe };
       }
@@ -1318,25 +1328,16 @@ app.whenReady().then(() => {
       }
 
       if (exe && (fs.existsSync(exe) || !path.isAbsolute(exe))) {
-        const ext = path.extname(exe).toLowerCase();
-        let spawnFile;
-        let spawnArgs: string[] = [];
-
-        if (ext === '.cmd' || ext === '.bat') {
-          spawnFile = 'cmd.exe';
-          spawnArgs = ['/d', '/c', exe];
-        } else {
-          spawnFile = exe;
-        }
-
+        const uriArgs: string[] = [];
         if (targetVaultNameOrPath) {
           if (path.isAbsolute(targetVaultNameOrPath) || /^[a-zA-Z]:[\\/]/.test(targetVaultNameOrPath)) {
-            spawnArgs.push(`obsidian://open?path=${encodeURIComponent(targetVaultNameOrPath)}`);
+            uriArgs.push(`obsidian://open?path=${encodeURIComponent(targetVaultNameOrPath)}`);
           } else {
-            spawnArgs.push(`obsidian://open?vault=${encodeURIComponent(targetVaultNameOrPath)}`);
+            uriArgs.push(`obsidian://open?vault=${encodeURIComponent(targetVaultNameOrPath)}`);
           }
         }
 
+        const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, uriArgs);
         spawn(spawnFile, spawnArgs, {
           shell: !path.isAbsolute(exe),
           detached: true,
@@ -1366,8 +1367,8 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('scrcpy:capture-ui', async (_, opts: { worktreePath?: string; prefix?: string; serial?: string } = {}) => {
-    return deviceService.captureUi({ worktreePath: opts.worktreePath, prefix: opts.prefix, serial: opts.serial });
+  ipcMain.handle('scrcpy:capture-ui', async (_, opts: { worktreePath?: string; prefix?: string; serial?: string; mode?: 'screenshot' | 'dump' | 'both' } = {}) => {
+    return deviceService.captureUi({ worktreePath: opts.worktreePath, prefix: opts.prefix, serial: opts.serial, mode: opts.mode });
   });
 
   // ── Quick git commands ───────────────────────────────
@@ -1512,3 +1513,7 @@ app.whenReady().then(() => {
 });
 
 installPtyShutdownLifecycle(app, ptyProcesses, execSync);
+
+app.on('will-quit', () => {
+  deviceStreamService.stopAllStreams();
+});

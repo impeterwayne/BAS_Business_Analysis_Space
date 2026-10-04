@@ -276,6 +276,9 @@ function normalizeProjectMetadata(metadata) {
   const meta = metadata && typeof metadata === 'object' ? metadata : {};
   return {
     figmaUrl: typeof meta.figmaUrl === 'string' ? meta.figmaUrl.trim() : '',
+    firebaseUrl: typeof meta.firebaseUrl === 'string' ? meta.firebaseUrl.trim() : '',
+    legacyPrdUrl: typeof meta.legacyPrdUrl === 'string' ? meta.legacyPrdUrl.trim() : '',
+    legacyChecklistUrl: typeof meta.legacyChecklistUrl === 'string' ? meta.legacyChecklistUrl.trim() : '',
     apkFiles: Array.isArray(meta.apkFiles)
       ? meta.apkFiles
           .filter(a => a && typeof a === 'object' && typeof a.path === 'string' && a.path.trim())
@@ -360,6 +363,92 @@ function parseFigmaUrl(url) {
   }
 }
 
+const FIREBASE_SECTION_LABELS = {
+  overview: 'Overview',
+  analytics: 'Analytics',
+  crashlytics: 'Crashlytics',
+  performance: 'Performance',
+  firestore: 'Firestore',
+  database: 'Realtime Database',
+  authentication: 'Authentication',
+  storage: 'Storage',
+  functions: 'Functions',
+  hosting: 'Hosting',
+  config: 'Remote Config',
+  remoteconfig: 'Remote Config',
+  notification: 'Messaging',
+  messaging: 'Messaging',
+  abtesting: 'A/B Testing',
+  appdistribution: 'App Distribution',
+  settings: 'Project Settings',
+};
+
+function parseFirebaseUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    const parsed = new URL(trimmed);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const projectIdx = parts.indexOf('project');
+    const projectId = projectIdx >= 0 && parts[projectIdx + 1] ? decodeURIComponent(parts[projectIdx + 1]) : '';
+    const sectionKey = projectIdx >= 0 && parts[projectIdx + 2] ? parts[projectIdx + 2].toLowerCase() : '';
+    const section = sectionKey ? (FIREBASE_SECTION_LABELS[sectionKey] || sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)) : 'Console';
+    return {
+      isConsole: parsed.hostname === 'console.firebase.google.com',
+      projectId,
+      section,
+      url: trimmed,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseDocUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    const parsed = new URL(trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    let service = 'Document';
+    if (host.includes('docs.google.com') || host.includes('drive.google.com')) {
+      if (parsed.pathname.includes('/spreadsheets/')) service = 'Google Sheets';
+      else if (parsed.pathname.includes('/document/')) service = 'Google Docs';
+      else if (parsed.pathname.includes('/presentation/')) service = 'Google Slides';
+      else service = 'Google Drive';
+    } else if (host.includes('notion.so') || host.includes('notion.site')) {
+      service = 'Notion';
+    } else if (host.includes('confluence') || host.includes('atlassian.net')) {
+      service = 'Confluence';
+    } else if (host.includes('coda.io')) {
+      service = 'Coda';
+    } else if (host.includes('feishu.cn') || host.includes('larksuite.com')) {
+      service = 'Lark / Feishu';
+    } else if (host.includes('miro.com')) {
+      service = 'Miro';
+    } else if (host.includes('airtable.com')) {
+      service = 'Airtable';
+    } else if (host.includes('jira')) {
+      service = 'Jira';
+    } else if (host.includes('github.com')) {
+      service = 'GitHub';
+    } else if (host.includes('gitlab.com')) {
+      service = 'GitLab';
+    } else {
+      service = host;
+    }
+    return {
+      service,
+      host,
+      url: parsed.href,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function formatDisplayUrl(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return '';
   try {
@@ -419,8 +508,8 @@ function formatFlowSlug(flow) {
 }
 
 // flow: one flow name or an array of them (one run over several flows shares one plan and one profile).
-// The decoded-source path is not part of the command (Antigravity drops a quoted path from slash-command
-// input); /ba-competitor reads it from the Decoded source column of ba-project-config.md instead.
+// The decoded-source path is not part of the command: /ba-competitor reads it from the Decoded source column
+// of ba-project-config.md, which BA Space syncs when the command is copied.
 function buildBenchmarkSlashCommand(target, flow) {
   const pkg = (target || 'app').trim();
   const slug = (Array.isArray(flow) ? flow : [flow]).map(formatFlowSlug).filter(Boolean).join(' ');
@@ -470,6 +559,8 @@ module.exports = {
   formatBytes,
   normalizeProjectMetadata,
   parseFigmaUrl,
+  parseFirebaseUrl,
+  parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,
   formatFlowSlug,

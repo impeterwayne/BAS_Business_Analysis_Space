@@ -162,6 +162,15 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     if (metadata.figmaUrl !== undefined) {
       project.figmaUrl = String(metadata.figmaUrl || '').trim();
     }
+    if (metadata.firebaseUrl !== undefined) {
+      project.firebaseUrl = String(metadata.firebaseUrl || '').trim();
+    }
+    if (metadata.legacyPrdUrl !== undefined) {
+      project.legacyPrdUrl = String(metadata.legacyPrdUrl || '').trim();
+    }
+    if (metadata.legacyChecklistUrl !== undefined) {
+      project.legacyChecklistUrl = String(metadata.legacyChecklistUrl || '').trim();
+    }
     if (Array.isArray(metadata.apkFiles)) {
       project.apkFiles = metadata.apkFiles;
     }
@@ -336,6 +345,48 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
           content = content.replace(/\| Figma \|.*\|.*\|/i, `| Figma | \`${project.figmaUrl}\` | Design mockups, design system |`);
         } else if (/## 2\. Links & Resources/i.test(content)) {
           content = content.replace(/(## 2\. Links & Resources[\s\S]*?\| :--- \| :--- \| :--- \|\r?\n)/i, `$1| Figma | \`${project.figmaUrl}\` | Design mockups, design system |\n`);
+        }
+      }
+
+      // Update Firebase URL if provided
+      if (project.firebaseUrl) {
+        const firebaseRow = `| Firebase | \`${project.firebaseUrl}\` | Analytics, Crashlytics, Remote Config |`;
+        if (/\| Firebase \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/\| Firebase \|.*\|.*\|/i, firebaseRow);
+        } else if (/\| Figma \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Figma \|.*\|.*\|)/i, `$1\n${firebaseRow}`);
+        } else if (/## 2\. Links & Resources/i.test(content)) {
+          content = content.replace(/(## 2\. Links & Resources[\s\S]*?\| :--- \| :--- \| :--- \|\r?\n)/i, `$1${firebaseRow}\n`);
+        }
+      }
+
+      // Update Legacy PRD URL if provided
+      if (project.legacyPrdUrl) {
+        const prdRow = `| Legacy PRD | \`${project.legacyPrdUrl}\` | Product Requirement Document (legacy) |`;
+        if (/\| Legacy PRD \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/\| Legacy PRD \|.*\|.*\|/i, prdRow);
+        } else if (/\| Firebase \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Firebase \|.*\|.*\|)/i, `$1\n${prdRow}`);
+        } else if (/\| Figma \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Figma \|.*\|.*\|)/i, `$1\n${prdRow}`);
+        } else if (/## 2\. Links & Resources/i.test(content)) {
+          content = content.replace(/(## 2\. Links & Resources[\s\S]*?\| :--- \| :--- \| :--- \|\r?\n)/i, `$1${prdRow}\n`);
+        }
+      }
+
+      // Update Legacy Checklist URL if provided
+      if (project.legacyChecklistUrl) {
+        const checklistRow = `| Legacy Checklist | \`${project.legacyChecklistUrl}\` | QA / Testing checklist (legacy) |`;
+        if (/\| Legacy Checklist \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/\| Legacy Checklist \|.*\|.*\|/i, checklistRow);
+        } else if (/\| Legacy PRD \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Legacy PRD \|.*\|.*\|)/i, `$1\n${checklistRow}`);
+        } else if (/\| Firebase \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Firebase \|.*\|.*\|)/i, `$1\n${checklistRow}`);
+        } else if (/\| Figma \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Figma \|.*\|.*\|)/i, `$1\n${checklistRow}`);
+        } else if (/## 2\. Links & Resources/i.test(content)) {
+          content = content.replace(/(## 2\. Links & Resources[\s\S]*?\| :--- \| :--- \| :--- \|\r?\n)/i, `$1${checklistRow}\n`);
         }
       }
 

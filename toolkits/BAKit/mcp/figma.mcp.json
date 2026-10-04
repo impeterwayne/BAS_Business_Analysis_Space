@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "figma-mcp-android": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@impeterwayne/figma-mcp-android@latest"]
+    }
+  }
+}

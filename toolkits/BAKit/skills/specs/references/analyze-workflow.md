@@ -7,6 +7,10 @@ Analyze a new feature requirement and update FSD + use cases.
 Everything the user typed after `analyze` is the feature description.
 Example: `/specs analyze "add two-factor authentication to login flow"`
 
+The description may be a path to a Figma design analysis (`docs/BA/figma/{feature}/{feature}_figma_*.md`).
+Then the analysis is the primary input: screen descriptions, flows, fields, states and messages come from it,
+with its reference images cited, and only the candidates the user confirmed are promoted.
+
 ## Steps
 
 ### 1. Detect Project Type

@@ -3,7 +3,7 @@ name: ba-templates
 description: >-
   Catalog of BA document templates (FSD, use case, user stories, feature brief, test cases, UC readiness
   review, question backlog, competitor app profile, screen inventory, flow analysis, feature comparison and
-  gap analysis) and the rules for filling them. Use whenever a BA deliverable must be written from a
+  gap analysis, Figma design analysis) and the rules for filling them. Use whenever a BA deliverable must be written from a
   template, when the user runs /ba-template, or when another BA skill needs the canonical template path.
 ---
 
@@ -32,6 +32,7 @@ Paths are relative to `.agents/skills/`.
 | `competitor-screens` | Competitor screen inventory | `ba-templates/templates/competitor-screen-inventory.md` | `docs/BA/competitor/{app-slug}/` | `competitor-app-analysis` |
 | `competitor-flow` | Competitor flow analysis | `ba-templates/templates/competitor-flow-analysis.md` | `docs/BA/competitor/{app-slug}/` | `competitor-app-analysis` |
 | `comparison-gap` | Feature comparison matrix + gap analysis | `ba-templates/templates/feature-comparison-gap.md` | `docs/BA/competitor/` | `competitor-app-analysis` |
+| `figma-analysis` | Figma design analysis (screens, flow, fields, states, copy, candidates) | `ba-templates/templates/figma-design-analysis.md` | `docs/BA/figma/{feature}/` | `figma-ba-analysis` |
 
 The `readiness-review` and `question-backlog` templates stay inside their audit skills because those
 workflows score and parse them section by section. Do not copy them elsewhere.
@@ -70,5 +71,7 @@ workflows score and parse them section by section. Do not copy them elsewhere.
 - Agreed scope, needs backlog items → `user-stories`.
 - Agreed scope, needs full system behaviour → `fsd` + `use-case` via the `specs` skill.
 - Handing to QA → `readiness-review` first, then `test-case`.
+- Turning a Figma design into requirements input → `figma-analysis`, then `fsd` + `use-case` or `user-stories`
+  from it.
 - Learning from another app → `competitor-*`, then `comparison-gap` to turn findings into candidate
   requirements (`FR-CAND-*`), which a BA promotes into the FSD after PO confirmation.
