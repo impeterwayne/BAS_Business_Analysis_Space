@@ -79,7 +79,6 @@ const state: {
   projects: any[];
   settings: {
     subworktreeBranchParents?: Record<string, string>;
-    vscodePath?: string;
     androidStudioPath?: string;
     antigravityPath?: string;
     antigravityAgentPath?: string;
@@ -164,15 +163,11 @@ const dom = {
   terminalScreen: $('#terminal-screen'),
   btnCloseTerminalScreen: $('#btn-close-terminal-screen'),
   btnTerminalScreenNew: $('#btn-terminal-screen-new'),
-  btnTerminalScreenScrcpy: $('#btn-terminal-screen-scrcpy'),
-  terminalScreenActiveName: $('#terminal-screen-active-name'),
   terminalEmptyState: $('#terminal-empty-state'),
   btnTerminalEmptyNew: $('#btn-terminal-empty-new'),
-  btnTerminalEmptyScrcpy: $('#btn-terminal-empty-scrcpy'),
   tabListScroll: $('#tab-list-scroll'),
   tabNewBtn: $('#tab-new-btn'),
   tabCollapseBtn: $('#tab-collapse-btn'),
-  btnVsCode: $('#btn-vscode'),
   btnExplorer: $('#btn-explorer'),
   btnAndroidStudio: $('#btn-android-studio'),
   btnAntigravity: $('#btn-antigravity'),
@@ -214,7 +209,6 @@ const dom = {
   settingsAntigravityPath: $('#settings-antigravity-path'),
   settingsAntigravityAgentPath: $('#settings-antigravity-agent-path'),
   settingsAndroidStudioPath: $('#settings-android-studio-path'),
-  settingsVsCodePath: $('#settings-vscode-path'),
   settingsFigmaPath: $('#settings-figma-path'),
   settingsFigmaUrl: $('#settings-figma-url'),
   settingsObsidianPath: $('#settings-obsidian-path'),
@@ -224,7 +218,6 @@ const dom = {
   btnBrowseAntigravity: $('#btn-browse-antigravity'),
   btnBrowseAntigravityAgent: $('#btn-browse-antigravity-agent'),
   btnBrowseAndroidStudio: $('#btn-browse-android-studio'),
-  btnBrowseVsCode: $('#btn-browse-vscode'),
   btnBrowseFigma: $('#btn-browse-figma'),
   btnBrowseObsidian: $('#btn-browse-obsidian'),
   btnBrowseObsidianVault: $('#btn-browse-obsidian-vault'),
@@ -287,7 +280,6 @@ function setupBrowseButton(btn, input) {
 setupBrowseButton(dom.btnBrowseAntigravity, dom.settingsAntigravityPath);
 setupBrowseButton(dom.btnBrowseAntigravityAgent, dom.settingsAntigravityAgentPath);
 setupBrowseButton(dom.btnBrowseAndroidStudio, dom.settingsAndroidStudioPath);
-setupBrowseButton(dom.btnBrowseVsCode, dom.settingsVsCodePath);
 setupBrowseButton(dom.btnBrowseFigma, dom.settingsFigmaPath);
 setupBrowseButton(dom.btnBrowseObsidian, dom.settingsObsidianPath);
 setupBrowseButton(dom.btnBrowseScrcpy, dom.settingsScrcpyPath);
@@ -316,7 +308,6 @@ const settingsInputs = [
   dom.settingsAntigravityPath,
   dom.settingsAntigravityAgentPath,
   dom.settingsAndroidStudioPath,
-  dom.settingsVsCodePath,
   dom.settingsFigmaPath,
   dom.settingsFigmaUrl,
   dom.settingsObsidianPath,
@@ -576,8 +567,9 @@ const TOOL_TABS: Record<string, ToolTab> = {
     label: 'Antigravity CLI',
     iconKey: 'antigravity',
     prewarm: false,
-    launchArgs: [],
-    title: 'Open Antigravity CLI in a new terminal tab',
+    launchArgs: ['--dangerously-skip-permissions'],
+    title: 'Open Antigravity CLI with --dangerously-skip-permissions in a new terminal tab',
+    warningBadge: 'danger',
     behavior: {
       forceMouseMode: false,
     },
@@ -1396,9 +1388,6 @@ async function showTerminalScreen() {
 
   const activeWorktreePath = state.activeWorktreePath;
   const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'active workspace';
-  if (dom.terminalScreenActiveName) {
-    dom.terminalScreenActiveName.textContent = activeWorktreeName;
-  }
 
   // Check if active worktree has terminals
   const wtTerminals = getTerminalsForWorktree(activeWorktreePath);
@@ -1467,9 +1456,6 @@ function switchWorktreeContext(wtPath) {
 
   // If the terminal screen is currently visible, update terminal view
   if (isTerminalScreenVisible()) {
-    const activeWorktreeName = wtPath ? wtPath.split(/[\\/]/).pop() : 'active workspace';
-    if (dom.terminalScreenActiveName) dom.terminalScreenActiveName.textContent = activeWorktreeName;
-
     const savedId = state.worktreeActiveTerminal.get(wtPath);
     const wtTerminals = getTerminalsForWorktree(wtPath);
 
@@ -1823,27 +1809,6 @@ function createToolTab(toolKey) {
   });
 }
 
-async function launchScrcpyCliTerminal() {
-  if (!isTerminalScreenVisible()) {
-    await showTerminalScreen();
-  }
-  const { wtPath, wtName } = getActiveWorktreeInfo();
-  if (state.useExternalWt) {
-    void window.api.openWindowsTerminal({
-      cwd: wtPath,
-      launchCommand: 'scrcpy-cli',
-      launchArgs: [],
-    });
-    return;
-  }
-  await createDirectToolTerminal(wtPath, `Scrcpy CLI: ${wtName}`, {
-    command: 'scrcpy-cli',
-    launchArgs: [],
-    worktreePath: wtPath,
-    iconKey: 'screen',
-    behavior: { forceMouseMode: false },
-  });
-}
 
 function showTabDropdown() {
   hideTabDropdown();
@@ -2094,7 +2059,6 @@ if (dom.btnObsidian) {
   });
 }
 
-bindWorktreeQuickAction(dom.btnVsCode, (wtPath) => window.api.openInEditor(wtPath), 'Opening Spec Editor...');
 bindWorktreeQuickAction(dom.btnExplorer, (wtPath) => window.api.openInExplorer(wtPath), 'Opening Explorer...');
 
 // ═══════════════════════════════════════════════════════
@@ -2478,7 +2442,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
     const emptyImportBtn = dom.dashCompetitorList.querySelector('#dash-btn-empty-import-apk');
     if (emptyImportBtn) {
       emptyImportBtn.addEventListener('click', () => {
-        if (dom.dashBtnImportCompApk) dom.dashBtnImportCompApk.click();
+        void handleImportCompetitorApk();
       });
     }
     return;
@@ -3275,33 +3239,37 @@ if (dom.dashBtnViewList) {
   });
 }
 
+async function handleImportCompetitorApk() {
+  const { activeProject, activeWt } = getActiveProjectAndWorktree();
+  if (!activeProject) {
+    showToast('Please select a project first', 'error');
+    return;
+  }
+  const apkFile = await window.api.selectApkFile();
+  if (apkFile) {
+    openCompetitorModal({
+      project: activeProject,
+      initialApk: apkFile,
+      dom,
+      icons,
+      configureModalFooter,
+      showModal,
+      hideModal,
+      showToast,
+      focusModalInputLater,
+      bindModalEnterSubmit,
+      withAsyncButtonState,
+      onSuccess: (updated: any) => {
+        activeProject.competitors = updated.competitors;
+        renderDashboardCompetitors(activeProject, activeWt);
+      },
+    });
+  }
+}
+
 if (dom.dashBtnImportCompApk) {
-  dom.dashBtnImportCompApk.addEventListener('click', async () => {
-    const { activeProject, activeWt } = getActiveProjectAndWorktree();
-    if (!activeProject) {
-      showToast('Please select a project first', 'error');
-      return;
-    }
-    const apkFile = await window.api.selectApkFile();
-    if (apkFile) {
-      openCompetitorModal({
-        project: activeProject,
-        initialApk: apkFile,
-        dom,
-        icons,
-        configureModalFooter,
-        showModal,
-        hideModal,
-        showToast,
-        focusModalInputLater,
-        bindModalEnterSubmit,
-        withAsyncButtonState,
-        onSuccess: (updated: any) => {
-          activeProject.competitors = updated.competitors;
-          renderDashboardCompetitors(activeProject, activeWt);
-        },
-      });
-    }
+  dom.dashBtnImportCompApk.addEventListener('click', () => {
+    void handleImportCompetitorApk();
   });
 }
 
@@ -3442,19 +3410,9 @@ if (dom.btnTerminalScreenNew) {
     createNewTerminalTab();
   });
 }
-if (dom.btnTerminalScreenScrcpy) {
-  dom.btnTerminalScreenScrcpy.addEventListener('click', () => {
-    void launchScrcpyCliTerminal();
-  });
-}
 if (dom.btnTerminalEmptyNew) {
   dom.btnTerminalEmptyNew.addEventListener('click', () => {
     createNewTerminalTab();
-  });
-}
-if (dom.btnTerminalEmptyScrcpy) {
-  dom.btnTerminalEmptyScrcpy.addEventListener('click', () => {
-    void launchScrcpyCliTerminal();
   });
 }
 
@@ -3752,13 +3710,6 @@ function attachSelectedProjectEvents(project) {
       }
     });
 
-    wtEl.querySelector('[data-action="vscode"]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const currentTarget = e.currentTarget;
-      if (currentTarget instanceof HTMLElement) window.api.openInEditor(currentTarget.dataset.path || '');
-      showToast('Opening VS Code...', 'info');
-    });
-
     wtEl.querySelector('[data-action="android-studio"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
       const currentTarget = e.currentTarget;
@@ -3973,7 +3924,6 @@ async function saveSettingsFromUI() {
     antigravityPath: dom.settingsAntigravityPath ? cleanVal(dom.settingsAntigravityPath.value) : '',
     antigravityAgentPath: dom.settingsAntigravityAgentPath ? cleanVal(dom.settingsAntigravityAgentPath.value) : '',
     androidStudioPath: dom.settingsAndroidStudioPath ? cleanVal(dom.settingsAndroidStudioPath.value) : '',
-    vscodePath: dom.settingsVsCodePath ? cleanVal(dom.settingsVsCodePath.value) : '',
     figmaPath: dom.settingsFigmaPath ? cleanVal(dom.settingsFigmaPath.value) : '',
     figmaUrl: dom.settingsFigmaUrl ? dom.settingsFigmaUrl.value.trim() : (state.settings?.figmaUrl || 'https://www.figma.com'),
     obsidianPath: dom.settingsObsidianPath ? cleanVal(dom.settingsObsidianPath.value) : '',
@@ -3991,7 +3941,6 @@ async function showSettingsScreen() {
     if (dom.settingsAntigravityPath) dom.settingsAntigravityPath.value = state.settings.antigravityPath || 'detecting...';
     if (dom.settingsAntigravityAgentPath) dom.settingsAntigravityAgentPath.value = state.settings.antigravityAgentPath || 'detecting...';
     if (dom.settingsAndroidStudioPath) dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || 'detecting...';
-    if (dom.settingsVsCodePath) dom.settingsVsCodePath.value = state.settings.vscodePath || 'detecting...';
     if (dom.settingsFigmaPath) dom.settingsFigmaPath.value = state.settings.figmaPath || '';
     if (dom.settingsFigmaUrl) dom.settingsFigmaUrl.value = state.settings.figmaUrl || 'https://www.figma.com';
     if (dom.settingsObsidianPath) dom.settingsObsidianPath.value = state.settings.obsidianPath || 'detecting...';
@@ -4022,9 +3971,6 @@ async function showSettingsScreen() {
       if (dom.settingsAndroidStudioPath) {
         dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || detected.androidStudioPath || 'not detected';
       }
-      if (dom.settingsVsCodePath) {
-        dom.settingsVsCodePath.value = state.settings.vscodePath || detected.vscodePath || 'not detected';
-      }
       if (dom.settingsScrcpyPath) {
         dom.settingsScrcpyPath.value = state.settings.scrcpyPath || detected.scrcpyPath || 'not detected';
       }
@@ -4052,9 +3998,6 @@ async function showSettingsScreen() {
       }
       if (dom.settingsAndroidStudioPath) {
         dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || 'not detected';
-      }
-      if (dom.settingsVsCodePath) {
-        dom.settingsVsCodePath.value = state.settings.vscodePath || 'not detected';
       }
       if (dom.settingsScrcpyPath) {
         dom.settingsScrcpyPath.value = state.settings.scrcpyPath || 'not detected';

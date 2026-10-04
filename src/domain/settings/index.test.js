@@ -20,7 +20,6 @@ test('normalizeSettings trims values and drops blank entries', () => {
         '': 'ignored',
         'child': '   ',
       },
-      vscodePath: '   code  ',
       androidStudioPath: '  studio64  ',
       antigravityPath: '  antigravity-ide  ',
       antigravityAgentPath: '  antigravity  ',
@@ -29,7 +28,6 @@ test('normalizeSettings trims values and drops blank entries', () => {
       subworktreeBranchParents: {
         'feature/foo': 'main',
       },
-      vscodePath: 'code',
       androidStudioPath: 'studio64',
       antigravityPath: 'antigravity-ide',
       antigravityAgentPath: 'antigravity',
@@ -48,7 +46,6 @@ test('normalizeSettings trims values and drops blank entries', () => {
 test('normalizeSettings falls back for non-object input', () => {
   assert.deepStrictEqual(normalizeSettings(null), {
     subworktreeBranchParents: {},
-    vscodePath: '',
     androidStudioPath: '',
     antigravityPath: '',
     antigravityAgentPath: '',
@@ -103,7 +100,6 @@ test('normalizeWorkspaceConfig keeps projects array and normalizes settings', ()
   assert.strictEqual(result.projects, projects);
   assert.deepStrictEqual(result.settings, {
     subworktreeBranchParents: {},
-    vscodePath: '',
     androidStudioPath: '',
     antigravityPath: '',
     antigravityAgentPath: '',

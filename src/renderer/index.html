@@ -199,7 +199,7 @@
               <div class="dash-section-header">
                 <div class="dash-section-title-group">
                   <div class="dash-section-icon competitor-tint">
-                    <img src="icons/link.svg" width="16" height="16" alt="" />
+                    <img src="icons/apk.svg" width="16" height="16" alt="" />
                   </div>
                   <div class="dash-title-with-badge">
                     <h3 class="dash-section-title">Competitors</h3>
@@ -207,10 +207,6 @@
                   </div>
                 </div>
                 <div class="dash-section-actions">
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-import-comp-apk" title="Import competitor app from APK file">
-                    <img src="icons/apk.svg" width="12" height="12" alt="" />
-                    <span>Import APK</span>
-                  </button>
                   <button type="button" class="btn-secondary btn-small" id="dash-btn-sync-config" title="Sync Figma & competitors to .agents/config/ba-project-config.md">
                     <img src="icons/refresh.svg" width="12" height="12" alt="" />
                     <span>Sync to Config</span>
@@ -240,13 +236,8 @@
               <span class="terminal-screen-badge-icon"><img src="icons/terminal.svg" width="14" height="14" alt="" /></span>
               <h2 class="terminal-screen-title">Terminal Management</h2>
             </div>
-            <p class="terminal-screen-subtitle">Interactive shell sessions for <span id="terminal-screen-active-name" class="terminal-screen-wt-highlight">active workspace</span></p>
           </div>
           <div class="terminal-screen-actions">
-            <button type="button" class="btn-secondary btn-small" id="btn-terminal-screen-scrcpy" title="Open Scrcpy CLI session">
-              <img src="icons/screen.svg" width="12" height="12" alt="" />
-              <span>Scrcpy CLI</span>
-            </button>
             <button type="button" class="btn-secondary btn-small" id="btn-terminal-screen-new" title="New Terminal (Ctrl+N)">
               <img src="icons/plus.svg" width="12" height="12" alt="" />
               <span>New Terminal</span>
@@ -287,10 +278,6 @@
                 <button type="button" class="btn-primary btn-small" id="btn-terminal-empty-new">
                   <img src="icons/plus.svg" width="12" height="12" alt="" />
                   <span>Launch New Terminal</span>
-                </button>
-                <button type="button" class="btn-secondary btn-small" id="btn-terminal-empty-scrcpy" title="Launch Scrcpy CLI session">
-                  <img src="icons/screen.svg" width="12" height="12" alt="" />
-                  <span>Launch Scrcpy CLI</span>
                 </button>
               </div>
             </div>
@@ -411,14 +398,6 @@
                 </div>
               </div>
 
-              <!-- Spec Editor / VS Code -->
-              <div class="form-group-col">
-                <label class="form-label">Spec Editor / VS Code path or command</label>
-                <div class="input-browse-group">
-                  <input type="text" id="settings-vscode-path" class="settings-input" placeholder="e.g. code or path to Code.exe" autocomplete="off" spellcheck="false" />
-                  <button type="button" class="btn-browse" id="btn-browse-vscode" title="Browse executable">Browse</button>
-                </div>
-              </div>
 
               <!-- ReaKit Framework -->
               <div class="form-group-col">
@@ -810,10 +789,6 @@
         <section class="workspace-section">
           <h3 class="workspace-section-title">Dev & Toolkits</h3>
           <div class="workspace-tool-list">
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-vscode" title="Open in Spec Editor / VS Code" aria-label="Spec Editor">
-              <span class="workspace-tool-icon"><img src="icons/code.svg" width="16" height="16" alt="" /></span>
-              <span class="workspace-tool-text">Spec Editor</span>
-            </button>
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-explorer" title="Open in Explorer" aria-label="Open in Explorer">
               <span class="workspace-tool-icon"><img src="icons/folder.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Explorer</span>

@@ -12,3 +12,4 @@ Thumbs.db
 /mobilerun-mcp
 toolkits/ReaKit/workspaces/
 toolkits/ReaKit/**/__pycache__/
+*.egg-info/

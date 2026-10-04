@@ -32,7 +32,6 @@ declare global {
       getGitInfo: (path: string) => Promise<any>;
       getRecentCommits: (path: string) => Promise<any>;
       openWindowsTerminal: (opts: OpenWindowsTerminalOptions) => Promise<any>;
-      openInEditor: (path: string) => Promise<any>;
       openInExplorer: (path: string) => Promise<any>;
       openExternal: (url: string) => Promise<any>;
       openInAndroidStudio: (path: string) => Promise<any>;
@@ -60,7 +59,6 @@ declare global {
       onPtyExit: (callback: (payload: { id: string; exitCode: number }) => void) => () => void;
       getSettings: () => Promise<{
         subworktreeBranchParents?: Record<string, string>;
-        vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
@@ -76,7 +74,6 @@ declare global {
       }>;
       updateSettings: (settings: {
         subworktreeBranchParents?: Record<string, string>;
-        vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
@@ -91,7 +88,6 @@ declare global {
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }) => Promise<{
         subworktreeBranchParents?: Record<string, string>;
-        vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
@@ -110,7 +106,6 @@ declare global {
         antigravityPath: string | null;
         antigravityAgentPath: string | null;
         androidStudioPath: string | null;
-        vscodePath: string | null;
         scrcpyPath?: string | null;
         figmaPath?: string | null;
         obsidianPath?: string | null;

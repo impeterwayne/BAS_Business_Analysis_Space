@@ -27,7 +27,6 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Launch actions ──
   openWindowsTerminal: (opts: OpenWindowsTerminalOptions) => ipcRenderer.invoke('open-wt', opts),
-  openInEditor: (path) => ipcRenderer.invoke('open-in-editor', path),
   openInExplorer: (path) => ipcRenderer.invoke('open-in-explorer', path),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openInAndroidStudio: (path) => ipcRenderer.invoke('open-in-android-studio', path),

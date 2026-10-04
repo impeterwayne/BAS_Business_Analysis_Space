@@ -1,6 +1,0 @@
-[submodule "core/scrcpy_cli"]
-	path = core/scrcpy_cli
-	url = https://github.com/impeterwayne/scrcpy_cli.git
-[submodule "core/ghidra_mcp"]
-	path = core/ghidra_mcp
-	url = https://github.com/bethington/ghidra-mcp

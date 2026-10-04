@@ -858,28 +858,6 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('open-in-editor', (_, dirPath) => {
-    try {
-      const settings = workspaceService.getSettings();
-      const exe = settings.vscodePath || findVsCodeExecutable();
-      const ext = path.extname(exe).toLowerCase();
-      let spawnFile;
-      let spawnArgs;
-      if (ext === '.cmd' || ext === '.bat') {
-        spawnFile = 'cmd.exe';
-        spawnArgs = ['/d', '/c', exe, dirPath];
-      } else {
-        spawnFile = exe;
-        spawnArgs = [dirPath];
-      }
-      const useShell = !path.isAbsolute(exe);
-      spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, detached: true, stdio: 'ignore' });
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-
   ipcMain.handle('open-external', (_, url) => openExternalUrl(url));
 
   ipcMain.handle('open-in-explorer', (_, dirPath) => {
@@ -959,13 +937,6 @@ app.whenReady().then(() => {
         path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
         path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
         path.join(os.homedir(), 'AppData', 'Local', 'Android', 'Android Studio', 'bin', 'studio64.exe'),
-      ]),
-      vscodePath: detectPath('code', [
-        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd'),
-        path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Microsoft VS Code', 'Code.exe'),
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Microsoft VS Code', 'bin', 'code.cmd'),
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Microsoft VS Code', 'Code.exe'),
-        path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Microsoft VS Code', 'bin', 'code.cmd'),
       ]),
       scrcpyPath: detectPath('scrcpy', [
         path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
@@ -1049,28 +1020,6 @@ app.whenReady().then(() => {
       return resolveToolLaunch('studio64').file;
     } catch (_) {
       return 'studio64';
-    }
-  }
-
-  function findVsCodeExecutable() {
-    const possiblePaths = [
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd'),
-      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Microsoft VS Code', 'Code.exe'),
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Microsoft VS Code', 'bin', 'code.cmd'),
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Microsoft VS Code', 'Code.exe'),
-      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Microsoft VS Code', 'bin', 'code.cmd'),
-    ];
-
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-
-    try {
-      return resolveToolLaunch('code').file;
-    } catch (_) {
-      return 'code';
     }
   }
 

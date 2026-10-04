@@ -19,8 +19,7 @@ BA Space is an AI-augmented Business Analyst workspace and requirement orchestra
 ### 3. BA Quick Launchers & External Integrations
 - **Antigravity IDE & Agent Manager**: Jump straight into Antigravity with your current worktree context.
 - **Figma Integration**: Launch Figma desktop app or navigate to custom project design URLs.
-- **Spec Editor**: Open markdown specs, user stories, and acceptance criteria in your preferred editor (VS Code or custom spec editor).
-- **Embedded & External Terminals**: Integrated xterm.js tabs with `scrcpy-cli` quick launch, alongside external Windows Terminal support.
+- **Embedded & External Terminals**: Integrated xterm.js tabs with AI CLI launchers (Antigravity CLI with `--dangerously-skip-permissions`, OpenCode, Codex YOLO, Claude), alongside external Windows Terminal support.
 
 ---
 
@@ -62,7 +61,7 @@ All distribution artifacts are generated into the `release/` directory.
 ## Project Structure
 
 - **Main Process**: [`src/main/main.ts`](file:///D:/Quest/BA_Space/src/main/main.ts) & [`src/main/ipc/workspaceIpc.ts`](file:///D:/Quest/BA_Space/src/main/ipc/workspaceIpc.ts)
-  - Handles Electron lifecycle, window creation, PTY session management, external process spawning (Figma, Scrcpy, Antigravity, VS Code), and system dialogs.
+  - Handles Electron lifecycle, window creation, PTY session management, external process spawning (Figma, Scrcpy, Antigravity), and system dialogs.
 - **Preload Bridge**: [`src/main/preload.ts`](file:///D:/Quest/BA_Space/src/main/preload.ts)
   - Exposes typed IPC methods to the renderer context.
 - **Renderer Frontend**:
