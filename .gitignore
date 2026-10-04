@@ -9,7 +9,10 @@ build/*
 .DS_Store
 Thumbs.db
 /BA_Flow
-/mobilerun-mcp
+mobilerun-mcp/.venv/
+mobilerun-mcp/dist/
+.pytest_cache/
+.ruff_cache/
 /AndroidHarnessAGY
 /apk-reverse
 toolkits/ReaKit/workspaces/

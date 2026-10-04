@@ -22,7 +22,7 @@
 .EXAMPLE
   .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -RegisterMcp
 .EXAMPLE
-  .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -McpOnly -MobilerunPath D:\Quest\mobilerun-mcp -Device R58RB1XWAKJ
+  .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -McpOnly -MobilerunPath D:\Quest\BA_Space\mobilerun-mcp -Device R58RB1XWAKJ
 .EXAMPLE
   .\install-bakit.ps1 -Target D:\Projects\my-ba-workspace -RegisterFigmaMcp
 #>
@@ -72,12 +72,7 @@ function Resolve-MobilerunPython {
   $candidates = @()
   if ($MobilerunPath) { $candidates += $MobilerunPath }
   $candidates += (Join-Path (Split-Path -Parent (Split-Path -Parent $KitRoot)) 'mobilerun-mcp')
-  $candidates += 'D:\Quest\mobilerun-mcp'
   foreach ($c in $candidates) {
-    if (-not (Test-Path $c)) { continue }
-    # Follow a symlinked checkout (e.g. BA_Space\mobilerun-mcp) to its real folder.
-    $dirItem = Get-Item $c
-    if ($dirItem.LinkType -and $dirItem.Target) { $c = @($dirItem.Target)[0] }
     $py = Join-Path $c '.venv\Scripts\python.exe'
     if (Test-Path $py) { return (Resolve-Path $py).Path }
   }

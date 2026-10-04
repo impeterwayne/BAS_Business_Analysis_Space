@@ -70,18 +70,15 @@ The CLI has its own venv because its dependencies conflict with mobilerun-mcp's.
 "Setup Portal" uses the managed CLI first.
 
 mobilerun-mcp ships inside BA Space as `mcp\mobilerun_mcp-*.whl` (its Python dependencies still come from
-PyPI). After changing `D:\Quest\mobilerun-mcp`, rebuild the bundled wheel and then the app:
-
-```powershell
-npm run bundle:mobilerun     # toolkits\BAKit\scriptsundle-mobilerun-wheel.ps1 (needs uv)
-npm run make:win
-```
+PyPI). Its source lives in this repo at `mobilerun-mcp\`. `npm run pack` / `make*` and the release workflow
+rebuild the wheel from it before packaging (`npm run bundle:mobilerun`, `scripts\bundle-mobilerun-wheel.js`;
+needs uv). The build is reproducible, so the wheel only changes when the source does.
 
 The managed install records the sha256 of the wheel it came from. When an app update ships a different wheel,
 the setup dialog offers **Update** on the next launch and reinstalls the package in place.
 
 A developer checkout wins over the managed copy: `<mobilerun-mcp>\.venv\Scripts\python.exe`, looked up next to
-BA Space (`BA_Space\mobilerun-mcp`, symlinks resolved) and at `D:\Quest\mobilerun-mcp`. The `command` is an absolute
+BA Space (`BA_Space\mobilerun-mcp`; create it with `uv sync` there). The `command` is an absolute
 path on this machine: re-tick the component (or rerun the installer) on another machine. Pin a device per
 workspace with `"env": { "MOBILERUN_DEVICE": "<serial>" }` in that `mcp_config.json`.
 
@@ -165,7 +162,7 @@ With a design instead (or as well): open the file in Figma Desktop, run the figm
   `D:\Quest\BA_Flow\.agents`. They were adapted for Antigravity: no Claude-Code-only tools
   (`AskUserQuestion`, `$ARGUMENTS`), a project-type step instead of the missing `detect-project-type.sh`,
   and template paths pointing at `ba-templates`.
-- `mobilerun` skill: copied from `D:\Quest\mobilerun-mcp\.agents\skills\mobilerun`.
+- `mobilerun` skill: copied from `mobilerun-mcp\.agents\skills\mobilerun` (repo root).
 - `figma-ba-analysis`, `figma-analyst` and the `ba-figma` rule are adapted from AndroidHarnessAGY's
   `figma-design-analyzer` / `figma-analyzer` / `figma` rule (same MCP server and call budget), retargeted from a
   Compose / XML implementation spec to PRD / SRS input.

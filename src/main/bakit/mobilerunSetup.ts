@@ -18,8 +18,8 @@ const CLI_DIR = path.join(MOBILERUN_SETUP_ROOT, 'cli');
 // cleanly, so a half-finished install is not picked up; compared with the bundle to spot an app update.
 const MCP_MARKER = path.join(MCP_DIR, '.installed');
 
-// mobilerun-mcp ships with BA Space as a wheel in toolkits\BAKit\mcp\ (built by
-// toolkits\BAKit\scripts\bundle-mobilerun-wheel.ps1); only its dependencies come from PyPI.
+// mobilerun-mcp ships with BA Space as a wheel in toolkits\BAKit\mcp\ (built from mobilerun-mcp\ by
+// scripts\bundle-mobilerun-wheel.js on every packaged build); only its dependencies come from PyPI.
 const BUNDLED_WHEEL_PATTERN = /^mobilerun_mcp-.+\.whl$/;
 const MOBILERUN_CLI_PACKAGE = 'mobilerun';
 const WINGET_PYTHON_ID = 'Python.Python.3.13';
@@ -142,7 +142,7 @@ function findBundledWheel(wheelDir: string): BundledWheel | null {
     return null;
   }
   if (!names.length) return null;
-  // bundle-mobilerun-wheel.ps1 keeps exactly one; if several slipped in, take the newest.
+  // bundle-mobilerun-wheel.js keeps exactly one; if several slipped in, take the newest.
   const wheel = names
     .map((n) => path.join(wheelDir, n))
     .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
@@ -248,7 +248,7 @@ export async function installMobilerun(log: Log, ctx: MobilerunSetupContext): Pr
       log(`mobilerun-mcp found: ${mcpPython}`);
     } else {
       if (!wheel) {
-        throw new Error(`The mobilerun-mcp wheel is missing from ${ctx.wheelDir}. Run toolkits/BAKit/scripts/bundle-mobilerun-wheel.ps1 and rebuild BA Space.`);
+        throw new Error(`The mobilerun-mcp wheel is missing from ${ctx.wheelDir}. Run npm run bundle:mobilerun and rebuild BA Space.`);
       }
       if (mcpPython) {
         log(`Updating mobilerun-mcp from the bundled ${path.basename(wheel.path)}...`);

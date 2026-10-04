@@ -38,7 +38,6 @@ export function resolveMobilerunPython(customPath?: string): string | null {
     customPath,
     path.join(appPath, 'mobilerun-mcp'),
     path.join(path.dirname(appPath), 'mobilerun-mcp'),
-    'D:\\Quest\\mobilerun-mcp',
   ].filter(Boolean) as string[];
   for (const dir of candidates) {
     const python = venvExecutable(path.join(dir, '.venv'), 'python');
