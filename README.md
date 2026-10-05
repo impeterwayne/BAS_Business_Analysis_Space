@@ -31,7 +31,6 @@ BA Space is an AI-augmented Business Analyst workspace and requirement orchestra
   - **macOS**: macOS 12 Monterey or later (Apple Silicon `arm64` & Intel `x64`)
   - **Linux**: Ubuntu 20.04+, Debian 11+, Fedora, or equivalent modern distribution (x64)
 - **Node.js**: v20+ (Node.js 22 recommended) and npm
-- **uv**: Fast Python package manager ([installation guide](https://docs.astral.sh/uv/getting-started/installation/)). Required to build reproducible wheels for `mobilerun-mcp` across all platforms.
 - **Git**: Installed and on system PATH
 - **ADB & Scrcpy**: Required for device mirroring and UI capture features (`scrcpy` and `adb` available on system PATH or standard SDK / Homebrew install paths)
 - **Optional Tools**: Android Studio, Antigravity CLI / IDE, Figma Desktop, Obsidian, Claude Desktop (all detected automatically across Windows, macOS, and Linux)
@@ -46,9 +45,6 @@ cd BAS_Business_Analysis_Space
 # Install dependencies
 npm install
 
-# Bundle the Python mobilerun-mcp wheel (requires uv)
-npm run bundle:mobilerun
-
 # Run unit tests
 npm test
 
@@ -58,7 +54,7 @@ npm start
 
 ### Build & Package for Production
 
-All packaging commands automatically compile TypeScript (`npm run build`) and bundle the `mobilerun-mcp` wheel (`npm run bundle:mobilerun`) before invoking Electron Builder.
+All packaging commands automatically compile TypeScript (`npm run build`) before invoking Electron Builder.
 
 #### 1. Compile TypeScript Only
 ```bash
@@ -134,5 +130,4 @@ All distribution artifacts are generated into the `release/` directory.
   - [`src/domain/settings/index.js`](file:///D:/Quest/BA_Space/src/domain/settings/index.js): Settings normalization and defaults.
 - **Bundled Toolkits & Modules**:
   - `toolkits/BAKit/`: BA agents, skills, template catalog, rules, slash workflows, and mobilerun MCP registration.
-  - `mobilerun-mcp/`: Source code for the Python MCP server providing mobile device automation and competitor analysis tools.
-  - `scripts/bundle-mobilerun-wheel.js`: Cross-platform build script producing reproducible `.whl` artifacts into `toolkits/BAKit/mcp/`.
+  - `mobilerun-mcp/`: Source code for the mobilerun MCP server providing mobile device automation and competitor analysis tools. Zero-setup runner distributed as `@impeterwayne/mobilerun-mcp@latest` on npm.

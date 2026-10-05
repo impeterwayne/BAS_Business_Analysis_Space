@@ -8,14 +8,13 @@
     "build:preload": "esbuild src/main/preload.ts --outfile=dist/main/preload.js --platform=node --format=cjs --bundle --external:electron",
     "build:renderer": "esbuild src/renderer/app.ts --bundle --outfile=dist/renderer/app.bundle.js --platform=browser --format=iife --target=chrome120",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
-    "bundle:mobilerun": "node scripts/bundle-mobilerun-wheel.js",
     "test": "node --test src/domain/**/*.test.js",
     "start": "npm run build && electron .",
-    "pack": "npm run build && npm run bundle:mobilerun && electron-builder --dir",
-    "make": "npm run build && npm run bundle:mobilerun && electron-builder",
-    "make:win": "npm run build && npm run bundle:mobilerun && electron-builder --win",
-    "make:mac": "npm run build && npm run bundle:mobilerun && electron-builder --mac",
-    "make:linux": "npm run build && npm run bundle:mobilerun && electron-builder --linux"
+    "pack": "npm run build && electron-builder --dir",
+    "make": "npm run build && electron-builder",
+    "make:win": "npm run build && electron-builder --win",
+    "make:mac": "npm run build && electron-builder --mac",
+    "make:linux": "npm run build && electron-builder --linux"
   },
   "keywords": [
     "business-analyst",

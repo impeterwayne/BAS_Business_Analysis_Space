@@ -5245,22 +5245,8 @@ function openMobilerunSetup({ intro = '', onReady = null, onDismiss = null }: { 
 const MOBILERUN_SETUP_DISMISSED_KEY = 'baspace.mobilerunSetupDismissed';
 
 async function checkMobilerunSetupOnLaunch() {
-  const status = await window.api.getMobilerunSetupStatus();
-  if (status.mcpPython && !status.mcpOutdated && status.cliPath) return;
-  const dismissKey = status.bundledWheelId || 'no-bundle';
-  try {
-    if (localStorage.getItem(MOBILERUN_SETUP_DISMISSED_KEY) === dismissKey) return;
-  } catch (_) { /* storage unavailable: still offer */ }
-  // Never cover a dialog the user already has open.
-  if (dom.modalOverlay && dom.modalOverlay.style.display !== 'none') return;
-  void openMobilerunSetup({
-    intro: status.mcpPython && status.mcpOutdated
-      ? 'This BA Space version bundles a newer mobilerun-mcp. Update the installed copy so BAKit agents get the new server.'
-      : 'BAKit competitor analysis drives Android apps through mobilerun, which needs Python. BA Space can install Python 3.13 and the bundled mobilerun for you.',
-    onDismiss: () => {
-      try { localStorage.setItem(MOBILERUN_SETUP_DISMISSED_KEY, dismissKey); } catch (_) { /* ignore */ }
-    },
-  });
+  // Zero-setup runner via npx (@impeterwayne/mobilerun-mcp@latest)
+  return;
 }
 
 // Toolkit components to link/manage
@@ -5416,8 +5402,7 @@ async function refreshAgentToolkitStatus() {
       if (comp.kind === 'mcp') {
         try {
           const mcp = await window.api.getMobilerunMcpStatus({ worktreePath: activeWorktreePath });
-          // Without an interpreter the checkbox opens Mobilerun setup (Python + mobilerun) instead.
-          return { id: comp.id, name: comp.name, sourceExists: true, exists: mcp.registered, needsInstall: !mcp.pythonPath };
+          return { id: comp.id, name: comp.name, sourceExists: true, exists: mcp.registered };
         } catch (e) {
           return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
         }
@@ -5639,19 +5624,6 @@ async function refreshAgentToolkitStatus() {
           }
 
           if (comp.kind === 'mcp') {
-            if (isChecked && target.dataset.needsInstall) {
-              // Register once setup finishes; until then the refresh in finally leaves the box unticked.
-              void openMobilerunSetup({
-                intro: 'The Mobilerun MCP needs Python and mobilerun on this machine. Install them now, then the server is registered in this worktree.',
-                onReady: async () => {
-                  const res = await window.api.registerMobilerunMcp({ worktreePath: activeWorktreePath });
-                  if (res.success) showToast(`Registered mobilerun in ${res.configPath}. Restart the Antigravity agent to load it.`, 'success');
-                  else showToast(`Error: ${res.error || 'Failed to register mobilerun MCP'}`, 'error');
-                  await refreshAgentToolkitStatus();
-                },
-              });
-              return;
-            }
             if (isChecked) {
               const res = await window.api.registerMobilerunMcp({ worktreePath: activeWorktreePath });
               if (!res.success) throw new Error(res.error || 'Failed to register mobilerun MCP');

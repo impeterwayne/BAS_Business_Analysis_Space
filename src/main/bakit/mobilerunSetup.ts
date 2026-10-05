@@ -163,126 +163,22 @@ function isManagedOutdated(mcpPython: string | null, wheel: BundledWheel | null)
   return !!wheel && !!mcpPython && mcpPython === getManagedMobilerunPython() && readMarker() !== wheel.hash;
 }
 
-export async function getMobilerunSetupStatus(ctx: MobilerunSetupContext): Promise<MobilerunSetupStatus> {
-  const [python, pathCli] = await Promise.all([findPython(), findCliOnPath()]);
-  const mcpPython = ctx.resolveMcpPython();
-  const wheel = findBundledWheel(ctx.wheelDir);
+export async function getMobilerunSetupStatus(ctx?: MobilerunSetupContext): Promise<MobilerunSetupStatus> {
   return {
-    python,
-    mcpPython,
-    mcpOutdated: isManagedOutdated(mcpPython, wheel),
-    bundledWheelId: wheel ? wheel.hash.slice(0, 12) : null,
-    cliPath: getManagedMobilerunCli() || pathCli,
-    installing,
+    python: { path: 'npx', version: 'latest' },
+    mcpPython: 'npx',
+    mcpOutdated: false,
+    bundledWheelId: null,
+    cliPath: 'npx',
+    installing: false,
     installRoot: MOBILERUN_SETUP_ROOT,
   };
 }
 
-// Streams the command's output to log line by line; rejects on a non-zero exit.
-function stream(file: string, args: string[], log: Log): Promise<void> {
-  log(`> ${[file, ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}`);
-  return new Promise((resolve, reject) => {
-    const child = spawn(file, args, {
-      windowsHide: true,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PIP_DISABLE_PIP_VERSION_CHECK: '1' },
-    });
-    const forward = (chunk: Buffer) => {
-      for (const line of chunk.toString('utf8').split(/\r?\n|\r/)) {
-        if (line.trim()) log(line);
-      }
-    };
-    child.stdout.on('data', forward);
-    child.stderr.on('data', forward);
-    child.on('error', (err) => reject(err));
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`${path.basename(file)} exited with code ${code}`))));
-  });
-}
-
-async function installPython(log: Log): Promise<PythonInfo> {
-  if (isMac) {
-    if (!findOnPath('brew')) {
-      throw new Error('Python 3.11-3.13 is not installed and Homebrew is not available. Install Python 3.13 from https://www.python.org/downloads/ (or `brew install python@3.13`) and retry.');
-    }
-    log('Installing Python 3.13 with Homebrew (python@3.13)...');
-    await stream('brew', ['install', 'python@3.13'], log).catch((err) => log(`brew: ${err.message}`));
-    const python = await findPython();
-    if (!python) throw new Error('Python was not found after the Homebrew install. Install Python 3.13 from https://www.python.org/downloads/ and retry.');
-    return python;
-  }
-  if (!isWin) {
-    // Distro packages need root, so BA Space does not install them itself.
-    throw new Error('Python 3.11-3.13 with venv support is not installed. Install it with your package manager (for example `sudo apt install python3.12 python3.12-venv` or `sudo dnf install python3.12`) and retry.');
-  }
-  if (!(await run('winget', ['--version']))) {
-    throw new Error('Python 3.11-3.13 is not installed and winget is not available. Install Python 3.13 from https://www.python.org/downloads/ and retry.');
-  }
-  log(`Installing Python 3.13 with winget (${WINGET_PYTHON_ID}, current user)...`);
-  // --scope user: no admin prompt; the installer goes to %LOCALAPPDATA%\Programs\Python.
-  await stream('winget', [
-    'install', '-e', '--id', WINGET_PYTHON_ID, '--scope', 'user', '--silent',
-    '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity',
-  ], log).catch((err) => log(`winget: ${err.message}`));
-  const python = await findPython();
-  if (!python) throw new Error('Python was not found after the winget install. Install Python 3.13 from https://www.python.org/downloads/ and retry.');
-  return python;
-}
-
-async function installIntoVenv(python: string, dir: string, pkg: string, log: Log) {
-  fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(dir, { recursive: true });
-  await stream(python, ['-m', 'venv', path.join(dir, '.venv')], log);
-  await stream(venvPython(dir), ['-m', 'pip', 'install', pkg], log);
-}
-
 export async function installMobilerun(log: Log, ctx: MobilerunSetupContext): Promise<{ success: boolean; status?: MobilerunSetupStatus; error?: string }> {
-  if (installing) return { success: false, error: 'An install is already running.' };
-  installing = true;
-  try {
-    let python = await findPython();
-    if (python) log(`Python ${python.version}: ${python.path}`);
-    else python = await installPython(log);
-
-    const mcpPython = ctx.resolveMcpPython();
-    const wheel = findBundledWheel(ctx.wheelDir);
-    if (mcpPython && !isManagedOutdated(mcpPython, wheel)) {
-      log(`mobilerun-mcp found: ${mcpPython}`);
-    } else {
-      if (!wheel) {
-        throw new Error(`The mobilerun-mcp wheel is missing from ${ctx.wheelDir}. Run npm run bundle:mobilerun and rebuild BA Space.`);
-      }
-      if (mcpPython) {
-        log(`Updating mobilerun-mcp from the bundled ${path.basename(wheel.path)}...`);
-        // Rebuilds keep the version number, so force the package itself, then add any new dependency.
-        await stream(venvPython(MCP_DIR), ['-m', 'pip', 'install', '--force-reinstall', '--no-deps', wheel.path], log);
-        await stream(venvPython(MCP_DIR), ['-m', 'pip', 'install', wheel.path], log);
-      } else {
-        log(`Installing mobilerun-mcp from the bundled ${path.basename(wheel.path)} (about 260 MB of dependencies)...`);
-        await installIntoVenv(python.path, MCP_DIR, wheel.path, log);
-      }
-      await stream(venvPython(MCP_DIR), ['-c', 'import mobilerun_mcp'], log);
-      fs.writeFileSync(MCP_MARKER, `${wheel.hash}\n`, 'utf8');
-      log(`mobilerun-mcp installed: ${venvPython(MCP_DIR)}`);
-    }
-
-    const pathCli = getManagedMobilerunCli() || (await findCliOnPath());
-    if (pathCli) {
-      log(`mobilerun CLI found: ${pathCli}`);
-    } else {
-      log('Installing the mobilerun CLI, used to install the Portal app on the device (about 1 GB of dependencies)...');
-      await installIntoVenv(python.path, CLI_DIR, MOBILERUN_CLI_PACKAGE, log);
-      if (!getManagedMobilerunCli()) throw new Error('The mobilerun executable was not created by pip install mobilerun.');
-      log(`mobilerun CLI installed: ${getManagedMobilerunCli()}`);
-    }
-
-    installing = false;
-    log('Done.');
-    return { success: true, status: await getMobilerunSetupStatus(ctx) };
-  } catch (err: any) {
-    log(`Error: ${err.message}`);
-    return { success: false, error: err.message };
-  } finally {
-    installing = false;
-  }
+  log('mobilerun is configured via npx (@impeterwayne/mobilerun-mcp@latest).');
+  log('Done.');
+  return { success: true, status: await getMobilerunSetupStatus(ctx) };
 }
 
 export function registerMobilerunSetupIpc({ ipcMain, ...ctx }: { ipcMain: any } & MobilerunSetupContext) {

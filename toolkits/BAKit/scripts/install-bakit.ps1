@@ -95,7 +95,6 @@ function Register-MobilerunMcp {
   # this workspace. The global config is read only to warn about an entry left by an older BAKit.
   $pluginDir = Join-Path (Resolve-Path $Target).Path '.agents\plugins\mobilerun'
   $configPath = Join-Path $pluginDir 'mcp_config.json'
-  $python = Resolve-MobilerunPython
 
   if (-not (Test-Path $pluginDir)) { New-Item -ItemType Directory -Force $pluginDir | Out-Null }
   $manifest = [pscustomobject]@{ name = 'mobilerun'; description = 'BAKit: drives a connected Android device for competitor app analysis (mobilerun MCP).' }
@@ -121,14 +120,14 @@ function Register-MobilerunMcp {
     return
   }
 
-  $entry = [pscustomobject]@{ command = ($python -replace '\\', '/'); args = @('-m', 'mobilerun_mcp.server') }
+  $entry = [pscustomobject]@{ command = 'npx'; args = @('-y', '@impeterwayne/mobilerun-mcp@latest') }
   if ($Device) { $entry | Add-Member -NotePropertyName env -NotePropertyValue ([pscustomobject]@{ MOBILERUN_DEVICE = $Device }) }
 
   if ($exists) { $config.mcpServers.PSObject.Properties.Remove('mobilerun') }
   $config.mcpServers | Add-Member -NotePropertyName mobilerun -NotePropertyValue $entry
 
   [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 20), $Utf8NoBom)
-  Write-Host "Registered mobilerun MCP ($python) as a workspace plugin in $configPath. Restart the Antigravity agent to load it."
+  Write-Host "Registered mobilerun MCP (@impeterwayne/mobilerun-mcp@latest) as a workspace plugin in $configPath. Restart the Antigravity agent to load it."
 }
 
 function Find-GlobalFigmaMcp {

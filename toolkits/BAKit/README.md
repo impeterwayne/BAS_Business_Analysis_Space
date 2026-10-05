@@ -47,7 +47,7 @@ mobilerun is registered **per workspace**, as an Antigravity plugin, so it only 
 ```
 <worktree>/.agents/plugins/mobilerun/
   plugin.json        plugin marker (name, description)
-  mcp_config.json    { "mcpServers": { "mobilerun": { "command": "<python>", "args": ["-m", "mobilerun_mcp.server"] } } }
+  mcp_config.json    { "mcpServers": { "mobilerun": { "command": "npx", "args": ["-y", "@impeterwayne/mobilerun-mcp@latest"] } } }
 ```
 
 Antigravity discovers plugins under the workspace's `.agents/` and launches the MCP servers they declare. A bare
@@ -55,35 +55,14 @@ Antigravity discovers plugins under the workspace's `.agents/` and launches the 
 `%USERPROFILE%\.gemini\config\mcp_config.json`, which applies to every workspace. If an older BAKit put
 `mobilerun` there, BA Space offers to remove it when you tick the plugin, and the PowerShell installer warns.
 
-### Mobilerun setup (Python + mobilerun)
+### Zero-Setup Mobilerun Runner (`npx`)
 
-BA Space installs what the server needs. On first launch, and when you tick the Mobilerun MCP item while it
-shows **Needs Setup**, the Mobilerun Setup dialog checks for each piece and installs whatever is missing:
+BA Space uses the `@impeterwayne/mobilerun-mcp@latest` npm package directly via `npx`. The runner manages its own isolated environment and dependencies automatically. No manual wheel building, Python installation, or local app data virtual environment setup is required.
 
-| Piece | Found at | Installed to |
-|---|---|---|
-| Python 3.11-3.13 | `py -3.x`, `python` on PATH, `%LOCALAPPDATA%\Programs\Python\Python31x` | winget `Python.Python.3.13`, current user (no admin) |
-| mobilerun-mcp | a developer checkout (below), else the managed venv | `%LOCALAPPDATA%\BA Space\mobilerun\mcp\.venv`, from the wheel bundled in `mcp\` |
-| mobilerun CLI | managed venv, else `mobilerun` on PATH | `%LOCALAPPDATA%\BA Space\mobilerun\cli\.venv` (`pip install mobilerun`) |
-
-The CLI has its own venv because its dependencies conflict with mobilerun-mcp's. Device Manager's
-"Setup Portal" uses the managed CLI first.
-
-mobilerun-mcp ships inside BA Space as `mcp\mobilerun_mcp-*.whl` (its Python dependencies still come from
-PyPI). Its source lives in this repo at `mobilerun-mcp\`. `npm run pack` / `make*` and the release workflow
-rebuild the wheel from it before packaging (`npm run bundle:mobilerun`, `scripts\bundle-mobilerun-wheel.js`;
-needs uv). The build is reproducible, so the wheel only changes when the source does.
-
-The managed install records the sha256 of the wheel it came from. When an app update ships a different wheel,
-the setup dialog offers **Update** on the next launch and reinstalls the package in place.
-
-A developer checkout wins over the managed copy: `<mobilerun-mcp>\.venv\Scripts\python.exe`, looked up next to
-BA Space (`BA_Space\mobilerun-mcp`; create it with `uv sync` there). The `command` is an absolute
-path on this machine: re-tick the component (or rerun the installer) on another machine. Pin a device per
-workspace with `"env": { "MOBILERUN_DEVICE": "<serial>" }` in that `mcp_config.json`.
+Pin a device per workspace with `"env": { "MOBILERUN_DEVICE": "<serial>" }` in that `mcp_config.json`.
 
 Device prerequisites: `adb` on PATH, USB debugging authorised, and the Mobilerun Portal accessibility
-service enabled (`mobilerun setup -d <serial>`). Run `/ba-device-check` in Antigravity to verify.
+service enabled (`npx -y @impeterwayne/mobilerun-mcp@latest cli setup -d <serial>` or the "Setup Portal" button in Device Manager). Run `/ba-device-check` in Antigravity to verify.
 
 ## figma-mcp-android: workspace scope
 

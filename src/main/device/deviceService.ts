@@ -850,10 +850,11 @@ export class DeviceService {
     const targetSerial = serial || this.activeSerial;
     const serialArg = targetSerial ? `-d "${targetSerial}"` : '';
 
-    // The CLI BA Space installs (Mobilerun setup) first, then one on PATH or in a uv project.
-    const managedCli = getManagedMobilerunCli();
+    const isWin = process.platform === 'win32';
     const candidateCommands = [
-      ...(managedCli ? [`"${managedCli}" setup ${serialArg}`] : []),
+      isWin
+        ? `cmd /c npx -y @impeterwayne/mobilerun-mcp@latest cli setup ${serialArg}`
+        : `npx -y @impeterwayne/mobilerun-mcp@latest cli setup ${serialArg}`,
       `mobilerun setup ${serialArg}`,
       `uv run mobilerun setup ${serialArg}`,
     ];
@@ -862,7 +863,7 @@ export class DeviceService {
       try {
         const output = execSync(cmd, {
           encoding: 'utf-8',
-          timeout: 30000,
+          timeout: 120000,
           env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
           windowsHide: true,
         });
@@ -874,7 +875,7 @@ export class DeviceService {
 
     return {
       success: false,
-      error: 'Mobilerun CLI not found or setup failed. Run Mobilerun setup from the BAKit toolkit screen to install it.',
+      error: 'Mobilerun portal setup failed. Ensure Node.js and npx are installed.',
     };
   }
 }

@@ -10,6 +10,7 @@ import { venvExecutable } from '../platform';
 // so the server only starts in BA workspaces. The global file (~/.gemini/config/mcp_config.json, or
 // ~/.gemini/antigravity/mcp_config.json on older builds) is only read to offer removing an old entry.
 export const MOBILERUN_SERVER_NAME = 'mobilerun';
+export const MOBILERUN_PACKAGE = '@impeterwayne/mobilerun-mcp@latest';
 const MOBILERUN_PLUGIN_DIR = path.join('.agents', 'plugins', 'mobilerun');
 
 export interface MobilerunMcpStatus {
@@ -32,19 +33,8 @@ export function getWorkspaceMobilerunConfigPath(worktreePath: string): string {
   return path.join(worktreePath, MOBILERUN_PLUGIN_DIR, 'mcp_config.json');
 }
 
-export function resolveMobilerunPython(customPath?: string): string | null {
-  const appPath = app.getAppPath();
-  const candidates = [
-    customPath,
-    path.join(appPath, 'mobilerun-mcp'),
-    path.join(path.dirname(appPath), 'mobilerun-mcp'),
-  ].filter(Boolean) as string[];
-  for (const dir of candidates) {
-    const python = venvExecutable(path.join(dir, '.venv'), 'python');
-    if (fs.existsSync(python)) return fs.realpathSync(python);
-  }
-  // The copy BA Space installs (Mobilerun setup) when no developer checkout is present.
-  return getManagedMobilerunPython();
+export function resolveMobilerunPython(_customPath?: string): string | null {
+  return 'npx';
 }
 
 function readMcpConfig(configPath: string): any {
@@ -71,27 +61,22 @@ function isGloballyRegistered(globalConfigPath: string): boolean {
   }
 }
 
-export function getMobilerunMcpStatus(worktreePath: string, customPath?: string): MobilerunMcpStatus {
+export function getMobilerunMcpStatus(worktreePath: string, _customPath?: string): MobilerunMcpStatus {
   const configPath = getWorkspaceMobilerunConfigPath(worktreePath);
   const globalConfigPath = getAntigravityMcpConfigPath();
-  const pythonPath = resolveMobilerunPython(customPath);
   const globalRegistered = isGloballyRegistered(globalConfigPath);
   try {
     const registered = !!readMcpConfig(configPath).mcpServers[MOBILERUN_SERVER_NAME];
-    return { registered, configPath, pythonPath, globalRegistered, globalConfigPath };
+    return { registered, configPath, pythonPath: 'npx', globalRegistered, globalConfigPath };
   } catch (err: any) {
-    return { registered: false, configPath, pythonPath, globalRegistered, globalConfigPath, error: `Invalid JSON in ${configPath}: ${err.message}` };
+    return { registered: false, configPath, pythonPath: null, globalRegistered, globalConfigPath, error: `Invalid JSON in ${configPath}: ${err.message}` };
   }
 }
 
-export function registerMobilerunMcp(worktreePath: string, customPath?: string) {
+export function registerMobilerunMcp(worktreePath: string, _customPath?: string) {
   const configPath = getWorkspaceMobilerunConfigPath(worktreePath);
   const globalRegistered = isGloballyRegistered(getAntigravityMcpConfigPath());
   try {
-    const pythonPath = resolveMobilerunPython(customPath);
-    if (!pythonPath) {
-      return { success: false, error: 'mobilerun-mcp is not installed. Run Mobilerun setup (Python + mobilerun) from the BAKit toolkit screen first.' };
-    }
     const pluginDir = path.dirname(configPath);
     fs.mkdirSync(pluginDir, { recursive: true });
     fs.writeFileSync(path.join(pluginDir, 'plugin.json'), JSON.stringify({
@@ -102,8 +87,8 @@ export function registerMobilerunMcp(worktreePath: string, customPath?: string) 
     const config = readMcpConfig(configPath);
     config.mcpServers[MOBILERUN_SERVER_NAME] = {
       ...(config.mcpServers[MOBILERUN_SERVER_NAME] || {}),
-      command: pythonPath.replace(/\\/g, '/'),
-      args: ['-m', 'mobilerun_mcp.server'],
+      command: 'npx',
+      args: ['-y', MOBILERUN_PACKAGE],
     };
     writeMcpConfig(configPath, config);
     return { success: true, configPath, globalRegistered };

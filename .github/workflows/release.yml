@@ -46,10 +46,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - uses: astral-sh/setup-uv@v6
-
-      - name: Bundle mobilerun-mcp wheel
-        run: npm run bundle:mobilerun
 
       - name: Package and upload
         run: npx electron-builder ${{ matrix.target }} --publish always
