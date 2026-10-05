@@ -31,6 +31,7 @@ BA Space is an AI-augmented Business Analyst workspace and requirement orchestra
   - **macOS**: macOS 12 Monterey or later (Apple Silicon `arm64` & Intel `x64`)
   - **Linux**: Ubuntu 20.04+, Debian 11+, Fedora, or equivalent modern distribution (x64)
 - **Node.js**: v20+ (Node.js 22 recommended) and npm
+- **Python**: 3.8+ on system PATH (required to run harness scripts such as `apk_index.py` and ReaKit APK decompilation)
 - **Git**: Installed and on system PATH
 - **ADB & Scrcpy**: Required for device mirroring and UI capture features (`scrcpy` and `adb` available on system PATH or standard SDK / Homebrew install paths)
 - **Optional Tools**: Android Studio, Antigravity CLI / IDE, Figma Desktop, Obsidian, Claude Desktop (all detected automatically across Windows, macOS, and Linux)
