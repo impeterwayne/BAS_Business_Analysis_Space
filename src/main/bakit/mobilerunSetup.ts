@@ -14,16 +14,6 @@ import { isWin, isMac, localDataDir, venvExecutable, findOnPath } from '../platf
 export const MOBILERUN_SETUP_ROOT = path.join(localDataDir(), 'BA Space', 'mobilerun');
 const MCP_DIR = path.join(MOBILERUN_SETUP_ROOT, 'mcp');
 const CLI_DIR = path.join(MOBILERUN_SETUP_ROOT, 'cli');
-// Holds the sha256 of the bundled wheel it was installed from. Written only after the package imports
-// cleanly, so a half-finished install is not picked up; compared with the bundle to spot an app update.
-const MCP_MARKER = path.join(MCP_DIR, '.installed');
-
-// mobilerun-mcp ships with BA Space as a wheel in toolkits\BAKit\mcp\ (built from mobilerun-mcp\ by
-// scripts\bundle-mobilerun-wheel.js on every packaged build); only its dependencies come from PyPI.
-const BUNDLED_WHEEL_PATTERN = /^mobilerun_mcp-.+\.whl$/;
-const MOBILERUN_CLI_PACKAGE = 'mobilerun';
-const WINGET_PYTHON_ID = 'Python.Python.3.13';
-// mobilerun-mcp requires-python = ">=3.11,<3.14".
 const PY_MIN_MINOR = 11;
 const PY_MAX_MINOR = 13;
 
@@ -129,39 +119,7 @@ async function findCliOnPath(): Promise<string | null> {
   return findOnPath('mobilerun');
 }
 
-interface BundledWheel {
-  path: string;
-  hash: string;
-}
 
-function findBundledWheel(wheelDir: string): BundledWheel | null {
-  let names: string[] = [];
-  try {
-    names = fs.readdirSync(wheelDir).filter((n) => BUNDLED_WHEEL_PATTERN.test(n));
-  } catch (_) {
-    return null;
-  }
-  if (!names.length) return null;
-  // bundle-mobilerun-wheel.js keeps exactly one; if several slipped in, take the newest.
-  const wheel = names
-    .map((n) => path.join(wheelDir, n))
-    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
-  const hash = crypto.createHash('sha256').update(fs.readFileSync(wheel)).digest('hex');
-  return { path: wheel, hash };
-}
-
-function readMarker(): string {
-  try {
-    return fs.readFileSync(MCP_MARKER, 'utf8').trim();
-  } catch (_) {
-    return '';
-  }
-}
-
-// Only the managed copy follows the bundle; a developer checkout is the developer's to update.
-function isManagedOutdated(mcpPython: string | null, wheel: BundledWheel | null): boolean {
-  return !!wheel && !!mcpPython && mcpPython === getManagedMobilerunPython() && readMarker() !== wheel.hash;
-}
 
 export async function getMobilerunSetupStatus(ctx?: MobilerunSetupContext): Promise<MobilerunSetupStatus> {
   return {
