@@ -131,4 +131,4 @@ All distribution artifacts are generated into the `release/` directory.
   - [`src/domain/settings/index.js`](file:///D:/Quest/BA_Space/src/domain/settings/index.js): Settings normalization and defaults.
 - **Bundled Toolkits & Modules**:
   - `toolkits/BAKit/`: BA agents, skills, template catalog, rules, slash workflows, and mobilerun MCP registration.
-  - `mobilerun-mcp/`: Source code for the mobilerun MCP server providing mobile device automation and competitor analysis tools. Zero-setup runner distributed as `@impeterwayne/mobilerun-mcp@latest` on npm.
+  - `toolkits/ReaKit/`: Competitor APK decompilation and reverse engineering harness tools.

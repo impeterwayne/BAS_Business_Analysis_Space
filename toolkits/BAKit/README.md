@@ -141,7 +141,7 @@ With a design instead (or as well): open the file in Figma Desktop, run the figm
   `D:\Quest\BA_Flow\.agents`. They were adapted for Antigravity: no Claude-Code-only tools
   (`AskUserQuestion`, `$ARGUMENTS`), a project-type step instead of the missing `detect-project-type.sh`,
   and template paths pointing at `ba-templates`.
-- `mobilerun` skill: copied from `mobilerun-mcp\.agents\skills\mobilerun` (repo root).
+- `mobilerun` skill: device automation skill for the 94 mobilerun MCP tools (`@impeterwayne/mobilerun-mcp`).
 - `figma-ba-analysis`, `figma-analyst` and the `ba-figma` rule are adapted from AndroidHarnessAGY's
   `figma-design-analyzer` / `figma-analyzer` / `figma` rule (same MCP server and call budget), retargeted from a
   Compose / XML implementation spec to PRD / SRS input.

@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "mobilerun": {
-      "command": "d:/Quest/BA_Space/mobilerun-mcp/.venv/Scripts/python.exe",
-      "args": ["-m", "mobilerun_mcp.server"]
-    }
-  }
-}

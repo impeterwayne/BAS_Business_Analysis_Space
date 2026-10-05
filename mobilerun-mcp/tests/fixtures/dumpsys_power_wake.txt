@@ -1,3 +1,0 @@
-  mWakefulness=Awake
-  mWakefulnessChanging=false
-Display Power: com.android.server.power.PowerManagerService$1@e84c94d
