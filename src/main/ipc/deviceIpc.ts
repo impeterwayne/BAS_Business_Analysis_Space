@@ -59,6 +59,10 @@ export function registerDeviceIpc({ ipcMain, deviceService, deviceStreamService 
     return deviceService.installApk(serial, apkPath);
   });
 
+  ipcMain.handle('device:launch-app', async (_, { serial, packageName, apkPath }: { serial?: string; packageName?: string; apkPath?: string }) => {
+    return deviceService.launchApp(serial, packageName, apkPath);
+  });
+
   ipcMain.handle('device:send-key', async (_, { serial, keycode }: { serial: string; keycode: string | number }) => {
     return deviceService.sendKey(serial, keycode);
   });

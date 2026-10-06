@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseAdbDevicesOutput, parseDeviceEnrichment } = require('./index');
+const {
+  parseAdbDevicesOutput,
+  parseDeviceEnrichment,
+  isPackageInstalledInOutput,
+  parseAaptBadging,
+  parseResolveActivityOutput,
+} = require('./index');
 
 test('parseAdbDevicesOutput parses multiple devices with different connection types', () => {
   const sample = `List of devices attached
@@ -70,3 +76,47 @@ package:/data/app/com.mobilerun.portal-base.apk`;
   assert.equal(enriched.ipAddress, '192.168.1.158');
   assert.equal(enriched.mobilerunPortalInstalled, true);
 });
+
+test('isPackageInstalledInOutput correctly matches exact package name and rejects partial matches', () => {
+  const pmOutput = `
+package:com.example.app.other
+package:com.mservice.momotransfer
+package:com.example.app
+package:com.example.apple
+`;
+  assert.equal(isPackageInstalledInOutput(pmOutput, 'com.mservice.momotransfer'), true);
+  assert.equal(isPackageInstalledInOutput(pmOutput, 'com.example.app'), true);
+  assert.equal(isPackageInstalledInOutput(pmOutput, 'com.mservice.momo'), false);
+  assert.equal(isPackageInstalledInOutput(pmOutput, 'com.example'), false);
+  assert.equal(isPackageInstalledInOutput('', 'com.example.app'), false);
+  assert.equal(isPackageInstalledInOutput(null, 'com.example.app'), false);
+  assert.equal(isPackageInstalledInOutput(pmOutput, ''), false);
+});
+
+test('parseAaptBadging extracts package name and launchable activity from aapt dump badging output', () => {
+  const sample = `package: name='com.shopee.vn' versionCode='32001' versionName='3.20.1' compileSdkVersion='34'
+sdkVersion:'26'
+targetSdkVersion:'34'
+uses-permission: name='android.permission.INTERNET'
+application-label:'Shopee'
+launchable-activity: name='com.shopee.app.ui.home.HomeActivity'  label='Shopee' icon='res/mipmap-xxhdpi/ic_launcher.png'
+`;
+
+  const parsed = parseAaptBadging(sample);
+  assert.equal(parsed.packageName, 'com.shopee.vn');
+  assert.equal(parsed.launchActivity, 'com.shopee.app.ui.home.HomeActivity');
+
+  const empty = parseAaptBadging('');
+  assert.equal(empty.packageName, '');
+  assert.equal(empty.launchActivity, '');
+});
+
+test('parseResolveActivityOutput extracts component name from cmd package resolve-activity output', () => {
+  const sample = `priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true
+com.android.settings/.Settings
+`;
+  assert.equal(parseResolveActivityOutput(sample), 'com.android.settings/.Settings');
+  assert.equal(parseResolveActivityOutput(''), '');
+  assert.equal(parseResolveActivityOutput(null), '');
+});
+

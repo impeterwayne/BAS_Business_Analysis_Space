@@ -247,6 +247,7 @@ declare global {
       selectApkFile: () => Promise<{ name: string; path: string; size: number } | null>;
       getFileInfo: (filePath: string) => Promise<{ name: string; path: string; size: number; isFile: boolean } | null>;
       installApk: (opts: { apkPath: string; serial?: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
+      launchApp: (opts: { serial?: string; packageName?: string; apkPath?: string }) => Promise<{ success: boolean; packageName?: string; output?: string; error?: string }>;
 
       // ── ReaKit / JADX Competitor Flow ──
       downloadCompetitorApk: (opts: {
@@ -336,6 +337,7 @@ declare global {
         error?: string;
       }>;
       deviceInstallApk: (opts: { serial?: string; apkPath: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
+      deviceLaunchApp: (opts: { serial?: string; packageName?: string; apkPath?: string }) => Promise<{ success: boolean; packageName?: string; output?: string; error?: string }>;
       deviceSendKey: (opts: { serial: string; keycode: string | number }) => Promise<{ success: boolean; error?: string }>;
       deviceSetupMobilerun: (opts: { serial: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
       deviceStreamStart: (opts?: { serial?: string; maxSize?: number; maxFps?: number; quality?: number }) => Promise<{

@@ -306,6 +306,10 @@ export async function openCompetitorModal({
               </div>
             </div>
             <div class="comp-modal-artifact-actions">
+              <button type="button" class="dash-comp-btn-action launch" id="comp-modal-btn-launch-apk" title="Launch app on connected Android device via ADB">
+                ${icons.play || ''}
+                <span>Launch</span>
+              </button>
               <button type="button" class="btn-secondary btn-small" id="comp-modal-btn-change-apk" title="Select a different APK file">
                 <span>Change</span>
               </button>
@@ -361,6 +365,34 @@ export async function openCompetitorModal({
           </div>
         </div>
       `;
+
+      apkContainerEl.querySelector('#comp-modal-btn-launch-apk')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLElement;
+        const origHtml = btn.innerHTML;
+        btn.setAttribute('disabled', 'true');
+        btn.innerHTML = `<span class="spinner" style="width:11px; height:11px; border-width:2px;"></span> Launching...`;
+        const appTitle = nameInput.value.trim() || 'app';
+        showToast(`Launching ${appTitle} on Android device...`, 'info');
+        try {
+          const res = await window.api.launchApp({
+            packageName: pkgInput.value.trim() || competitor?.packageName,
+            apkPath: currentApkPath,
+          });
+          if (res?.success) {
+            showToast(`Successfully launched ${appTitle}!`, 'success');
+            if (res.packageName && !pkgInput.value.trim()) {
+              pkgInput.value = res.packageName;
+            }
+          } else {
+            showToast(`Launch failed: ${res?.error || 'Check device connection'}`, 'error');
+          }
+        } catch (err: any) {
+          showToast(`Launch error: ${err.message}`, 'error');
+        } finally {
+          btn.removeAttribute('disabled');
+          btn.innerHTML = origHtml;
+        }
+      });
 
       apkContainerEl.querySelector('#comp-modal-btn-change-apk')?.addEventListener('click', async () => {
         const file = await window.api.selectApkFile();

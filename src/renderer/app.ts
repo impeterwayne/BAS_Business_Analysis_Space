@@ -593,6 +593,7 @@ const iconRaw = {
   apk: loadIcon('apk'),
   decode: loadIcon('decode'),
   reakit: loadIcon('reakit'),
+  play: loadIcon('play'),
 };
 
 // Pre-sized icon strings matching original inline sizes
@@ -604,6 +605,7 @@ const icons = {
   trash: iconSvg(iconRaw.trash, 12),
   plus: iconSvg(iconRaw.plus, 12),
   download: iconSvg(iconRaw.download, 12),
+  play: iconSvg(iconRaw.play || '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>', 11),
   gitFork: iconSvg(iconRaw.gitFork, 14),
   chevron: iconSvg(iconRaw.chevron, 10),
   settings: iconSvg(iconRaw.settings, 12),
@@ -3196,6 +3198,10 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                   </div>
                 </div>
                 <div class="dash-comp-artifact-actions">
+                  <button type="button" class="dash-comp-btn-action launch" data-action="comp-launch-app" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-path="${esc(comp.apkPath)}" data-name="${esc(comp.name)}" title="Launch ${esc(comp.name)} on connected Android device via ADB">
+                    ${icons.play || icons.device}
+                    <span>Launch</span>
+                  </button>
                   <button type="button" class="dash-comp-btn-action install" data-action="comp-install-apk" data-path="${esc(comp.apkPath)}" data-name="${esc(comp.name)}" title="Install ${esc(comp.name)} APK to connected Android device via ADB">
                     ${icons.download}
                     <span>Install</span>
@@ -3455,6 +3461,52 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         renderDashboardCompetitors(activeProject, activeWt);
       } else {
         showToast(`Failed: ${res?.error || 'Unknown error'}`, 'error');
+      }
+    });
+  });
+
+  // Launch competitor App on connected Android device
+  dom.dashCompetitorList.querySelectorAll('[data-action="comp-launch-app"]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const apkPath = target.dataset.path || '';
+      const pkg = target.dataset.pkg || '';
+      const compName = target.dataset.name || 'Competitor';
+      const compId = target.dataset.compId || '';
+
+      const originalHtml = target.innerHTML;
+      target.setAttribute('disabled', 'true');
+      target.innerHTML = `<span class="spinner" style="width:11px; height:11px; border-width:2px;"></span> Launching...`;
+      showToast(`Launching ${compName} on Android device...`, 'info');
+
+      try {
+        const res = await window.api.launchApp({
+          packageName: pkg,
+          apkPath,
+        });
+        if (res?.success) {
+          showToast(`Successfully launched ${compName}!`, 'success');
+          // If package was detected and wasn't in competitor metadata, update it
+          if (res.packageName && !pkg && activeProject && compId) {
+            const comp = (activeProject.competitors || []).find((c: any) => c.id === compId);
+            if (comp && !comp.packageName) {
+              comp.packageName = res.packageName;
+              void window.api.updateProjectCompetitor(activeProject.path, {
+                id: compId,
+                packageName: res.packageName,
+              });
+              renderDashboardCompetitors(activeProject, activeWt);
+            }
+          }
+        } else {
+          showToast(`Launch failed: ${res?.error || 'Check device connection'}`, 'error');
+        }
+      } catch (err: any) {
+        showToast(`Launch error: ${err.message}`, 'error');
+      } finally {
+        target.removeAttribute('disabled');
+        target.innerHTML = originalHtml;
       }
     });
   });

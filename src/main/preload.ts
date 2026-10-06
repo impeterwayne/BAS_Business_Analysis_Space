@@ -130,6 +130,7 @@ contextBridge.exposeInMainWorld('api', {
   selectApkFile: () => ipcRenderer.invoke('select-apk-file'),
   getFileInfo: (filePath: string) => ipcRenderer.invoke('get-file-info', filePath),
   installApk: (opts: { apkPath: string; serial?: string }) => ipcRenderer.invoke('adb:install-apk', opts),
+  launchApp: (opts: { serial?: string; packageName?: string; apkPath?: string }) => ipcRenderer.invoke('adb:launch-app', opts),
 
   // ── ReaKit / JADX Competitor Flow ──
   downloadCompetitorApk: (opts: { projectPath: string; competitorId: string; packageName: string }) =>
@@ -153,6 +154,7 @@ contextBridge.exposeInMainWorld('api', {
   deviceMirror: (options) => ipcRenderer.invoke('device:mirror', options),
   deviceCaptureUi: (options) => ipcRenderer.invoke('device:capture-ui', options),
   deviceInstallApk: (opts) => ipcRenderer.invoke('device:install-apk', opts),
+  deviceLaunchApp: (opts: { serial?: string; packageName?: string; apkPath?: string }) => ipcRenderer.invoke('device:launch-app', opts),
   deviceSendKey: (opts) => ipcRenderer.invoke('device:send-key', opts),
   deviceSetupMobilerun: (opts) => ipcRenderer.invoke('device:setup-mobilerun', opts),
   deviceStreamStart: (opts) => ipcRenderer.invoke('device:stream-start', opts),

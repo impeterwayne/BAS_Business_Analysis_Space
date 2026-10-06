@@ -185,6 +185,13 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
       });
     });
   });
+
+  ipcMain.handle('adb:launch-app', async (_, { serial, packageName, apkPath }: { serial?: string; packageName?: string; apkPath?: string }) => {
+    if (deviceService) {
+      return deviceService.launchApp(serial, packageName, apkPath);
+    }
+    return { success: false, error: 'Device service unavailable' };
+  });
 }
 
 async function detectCompetitorFromUrl(inputUrl) {

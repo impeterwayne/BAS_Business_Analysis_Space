@@ -119,7 +119,36 @@ function parseDeviceEnrichment(output) {
   return result;
 }
 
+function isPackageInstalledInOutput(rawOutput, packageName) {
+  if (!rawOutput || typeof rawOutput !== 'string' || !packageName || typeof packageName !== 'string') return false;
+  const target = packageName.trim();
+  if (!target) return false;
+  const lines = rawOutput.split(/\r?\n/).map((l) => l.trim());
+  return lines.some((line) => line === `package:${target}`);
+}
+
+function parseAaptBadging(rawOutput) {
+  if (!rawOutput || typeof rawOutput !== 'string') return { packageName: '', launchActivity: '' };
+  const pkgMatch = rawOutput.match(/package:\s*name=['"]([^'"]+)['"]/i);
+  const actMatch = rawOutput.match(/launchable-activity:\s*name=['"]([^'"]+)['"]/i);
+  return {
+    packageName: pkgMatch ? pkgMatch[1] : '',
+    launchActivity: actMatch ? actMatch[1] : '',
+  };
+}
+
+function parseResolveActivityOutput(rawOutput) {
+  if (!rawOutput || typeof rawOutput !== 'string') return '';
+  const lines = rawOutput.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const compLine = lines.find((l) => l.includes('/') && !l.startsWith('priority='));
+  return compLine || '';
+}
+
 module.exports = {
   parseAdbDevicesOutput,
   parseDeviceEnrichment,
+  isPackageInstalledInOutput,
+  parseAaptBadging,
+  parseResolveActivityOutput,
 };
+

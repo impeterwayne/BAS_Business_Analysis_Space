@@ -3290,6 +3290,20 @@ kbd {
   transform: translateY(-1px);
 }
 
+.dash-comp-btn-action.launch {
+  background: rgba(168, 85, 247, 0.14);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+  font-weight: 600;
+}
+
+.dash-comp-btn-action.launch:hover {
+  background: rgba(168, 85, 247, 0.24);
+  border-color: rgba(168, 85, 247, 0.55);
+  color: #e9d5ff;
+  transform: translateY(-1px);
+}
+
 .dash-comp-btn-action.source {
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.25);

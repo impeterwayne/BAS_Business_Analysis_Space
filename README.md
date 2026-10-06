@@ -2,6 +2,8 @@
 
 BA Space is an AI-augmented Business Analyst workspace and requirement orchestration platform built with Electron, TypeScript, and xterm.js. Tailored specifically for Business Analysts, Product Managers, and Solution Architects, BA Space bridges the gap between requirements, live application screens, Figma specifications, and AI Agent harnesses.
 
+![BA Space Workspace](docs/images/screenshot.png)
+
 ---
 
 ## Key Features

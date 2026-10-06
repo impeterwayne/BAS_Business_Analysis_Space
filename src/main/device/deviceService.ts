@@ -4,7 +4,13 @@ import path from 'path';
 import os from 'os';
 import { getManagedMobilerunCli } from '../bakit/mobilerunSetup';
 import { isWin, exeName, androidSdkDirs, findOnPath, localDataDir, unixBinDirs } from '../platform';
-const { parseAdbDevicesOutput, parseDeviceEnrichment } = require('../../domain/device');
+const {
+  parseAdbDevicesOutput,
+  parseDeviceEnrichment,
+  isPackageInstalledInOutput,
+  parseAaptBadging,
+  parseResolveActivityOutput,
+} = require('../../domain/device');
 
 export interface DeviceInfo {
   serial: string;
@@ -49,6 +55,7 @@ export class DeviceService {
   private activeSerial: string | null = null;
   private cachedAdbPath: string | null = null;
   private cachedScrcpyPath: string | null = null;
+  private cachedAaptPath: string | null = null;
 
   constructor(private getSettings: () => any) {}
 
@@ -124,6 +131,36 @@ export class DeviceService {
       return 'scrcpy';
     } catch {
       // not found
+    }
+
+    return null;
+  }
+
+  public getAaptPath(): string | null {
+    if (this.cachedAaptPath && (this.cachedAaptPath === 'aapt' || fs.existsSync(this.cachedAaptPath))) {
+      return this.cachedAaptPath;
+    }
+
+    const onPath = findOnPath('aapt');
+    if (onPath) {
+      this.cachedAaptPath = onPath;
+      return onPath;
+    }
+
+    for (const sdk of androidSdkDirs()) {
+      const buildToolsDir = path.join(sdk, 'build-tools');
+      if (fs.existsSync(buildToolsDir)) {
+        try {
+          const versions = fs.readdirSync(buildToolsDir).sort().reverse();
+          for (const ver of versions) {
+            const candidate = path.join(buildToolsDir, ver, exeName('aapt'));
+            if (fs.existsSync(candidate)) {
+              this.cachedAaptPath = candidate;
+              return candidate;
+            }
+          }
+        } catch (_) {}
+      }
     }
 
     return null;
@@ -878,4 +915,202 @@ export class DeviceService {
       error: 'Mobilerun portal setup failed. Ensure Node.js and npx are installed.',
     };
   }
+
+  public async isPackageInstalled(serial: string | undefined, packageName: string): Promise<boolean> {
+    const targetSerial = serial || this.activeSerial;
+    const adb = this.getAdbPath();
+    const serialArg = targetSerial ? `-s "${targetSerial}" ` : '';
+    const pkg = (packageName || '').trim();
+    if (!pkg) return false;
+
+    return new Promise((resolve) => {
+      exec(`"${adb}" ${serialArg}shell pm list packages "${pkg}"`, { timeout: 10000, windowsHide: true }, (err, stdout) => {
+        if (err) {
+          resolve(false);
+          return;
+        }
+        resolve(isPackageInstalledInOutput(stdout, pkg));
+      });
+    });
+  }
+
+  public async resolveApkPackageInfo(apkPath: string): Promise<{ packageName?: string; launchActivity?: string; error?: string }> {
+    if (!apkPath || !fs.existsSync(apkPath)) {
+      return { error: `APK file not found: ${apkPath}` };
+    }
+
+    const ext = path.extname(apkPath).toLowerCase();
+    if (ext === '.xapk' || ext === '.apks') {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'baspace_pkg_'));
+      try {
+        const extracted = await this.extractArchive(apkPath, tempDir);
+        if (extracted) {
+          const manifestPath = path.join(tempDir, 'manifest.json');
+          if (fs.existsSync(manifestPath)) {
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+            if (manifest?.package_name) {
+              return { packageName: manifest.package_name };
+            }
+          }
+        }
+      } catch (_) {
+      } finally {
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
+      }
+    }
+
+    const aapt = this.getAaptPath();
+    if (aapt) {
+      try {
+        const stdout = execSync(`"${aapt}" dump badging "${apkPath}"`, {
+          encoding: 'utf-8',
+          timeout: 20000,
+          windowsHide: true,
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        const parsed = parseAaptBadging(stdout);
+        if (parsed.packageName) {
+          return parsed;
+        }
+      } catch (_) {}
+    }
+
+    return { error: 'Could not resolve package name from APK' };
+  }
+
+  public async launchApp(
+    serial: string | undefined,
+    packageName?: string,
+    apkPath?: string
+  ): Promise<{ success: boolean; packageName?: string; output?: string; error?: string }> {
+    let targetSerial = serial || this.activeSerial;
+    if (!targetSerial) {
+      const devices = await this.listDevices();
+      const online = devices.find((d) => d.state === 'device');
+      if (online) {
+        targetSerial = online.serial;
+      }
+    }
+
+    if (!targetSerial) {
+      return {
+        success: false,
+        error: 'No connected Android device found. Please connect your device and ensure USB debugging is enabled.',
+      };
+    }
+
+    const adb = this.getAdbPath();
+    const serialArg = `-s "${targetSerial}" `;
+    let pkg = (packageName || '').trim();
+    let launchActivity = '';
+
+    // 1. Resolve package name if missing and APK is available
+    if (!pkg && apkPath && fs.existsSync(apkPath)) {
+      const info = await this.resolveApkPackageInfo(apkPath);
+      if (info.packageName) {
+        pkg = info.packageName;
+        launchActivity = info.launchActivity || '';
+      }
+    }
+
+    if (!pkg) {
+      return { success: false, error: 'Could not determine package name for this competitor app.' };
+    }
+
+    // 2. Check if installed on device
+    const installed = await this.isPackageInstalled(targetSerial, pkg);
+    if (!installed) {
+      if (apkPath && fs.existsSync(apkPath)) {
+        const installResult = await this.installApk(targetSerial, apkPath);
+        if (!installResult.success) {
+          return {
+            success: false,
+            error: `App "${pkg}" was not installed and APK installation failed: ${installResult.error || 'Unknown error'}`,
+          };
+        }
+      } else {
+        return {
+          success: false,
+          error: `App "${pkg}" is not installed on device ${targetSerial}. Please install it first.`,
+        };
+      }
+    }
+
+    // 3. Wake up screen and dismiss keyguard
+    try {
+      execSync(`"${adb}" ${serialArg}shell input keyevent 224`, { timeout: 3000, windowsHide: true });
+      execSync(`"${adb}" ${serialArg}shell wm dismiss-keyguard`, { timeout: 3000, windowsHide: true });
+    } catch (_) {}
+
+    // 4. If launchActivity was resolved, try direct am start
+    if (launchActivity) {
+      try {
+        const component = launchActivity.includes('/')
+          ? launchActivity
+          : `${pkg}/${launchActivity.startsWith('.') ? launchActivity : `.${launchActivity}`}`;
+        const amOut = execSync(`"${adb}" ${serialArg}shell am start -n "${component}"`, {
+          encoding: 'utf-8',
+          timeout: 10000,
+          windowsHide: true,
+        }).trim();
+        if (!amOut.toLowerCase().includes('error:')) {
+          return { success: true, packageName: pkg, output: amOut || 'App launched' };
+        }
+      } catch (_) {}
+    }
+
+    // 5. Try resolving launch activity via cmd package resolve-activity
+    try {
+      const resolveOut = execSync(`"${adb}" ${serialArg}shell cmd package resolve-activity --brief "${pkg}"`, {
+        encoding: 'utf-8',
+        timeout: 5000,
+        windowsHide: true,
+      });
+      const compLine = parseResolveActivityOutput(resolveOut);
+      if (compLine) {
+        const amOut = execSync(`"${adb}" ${serialArg}shell am start -n "${compLine}"`, {
+          encoding: 'utf-8',
+          timeout: 10000,
+          windowsHide: true,
+        }).trim();
+        if (!amOut.toLowerCase().includes('error:')) {
+          return { success: true, packageName: pkg, output: amOut || 'App launched' };
+        }
+      }
+    } catch (_) {}
+
+    // 6. Launch via monkey - universally works across all Android versions
+    return new Promise((resolve) => {
+      exec(`"${adb}" ${serialArg}shell monkey -p "${pkg}" -c android.intent.category.LAUNCHER 1`, {
+        timeout: 10000,
+        windowsHide: true,
+      }, (err, stdout, stderr) => {
+        const out = (stdout || '').trim();
+        const errOut = (stderr || '').trim();
+        if (out.includes('Events injected: 1')) {
+          resolve({ success: true, packageName: pkg, output: out });
+        } else if (err || out.includes('monkey aborted') || errOut.includes('monkey aborted')) {
+          // 7. Last-resort fallback: am start with intent filter
+          exec(`"${adb}" ${serialArg}shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "${pkg}"`, {
+            timeout: 10000,
+            windowsHide: true,
+          }, (amErr, amStdout, amStderr) => {
+            const amOut = (amStdout || '').trim();
+            if (amErr || amOut.toLowerCase().includes('error:') || (amStderr || '').toLowerCase().includes('error:')) {
+              resolve({
+                success: false,
+                packageName: pkg,
+                error: (amStderr || amOut || errOut || out || err?.message || 'Failed to launch app').trim(),
+              });
+            } else {
+              resolve({ success: true, packageName: pkg, output: amOut || 'App launched' });
+            }
+          });
+        } else {
+          resolve({ success: true, packageName: pkg, output: out || 'App launched' });
+        }
+      });
+    });
+  }
 }
+
