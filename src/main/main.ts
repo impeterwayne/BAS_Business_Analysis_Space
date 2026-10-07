@@ -70,7 +70,8 @@ function resolveToolLaunch(command, extraArgs = []) {
   const launch = buildLaunch(resolvedPath, launchArgs);
   return {
     file: launch.file,
-    args: launch.args,
+    // node-pty takes a string as the verbatim Windows command line, which the cmd.exe form needs.
+    args: launch.windowsVerbatimArguments ? launch.args.join(' ') : launch.args,
     shellCommand: buildShellCommand(resolvedPath, launchArgs),
   };
 }
@@ -917,9 +918,9 @@ app.whenReady().then(() => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.androidStudioPath || findAndroidStudioExecutable();
-      const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, [dirPath]);
+      const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
       const useShell = !path.isAbsolute(exe);
-      spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, detached: true, stdio: 'ignore' });
+      spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -1162,10 +1163,10 @@ app.whenReady().then(() => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.antigravityPath || findAntigravityExecutable();
-      const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, [dirPath]);
+      const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
 
       // Launch Antigravity IDE in the worktree directory safely (no shell-escaping issues)
-      spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: false, detached: true, stdio: 'ignore' });
+      spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: false, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -1176,11 +1177,11 @@ app.whenReady().then(() => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.antigravityAgentPath || findAntigravityAgentExecutable();
-      const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, []);
+      const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, []);
 
       // Launch Antigravity Agent Manager independently
       const cwd = path.isAbsolute(exe) ? path.dirname(exe) : undefined;
-      spawn(spawnFile, spawnArgs, { cwd, shell: false, detached: true, stdio: 'ignore' });
+      spawn(spawnFile, spawnArgs, { cwd, shell: false, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -1237,6 +1238,7 @@ app.whenReady().then(() => {
       const child = spawn(launch.file, launch.args, {
         cwd: dirPath || undefined,
         shell: false,
+        windowsVerbatimArguments: launch.windowsVerbatimArguments,
         detached: true,
         stdio: 'ignore',
       });
@@ -1259,7 +1261,7 @@ app.whenReady().then(() => {
       const exe = settings.figmaPath || findFigmaExecutable();
       if (exe && fs.existsSync(exe)) {
         const launch = buildLaunch(exe, target ? [target] : []);
-        const child = spawn(launch.file, launch.args, { detached: true, stdio: 'ignore' });
+        const child = spawn(launch.file, launch.args, { windowsVerbatimArguments: launch.windowsVerbatimArguments, detached: true, stdio: 'ignore' });
         child.unref();
         return { success: true, method: 'desktop', path: exe };
       }
@@ -1337,9 +1339,10 @@ app.whenReady().then(() => {
           }
         }
 
-        const { file: spawnFile, args: spawnArgs } = buildLaunch(exe, uriArgs);
+        const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, uriArgs);
         spawn(spawnFile, spawnArgs, {
           shell: !path.isAbsolute(exe),
+          windowsVerbatimArguments,
           detached: true,
           stdio: 'ignore'
         });

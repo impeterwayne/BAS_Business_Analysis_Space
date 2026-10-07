@@ -86,17 +86,27 @@ export function unixBinDirs(): string[] {
   return ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/snap/bin', path.join(home, '.local', 'bin')];
 }
 
+// Runs a .bat/.cmd through cmd.exe. Node's default quoting breaks once the script path and an argument both
+// contain spaces (an install under "...\BA Space\..."): cmd /c strips the outer quotes and reports
+// "'...\BA' is not recognized". /s plus one verbatim, fully quoted command line keeps every path intact.
+export function buildCmdLaunch(script: string, args: string[] = []): { file: string; args: string[]; windowsVerbatimArguments: boolean } {
+  const quote = (a: string) => (a === '' || /[\s"&()^|<>%!,;=]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a);
+  const commandLine = [script, ...args].map(quote).join(' ');
+  return { file: 'cmd.exe', args: ['/d', '/s', '/c', `"${commandLine}"`], windowsVerbatimArguments: true };
+}
+
 // Turns an executable path into what spawn needs: .cmd/.bat go through cmd.exe on Windows,
 // .app bundles go through `open -a` on macOS. Everything else is spawned directly.
-export function buildLaunch(exe: string, args: string[] = []): { file: string; args: string[] } {
+// Pass windowsVerbatimArguments through to spawn: the cmd.exe form is pre-quoted.
+export function buildLaunch(exe: string, args: string[] = []): { file: string; args: string[]; windowsVerbatimArguments: boolean } {
   const ext = path.extname(exe).toLowerCase();
   if (isWin && (ext === '.cmd' || ext === '.bat')) {
-    return { file: 'cmd.exe', args: ['/d', '/c', exe, ...args] };
+    return buildCmdLaunch(exe, args);
   }
   if (isMac && ext === '.app') {
-    return { file: 'open', args: ['-a', exe, ...args] };
+    return { file: 'open', args: ['-a', exe, ...args], windowsVerbatimArguments: false };
   }
-  return { file: exe, args };
+  return { file: exe, args, windowsVerbatimArguments: false };
 }
 
 // macOS and Linux GUI launches (Finder, Dock, desktop files) get a minimal PATH that misses Homebrew,
