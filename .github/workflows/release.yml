@@ -47,6 +47,10 @@ jobs:
         run: npm run build
 
 
+      # Python and Java bundled into resources/runtimes (every arch this OS builds).
+      - name: Fetch bundled runtimes
+        run: node scripts/fetch-runtimes.mjs
+
       - name: Package and upload
         run: npx electron-builder ${{ matrix.target }} --publish always
         env:

@@ -22,3 +22,5 @@ toolkits/ReaKit/**/__pycache__/
 *.egg-info/
 /CodingSpace
 /vendor
+# Python/Java shipped with the app, fetched by scripts/fetch-runtimes.mjs
+/runtimes/

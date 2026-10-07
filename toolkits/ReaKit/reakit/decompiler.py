@@ -6,6 +6,43 @@ from pathlib import Path
 from reakit.config import ConfigManager, CORE_DIR
 from reakit.utils import log_info, log_success, log_warn, log_error
 
+# Same JVM options jadx.bat passes, for when the jar is launched directly.
+JADX_DEFAULT_JVM_OPTS = [
+    "-XX:+IgnoreUnrecognizedVMOptions",
+    "-Xms256M",
+    "-XX:MaxRAMPercentage=70.0",
+    "-XX:ParallelGCThreads=3",
+    "-Djdk.util.zip.disableZip64ExtraFieldValidation=true",
+    "--enable-native-access=ALL-UNNAMED",
+]
+
+
+def _short_path(path: Path) -> str:
+    """The 8.3 short form of an existing Windows path, or "" when the volume has short names turned off."""
+    if os.name != "nt":
+        return ""
+    import ctypes
+    buf = ctypes.create_unicode_buffer(32768)
+    n = ctypes.windll.kernel32.GetShortPathNameW(str(path), buf, len(buf))
+    return buf.value if 0 < n < len(buf) else ""
+
+
+def _java_safe_path(path: Path, cwd: Path) -> str | None:
+    """A spelling of path that survives java.exe on Windows, or None.
+
+    java.exe decodes its arguments with the ANSI code page, so C:\\Users\\Nguyễn\\... arrives as Nguy?n and the
+    file is not found. Any ASCII spelling works: the absolute path, the path relative to the working directory
+    (the non-ASCII part is often the shared parent), or the 8.3 short name.
+    """
+    forms = [str(path)]
+    try:
+        forms.append(os.path.relpath(path, cwd))
+    except ValueError:  # on another drive
+        pass
+    forms.append(_short_path(path))
+    return next((f for f in forms if f and f.isascii()), None)
+
+
 class Decompiler:
     def __init__(self, config_mgr: ConfigManager | None = None, jadx_path: Path | str | None = None):
         self.config_mgr = config_mgr or ConfigManager()
@@ -18,16 +55,63 @@ class Decompiler:
             return bundled
         return Path(jadx_name)
 
-    def _build_jadx_cmd(
+    def _java_launcher(self, env: dict) -> tuple[str, Path] | None:
+        """java.exe and the bundled jadx jar, when jadx.bat should be bypassed (Windows, bundled jadx).
+
+        Going straight to java lets every path be passed in an ASCII form, and keeps cmd.exe from expanding
+        %NAME% inside a quoted folder name. Without Java this returns None and jadx.bat reports it.
+        """
+        if os.name != "nt" or self.jadx_path.parent != CORE_DIR / "jadx" / "bin":
+            return None
+        jars = sorted((CORE_DIR / "jadx" / "lib").glob("jadx-*-all.jar"))
+        java_home = env.get("JAVA_HOME", "").strip('"')
+        java = Path(java_home) / "bin" / "java.exe" if java_home else None
+        java = str(java) if java and java.exists() else shutil.which("java")
+        if not jars or not java:
+            return None
+        return java, jars[-1]
+
+    def _run_jadx(
         self,
         output_dir: Path,
+        cpu_count: str,
+        input_files: list[str],
+        extra_flags: list[str] | None,
+        env: dict,
+    ) -> int:
+        cwd = output_dir.parent
+        launcher = self._java_launcher(env)
+        if launcher is None:
+            cmd = self._build_jadx_cmd([str(self.jadx_path)], str(output_dir), cpu_count, input_files, extra_flags)
+            return subprocess.run(cmd, env=env).returncode
+
+        java, jar = launcher
+        paths = [jar, output_dir, *map(Path, input_files)]
+        safe = [_java_safe_path(p, cwd) for p in paths]
+        bad = [str(p) for p, s in zip(paths, safe) if s is None]
+        if bad:
+            log_error(
+                "Java cannot open these paths because they contain non-English characters and Windows has no "
+                f"short name for them: {', '.join(bad)}. Move the project (or BA Space) to a folder with only "
+                "English letters."
+            )
+            return 1
+        prefix = [java, *JADX_DEFAULT_JVM_OPTS, *env.get("JAVA_OPTS", "").split(), *env.get("JADX_OPTS", "").split(),
+                  "-cp", safe[0], "jadx.cli.JadxCLI"]
+        cmd = self._build_jadx_cmd(prefix, safe[1], cpu_count, safe[2:], extra_flags)
+        return subprocess.run(cmd, env=env, cwd=cwd).returncode
+
+    def _build_jadx_cmd(
+        self,
+        launcher: list[str],
+        output_dir: str,
         cpu_count: str,
         input_files: list[str],
         extra_flags: list[str] | None = None,
     ) -> list[str]:
         cmd = [
-            str(self.jadx_path),
-            "-d", str(output_dir),
+            *launcher,
+            "-d", output_dir,
             "-j", cpu_count,
             "--export-gradle",
             "--show-bad-code",
@@ -100,22 +184,15 @@ class Decompiler:
             if item.is_file() and item.suffix == ".apk":
                 apks_found = True
                 log_info(f"Decoding standard APK {item.name} for {pkg} -> {out_path}...")
-                cmd = self._build_jadx_cmd(
-                    output_dir=out_path,
-                    cpu_count=cpu_count,
-                    input_files=[str(item)],
-                    extra_flags=extra_flags,
-                )
-
                 log_info(f"Running JADX on {item.name} with {heap_memory} heap (threads: {cpu_count})...")
-                res = subprocess.run(cmd, env=env)
+                returncode = self._run_jadx(out_path, cpu_count, [str(item)], extra_flags, env)
                 src_count = len(list(out_path.glob("**/*.java"))) + len(list(out_path.glob("**/*.kt")))
-                if res.returncode == 0:
+                if returncode == 0:
                     log_success(f"Decompilation complete for {item.name} ({src_count} source files)")
                 elif src_count > 0:
                     log_success(f"Decompilation completed for {item.name} ({src_count} source files generated; obfuscation warnings handled via --show-bad-code)")
                 else:
-                    log_error(f"JADX exited with code {res.returncode} and produced no source files.")
+                    log_error(f"JADX exited with code {returncode} and produced no source files.")
                     all_succeeded = False
 
             elif item.is_file() and item.suffix in (".xapk", ".apks"):
@@ -138,22 +215,15 @@ class Decompiler:
                     continue
 
                 log_info(f"Decoding {item.name} ({len(extracted_apks)} split APKs) for {pkg} -> {out_path}...")
-                cmd = self._build_jadx_cmd(
-                    output_dir=out_path,
-                    cpu_count=cpu_count,
-                    input_files=extracted_apks,
-                    extra_flags=extra_flags,
-                )
-
                 log_info(f"Running JADX on split APKs with {heap_memory} heap (threads: {cpu_count})...")
-                res = subprocess.run(cmd, env=env)
+                returncode = self._run_jadx(out_path, cpu_count, extracted_apks, extra_flags, env)
                 src_count = len(list(out_path.glob("**/*.java"))) + len(list(out_path.glob("**/*.kt")))
-                if res.returncode == 0:
+                if returncode == 0:
                     log_success(f"Decompilation complete for {item.name} ({src_count} source files)")
                 elif src_count > 0:
                     log_success(f"Decompilation completed for {item.name} ({src_count} source files generated; obfuscation warnings handled via --show-bad-code)")
                 else:
-                    log_error(f"JADX exited with code {res.returncode} and produced no source files.")
+                    log_error(f"JADX exited with code {returncode} and produced no source files.")
                     all_succeeded = False
 
         if not apks_found:

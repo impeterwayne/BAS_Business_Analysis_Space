@@ -2,7 +2,8 @@ import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
-import { isWin, findOnPath, buildCmdLaunch, localDataDir, PYTHON_COMMAND } from '../platform';
+import { isWin, findOnPath, buildCmdLaunch, localDataDir } from '../platform';
+import { pythonCommand, withBundledRuntimes } from '../runtimes';
 
 // Decoded APKs go here when ReaKit is the copy bundled with the installed app: its resources folder can sit
 // under Program Files, which a normal user cannot write to, and an update replaces it.
@@ -40,7 +41,7 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
       if (stats.isFile()) {
         const ext = path.extname(trimmed).toLowerCase();
         if (ext === '.py') {
-          return { file: PYTHON_COMMAND, argsPrefix: [trimmed], reaDir: path.dirname(trimmed), sourceType: 'script' };
+          return { file: pythonCommand(), argsPrefix: [trimmed], reaDir: path.dirname(trimmed), sourceType: 'script' };
         }
         if (isWin && (ext === '.bat' || ext === '.cmd')) {
           return { file: trimmed, argsPrefix: [], reaDir: path.dirname(trimmed), sourceType: 'batch' };
@@ -50,11 +51,11 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
       if (stats.isDirectory()) {
         const batPath = path.join(trimmed, 'rea.bat');
         const pyPath = path.join(trimmed, 'rea.py');
+        if (fs.existsSync(pyPath)) {
+          return { file: pythonCommand(), argsPrefix: [pyPath], reaDir: trimmed, sourceType: 'script' };
+        }
         if (isWin && fs.existsSync(batPath)) {
           return { file: batPath, argsPrefix: [], reaDir: trimmed, sourceType: 'batch' };
-        }
-        if (fs.existsSync(pyPath)) {
-          return { file: PYTHON_COMMAND, argsPrefix: [pyPath], reaDir: trimmed, sourceType: 'script' };
         }
       }
     }
@@ -75,11 +76,13 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
     if (fs.existsSync(dir)) {
       const batPath = path.join(dir, 'rea.bat');
       const pyPath = path.join(dir, 'rea.py');
+      // rea.bat only runs `python rea.py`; going straight to Python keeps cmd.exe out, which expands %NAME% even
+      // inside a quoted folder name.
+      if (fs.existsSync(pyPath)) {
+        return { file: pythonCommand(), argsPrefix: [pyPath], reaDir: dir, sourceType: 'script' };
+      }
       if (isWin && fs.existsSync(batPath)) {
         return { file: batPath, argsPrefix: [], reaDir: dir, sourceType: 'batch' };
-      }
-      if (fs.existsSync(pyPath)) {
-        return { file: PYTHON_COMMAND, argsPrefix: [pyPath], reaDir: dir, sourceType: 'script' };
       }
     }
   }
@@ -115,11 +118,11 @@ export function executeReaCommand(options: {
       const proc = spawn(launch.file, launch.args, {
         cwd: workingDir,
         windowsVerbatimArguments: launch.windowsVerbatimArguments,
-        env: {
+        env: withBundledRuntimes({
           ...process.env,
           PYTHONUNBUFFERED: '1',
           PYTHONIOENCODING: 'utf-8',
-        },
+        }),
         shell: false,
       });
 
@@ -194,10 +197,9 @@ export function findWorkspaceRoots(projectPath?: string, customPath?: string): s
 }
 
 export function resolveWorkspaceRoot(projectPath?: string, customPath?: string): string {
-  // If project has an existing workspaces folder, use it
-  if (projectPath) {
-    const projWs = path.join(projectPath, 'workspaces');
-    if (fs.existsSync(projWs)) return projWs;
+  // Downloads and decodes for a project live in its own workspaces folder; callers create it on first use
+  if (projectPath && fs.existsSync(projectPath)) {
+    return path.join(projectPath, 'workspaces');
   }
   // Otherwise default to ReaKit's workspaces directory
   const exeInfo = resolveReaExecutable(customPath);

@@ -19,6 +19,7 @@ const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLi
 const {
   isWin, isMac, findOnPath, firstExisting, buildLaunch, fixUnixPath, localDataDir, roamingConfigDir, unixBinDirs,
 } = require('./platform');
+const { withBundledRuntimes } = require('./runtimes');
 
 // Finder/Dock launches on macOS (and desktop-file launches on Linux) start with a bare PATH.
 fixUnixPath();
@@ -759,7 +760,7 @@ app.whenReady().then(() => {
         cols: 120,
         rows: 30,
         cwd: cwd || os.homedir(),
-        env: { ...process.env, TERM: 'xterm-256color' },
+        env: withBundledRuntimes({ ...process.env, TERM: 'xterm-256color' }),
       });
 
       ptyProcesses.set(id, ptyProc);
@@ -792,7 +793,7 @@ app.whenReady().then(() => {
         cols: 120,
         rows: 30,
         cwd: cwd || os.homedir(),
-        env: { ...process.env, TERM: 'xterm-256color' },
+        env: withBundledRuntimes({ ...process.env, TERM: 'xterm-256color' }),
       });
 
       ptyProcesses.set(id, ptyProc);
