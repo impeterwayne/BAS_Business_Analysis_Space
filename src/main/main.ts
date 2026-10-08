@@ -259,6 +259,7 @@ function createWindow() {
     backgroundColor: '#08080d',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     ...(isMac ? { trafficLightPosition: { x: 14, y: 14 } } : {}),
+    icon: path.join(__dirname, isWin ? '../../build/icon.ico' : '../../build/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

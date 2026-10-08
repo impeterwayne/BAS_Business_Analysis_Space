@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-  <polyline points="14 2 14 8 20 8"></polyline>
-  <line x1="16" y1="13" x2="8" y2="13"></line>
-  <line x1="16" y1="17" x2="8" y2="17"></line>
-  <polyline points="10 9 9 9 8 9"></polyline>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Sharp Square Frame -->
+  <rect x="2.5" y="2.5" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" />
+  <g fill="currentColor">
+    <path transform="translate(1.82, 16.50) scale(0.007326, -0.007326)" d="M143 0V1365H671Q862 1365 958 1270Q1055 1175 1055 1009Q1055 906 1020.0 840.5Q985 775 905 729Q1037 702 1095 643Q1183 553 1183 387Q1183 222 1072 118Q947 0 712 0ZM498 828H563Q648 828 689 865Q730 902 730 961Q730 1026 687.5 1060.0Q645 1094 563 1094H498ZM498 276H577Q695 276 752 301Q785 316 804.5 348.5Q824 381 824 421Q824 504 756 539Q726 555 691.5 559.5Q657 564 571 564H498Z" />
+    <path transform="translate(10.48, 16.50) scale(0.007326, -0.007326)" d="M973 238H483L389 0H14L539 1365H926L1440 0H1061ZM877 508 730 943 581 508Z" />
+  </g>
 </svg>
