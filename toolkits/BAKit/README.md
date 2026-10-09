@@ -96,11 +96,9 @@ questions. Visual tokens (colours, spacing, fonts) are left to developers.
 
 ## How `/ba-competitor` delegates
 
-The main Antigravity session acts as `ba-lead` and never does the work itself. The delegation rule sits in
-the worktree's `AGENTS.md` between `<!-- bakit:orchestrate:start -->` and `<!-- bakit:orchestrate:end -->`
-because Antigravity always reads `AGENTS.md` while rule files load unreliably; anything outside the markers
-is yours and is kept on update and removal.
+The main Antigravity session acts as `ba-lead` and never does the work itself. `/ba-competitor` supports two execution branches:
 
+### Branch 1: Hybrid / Device-Verified (with `mobilerun`)
 | Wave | Agent(s) | Output under `docs/BA/competitor/<app-slug>/` |
 | :--- | :--- | :--- |
 | A. Code (parallel, needs a decoded APK) | 2-3 × `code-scout` in one `invoke_subagent` call | `code-index/` (`apk_index.py build` + per-flow notes) |
@@ -109,9 +107,17 @@ is yours and is kept on update and removal.
 | D. Write | `competitor-analyst` SYNTHESIZE | profile (with tech + code-only features), screens, comparison |
 | E. Verify | `evidence-verifier` | `<verdict>`; defects go back to their owner |
 
+### Branch 2: Static / Code-Only (without `mobilerun`)
+*Activated by `--code-only`, `--no-device`, or auto-fallback when no device is connected.*
+| Wave | Agent(s) | Output under `docs/BA/competitor/<app-slug>/` |
+| :--- | :--- | :--- |
+| A. Deep Code Analysis (parallel) | 2-3 × `code-scout` in one `invoke_subagent` call | `code-index/` (layouts, rules, validations, error strings) |
+| B. Write Deliverables | `competitor-analyst` SYNTHESIZE (mode="code-only") | profile, screen inventory, flow analyses, comparison |
+| C. Verify | `evidence-verifier` | `<verdict>`; audits `[Code]` path:line citations |
+
 Decode the APK first in BA Space (Competitor → Decode, ReaKit jadx). Copying a benchmark command also syncs
 the project config, whose Competitor Apps table carries the jadx path in its **Decoded source** column; the
-command itself stays short: `/ba-competitor <package> <flows>`. If no index exists yet, one scout builds it
+command itself stays short: `/ba-competitor <package> <flows> [--code-only]`. If no index exists yet, one scout builds it
 alone before the parallel scouts start.
 
 `apk_index.py` needs Python 3.8+ on PATH (standard library only). Its ideas come from

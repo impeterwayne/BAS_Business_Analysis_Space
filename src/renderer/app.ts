@@ -3422,20 +3422,40 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
             <div class="dash-comp-bench-header-left">
               <span class="dash-comp-bench-title">Target User Flows</span>
               ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length}</span>` : ''}
+              ${flows.length > 0 ? `
+                <span class="dash-comp-mcp-status ${comp.analysisMode === 'code-only' ? 'code-only' : 'hybrid'}" title="${comp.analysisMode === 'code-only' ? 'Mobilerun MCP disabled for this worktree to save agent tokens' : 'Mobilerun MCP active in workspace plugin'}">
+                  ${comp.analysisMode === 'code-only' ? 'MCP Off' : 'MCP On'}
+                </span>
+              ` : ''}
             </div>
+            ${flows.length > 0 ? `
+              <div class="dash-comp-bench-header-right">
+                <div class="dash-comp-mode-toggle" title="Switch between Live Device (mobilerun) and Static Code-Only analysis">
+                  <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? '' : 'active'}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="hybrid" title="Live Device Mode: Drives app on connected device with screenshots (mobilerun)">
+                    ${icons.mobile || icons.android || ''}
+                    <span>Mobilerun</span>
+                  </button>
+                  <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? 'active' : ''}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="code-only" title="Code-Only Mode: Static decompiled code analysis without device (--code-only)">
+                    ${icons.code || ''}
+                    <span>Code-Only</span>
+                  </button>
+                </div>
+              </div>
+            ` : ''}
           </div>
 
           ${flows.length > 0 ? `
             <div class="dash-comp-cmd-list">
               ${(() => {
+                const isCodeOnly = comp.analysisMode === 'code-only';
                 const cmdItems: Array<{ slashCmd: string; label: string; isAll: boolean }> = flows.map((flow: string) => ({
-                  slashCmd: buildBenchmarkSlashCommand(target, flow),
+                  slashCmd: buildBenchmarkSlashCommand(target, flow, { codeOnly: isCodeOnly }),
                   label: flow,
                   isAll: false,
                 }));
                 if (flows.length > 1) {
                   cmdItems.push({
-                    slashCmd: buildBenchmarkSlashCommand(target, flows),
+                    slashCmd: buildBenchmarkSlashCommand(target, flows, { codeOnly: isCodeOnly }),
                     label: `All ${flows.length} flows`,
                     isAll: true,
                   });
@@ -3565,6 +3585,50 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
     });
   });
 
+  dom.dashCompetitorList.querySelectorAll('[data-action="set-comp-bench-mode"]').forEach((el: Element) => {
+    el.addEventListener('click', async (e: Event) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const id = target.dataset.id;
+      const mode = target.dataset.mode || 'hybrid';
+      const comp = (activeProject?.competitors || []).find((c: any) => c.id === id);
+      if (comp && comp.analysisMode !== mode) {
+        comp.analysisMode = mode;
+        if (activeProject?.path) {
+          void window.api.updateProjectCompetitor(activeProject.path, comp);
+        }
+
+        const wtPath = activeWt?.path || activeWorktreePath;
+        if (wtPath) {
+          try {
+            if (mode === 'code-only') {
+              const anyOtherNeedsMobilerun = (activeProject?.competitors || []).some(
+                (c: any) => c.id !== id && c.analysisMode !== 'code-only'
+              );
+              if (!anyOtherNeedsMobilerun) {
+                const unreg = await window.api.unregisterMobilerunMcp({ worktreePath: wtPath });
+                if (unreg?.success) {
+                  showToast('Code-Only mode: Disabled mobilerun MCP plugin for this worktree to save agent tokens.', 'info');
+                }
+              } else {
+                showToast('Code-Only command active for this app (other competitors still use Mobilerun).', 'info');
+              }
+            } else {
+              const reg = await window.api.registerMobilerunMcp({ worktreePath: wtPath });
+              if (reg?.success) {
+                showToast('Mobilerun mode: Enabled mobilerun MCP plugin in this worktree.', 'success');
+              }
+            }
+          } catch (mcpErr: any) {
+            console.warn('Failed to sync mobilerun MCP state:', mcpErr);
+          }
+        }
+
+        renderDashboardCompetitors(activeProject, activeWt);
+      }
+    });
+  });
+
   dom.dashCompetitorList.querySelectorAll('[data-action="edit-comp"]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -3583,8 +3647,21 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           focusModalInputLater,
           bindModalEnterSubmit,
           withAsyncButtonState,
-          onSuccess: (updated: any) => {
+          onSuccess: async (updated: any) => {
             activeProject.competitors = updated.competitors;
+            const wtPath = activeWt?.path || activeWorktreePath;
+            if (wtPath) {
+              const allCodeOnly = (activeProject.competitors || []).length > 0 &&
+                (activeProject.competitors || []).every((c: any) => c.analysisMode === 'code-only');
+              if (allCodeOnly) {
+                try {
+                  const unreg = await window.api.unregisterMobilerunMcp({ worktreePath: wtPath });
+                  if (unreg?.success) {
+                    showToast('All competitors set to Code-Only: mobilerun MCP plugin disabled for this worktree.', 'info');
+                  }
+                } catch (_) {}
+              }
+            }
             renderDashboardCompetitors(activeProject, activeWt);
           },
         });

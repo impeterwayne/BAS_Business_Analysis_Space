@@ -25,11 +25,15 @@ QA handoff. Adapted from the BA_Flow 4-phase workflow, with competitor and desig
 ### Phase 0 — Competitor discovery
 
 Use when the request involves another app ("how does X do it", "benchmark", "survey the competitor").
-When the APK was decoded with jadx, `code-scout` agents read the code in parallel first and `ba-lead` turns
-their notes into an exploration plan. Then drive the app on the connected device with the `mobilerun` MCP
-server, one flow at a time, capture evidence, and write the competitor profile, screen inventory and flow
-analyses; `evidence-verifier` checks them before they reach the user. When our product reference is available, finish with
-the comparison / gap report; its `GAP-*` and `FR-CAND-*` items become inputs to Phase 2.
+Operates in two branches depending on device availability or user flags (`/ba-competitor`):
+
+1. **Branch 1: Hybrid Mode (Code + Device Walk via `mobilerun`)**
+   When a device is connected: `code-scout` agents index and inspect the decoded code in parallel first, and `ba-lead` turns their notes into an exploration plan. Then `competitor-analyst` drives the app on the connected device with the `mobilerun` MCP server, capturing screenshots and UI trees. Deliverables are synthesized and checked by `evidence-verifier`.
+
+2. **Branch 2: Static Mode (Code-Only without `mobilerun`)**
+   Triggered via `--code-only`, `--no-device`, or when no device is connected: `code-scout` agents extract screen maps, layouts, field validation rules, error strings (`strings.xml`), and API contracts directly from decoded source (`jadx_src`). `competitor-analyst` synthesizes full BA docs (screen inventory, flow analysis with Mermaid diagrams, profile, and comparison) using `[Code]` (cites `file:line`) and `[Inferred]` evidence grades. Zero device interaction or `mobilerun` required.
+
+When our product reference is available, both branches produce the comparison / gap report; its `GAP-*` and `FR-CAND-*` items become inputs to Phase 2.
 
 ### Phase 0 — Design discovery
 

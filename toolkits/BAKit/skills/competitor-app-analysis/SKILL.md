@@ -99,20 +99,22 @@ write `v2` instead.
 
 ### Phase 2 — Write the documents
 
-Write only what you captured. Fill templates exactly as `ba-templates` describes.
+Fill templates exactly as `ba-templates` describes. The generation strategy adapts to the active branch:
 
-1. **Screen inventory** (`competitor-screens`): one section per captured state, elements taken from the
-   `.tree.txt` (resource-id, label), labels in original language with English in parentheses.
-2. **Flow analysis** (`competitor-flow`), one file per flow: step table, Mermaid state diagram, observed
-   rules, friction, coverage.
-3. **App profile** (`competitor-profile`): overview, survey scope, feature map (`CF-NNN`), strengths,
-   weaknesses, boundaries, open questions. When a code index exists, add a tech section from
-   `code-index/tech.md` (frameworks, SDK categories, permissions) and a **code-only features** section: screens,
-   flags and events present in code but never observed, graded `[Code]` — hidden, gated, regional or
-   upcoming features, not observed capabilities.
-4. **Comparison / gap** (`comparison-gap`) — only when the user supplied our product reference or asked to
-   compare several apps: feature matrix, `GAP-NNN` list, and `FR-CAND-NNN` candidate requirements.
-   Candidates are proposals; they enter the FSD only after the user confirms (then run `specs analyze`).
+#### Mode A: Device-Verified Mode (with captures from `mobilerun`)
+1. **Screen inventory** (`competitor-screens`): one section per captured state, elements taken from the `.tree.txt` (resource-id, label), labels in original language with English in parentheses.
+2. **Flow analysis** (`competitor-flow`), one file per flow: step table, Mermaid state diagram, observed rules, friction, coverage.
+3. **App profile** (`competitor-profile`): overview, survey scope, feature map (`CF-NNN`), strengths, weaknesses, boundaries, open questions. Includes tech section from `code-index/tech.md` and code-only features section.
+4. **Comparison / gap** (`comparison-gap`): feature matrix, `GAP-NNN` list, and `FR-CAND-NNN` candidate requirements.
+
+#### Mode B: Static Code-Only Mode (without `mobilerun` / no device)
+When running without a device (`--code-only` or `--no-device`):
+1. **Screen inventory** (`competitor-screens`): derived from layout XMLs (`res/layout/*.xml`), Jetpack Compose composables, and activity/fragment view bindings. Elements list resource IDs, view classes, and `@string/...` text values. In metadata, set `Thiết bị (Device): None (Static Code Analysis — jadx_src)`.
+2. **Flow analysis** (`competitor-flow`): steps derived from Activity/Fragment transitions, navigation actions (`NavController.navigate`, `startActivity`), and intent extras. State diagram drawn as Mermaid flowchart. Validation rules table extracted from validator classes, min/max limits, and error string resources. Every rule and step cites `[Code] path/to/Class.java:line`.
+3. **App profile** (`competitor-profile`): generated from `_meta.md`, `tech.md`, `packages.md`, and `screens.md`. Feature catalog `CF-NNN` covers all discovered feature modules.
+4. **Comparison / gap** (`comparison-gap`): compares competitor code capabilities directly against our reference. Every proposal is marked `[Code]` or `[Inferred]`.
+
+Candidates (`FR-CAND-NNN`) are proposals; they enter the FSD only after the user confirms (then run `specs analyze`).
 
 ### Phase 3 — Close
 

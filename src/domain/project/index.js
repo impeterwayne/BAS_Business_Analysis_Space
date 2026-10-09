@@ -308,6 +308,7 @@ function normalizeProjectMetadata(metadata) {
             jadxSourcePath: typeof c.jadxSourcePath === 'string' ? c.jadxSourcePath.trim() : '',
             jadxStatus: typeof c.jadxStatus === 'string' ? c.jadxStatus.trim() : '',
             notes: typeof c.notes === 'string' ? c.notes.trim() : '',
+            analysisMode: c.analysisMode === 'code-only' ? 'code-only' : 'hybrid',
             addedAt: typeof c.addedAt === 'number' ? c.addedAt : Date.now(),
           }))
       : [],
@@ -510,10 +511,11 @@ function formatFlowSlug(flow) {
 // flow: one flow name or an array of them (one run over several flows shares one plan and one profile).
 // The decoded-source path is not part of the command: /ba-competitor reads it from the Decoded source column
 // of ba-project-config.md, which BA Space syncs when the command is copied.
-function buildBenchmarkSlashCommand(target, flow) {
+function buildBenchmarkSlashCommand(target, flow, opts = {}) {
   const pkg = (target || 'app').trim();
   const slug = (Array.isArray(flow) ? flow : [flow]).map(formatFlowSlug).filter(Boolean).join(' ');
-  return `/ba-competitor ${pkg}${slug ? ` ${slug}` : ''}`;
+  const codeOnlyFlag = opts && (opts.codeOnly || opts.noDevice) ? ' --code-only' : '';
+  return `/ba-competitor ${pkg}${slug ? ` ${slug}` : ''}${codeOnlyFlag}`;
 }
 
 function cleanApkAppName(fileName) {

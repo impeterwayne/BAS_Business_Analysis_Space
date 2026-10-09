@@ -20,6 +20,7 @@ type CompetitorData = {
   jadxSourcePath?: string;
   jadxStatus?: string;
   notes?: string;
+  analysisMode?: 'hybrid' | 'code-only';
 };
 
 type OpenCompetitorModalOptions = {
@@ -73,6 +74,7 @@ export async function openCompetitorModal({
 
   let currentJadxSourcePath = competitor?.jadxSourcePath || '';
   let currentJadxStatus = competitor?.jadxStatus || '';
+  let currentAnalysisMode = competitor?.analysisMode || 'hybrid';
   let isLocalDecoding = false;
   let activeDecodeProgress: { stage: string; percent: number; detail: string; elapsedSec: number } | null = null;
 
@@ -149,6 +151,36 @@ export async function openCompetitorModal({
             <span>Add Flow</span>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Group 5: Benchmark Execution Mode -->
+    <div class="form-group" style="margin-bottom: 6px; margin-top: 14px;">
+      <label class="comp-modal-section-title">
+        <span>Benchmark Analysis Mode</span>
+        <span class="form-hint" style="margin: 0; font-size: 11px; text-transform: none; letter-spacing: normal;">Default for generated /ba-competitor slash commands</span>
+      </label>
+      <div style="display: flex; gap: 10px; margin-top: 6px;">
+        <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; cursor: pointer; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); flex: 1;">
+          <input type="radio" name="comp-analysis-mode" value="hybrid" ${currentAnalysisMode !== 'code-only' ? 'checked' : ''} style="cursor: pointer; margin-top: 2px;" />
+          <div>
+            <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+              ${icons.mobile || icons.android || ''}
+              <span>Live Device (mobilerun)</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.3;">Drives app on Android device, captures screens &amp; UI trees</div>
+          </div>
+        </label>
+        <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; cursor: pointer; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); flex: 1;">
+          <input type="radio" name="comp-analysis-mode" value="code-only" ${currentAnalysisMode === 'code-only' ? 'checked' : ''} style="cursor: pointer; margin-top: 2px;" />
+          <div>
+            <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+              ${icons.code || ''}
+              <span>Static Code-Only</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.3;">Decompiled source analysis only (--code-only, no device)</div>
+          </div>
+        </label>
       </div>
     </div>
   `;
@@ -849,6 +881,8 @@ export async function openCompetitorModal({
       }
     }
 
+    const selectedMode = (dom.modalBody.querySelector('input[name="comp-analysis-mode"]:checked') as HTMLInputElement)?.value === 'code-only' ? 'code-only' : 'hybrid';
+
     const compData: CompetitorData = {
       ...(competitor?.id ? { id: competitor.id } : {}),
       name,
@@ -862,6 +896,7 @@ export async function openCompetitorModal({
       jadxSourcePath: currentJadxSourcePath,
       jadxStatus: currentJadxStatus,
       notes: currentFlows.join('\n'),
+      analysisMode: selectedMode,
     };
 
     const res = await withAsyncButtonState(

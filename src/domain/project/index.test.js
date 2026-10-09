@@ -404,5 +404,13 @@ test('buildBenchmarkSlashCommand generates correct /ba-competitor slash command'
     buildBenchmarkSlashCommand('vn.momo', ['Chuyển tiền', 'Onboarding KYC']),
     '/ba-competitor vn.momo chuyen-tien onboarding-kyc'
   );
+  assert.strictEqual(
+    buildBenchmarkSlashCommand('MoMo', 'Onboarding KYC', { codeOnly: true }),
+    '/ba-competitor MoMo onboarding-kyc --code-only'
+  );
+  assert.strictEqual(
+    buildBenchmarkSlashCommand('Shopee', '', { noDevice: true }),
+    '/ba-competitor Shopee --code-only'
+  );
 });
 

@@ -1633,19 +1633,23 @@ kbd {
 .dashboard-viewer {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   position: relative;
   z-index: 2;
+  flex: 1 1 0%;
+  min-height: 420px;
 }
 
 .dashboard-viewer.dash-list-mode,
 .dashboard-viewer.dash-grid-mode {
   width: 100%;
   max-width: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .dashboard-empty-state {
@@ -1843,6 +1847,8 @@ kbd {
   flex-direction: column;
   gap: 18px;
   width: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .dashboard-viewer.dash-grid-mode .dash-sections-container,
@@ -1851,6 +1857,8 @@ kbd {
   flex-direction: column;
   gap: 18px;
   width: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .dashboard-viewer #dash-section-competitors {
@@ -1861,12 +1869,16 @@ kbd {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .dashboard-viewer #dash-section-competitors .dash-section-body {
-  flex: 1;
+  flex: 1 1 0%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  width: 100%;
 }
 
 /* Resources Screen Sections Container (Figma, Firebase, Legacy Docs) */
@@ -4070,10 +4082,15 @@ kbd {
 /* Competitor Apps Catalog */
 .dash-competitor-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  grid-auto-rows: minmax(280px, 1fr);
   gap: 14px;
   width: 100%;
   box-sizing: border-box;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: stretch;
 }
 
 .dash-comp-card {
@@ -4081,11 +4098,11 @@ kbd {
   background: linear-gradient(180deg, rgba(22, 22, 25, 0.95) 0%, rgba(14, 14, 16, 0.98) 100%);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 15px 16px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 14px;
   transition: all var(--transition-normal);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   overflow: hidden;
@@ -4104,10 +4121,10 @@ kbd {
 .dash-comp-card-main {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 
 .dash-comp-card-header {
@@ -4342,11 +4359,12 @@ kbd {
 .dash-comp-bench-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-height: 48px;
-  flex: 1;
+  flex: 1 1 0%;
   width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .dash-comp-bench-header {
@@ -4381,13 +4399,86 @@ kbd {
   border: 1px solid rgba(56, 189, 248, 0.25);
 }
 
+.dash-comp-mcp-status {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+}
+
+.dash-comp-mcp-status.code-only {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+.dash-comp-mcp-status.hybrid {
+  background: rgba(61, 220, 132, 0.12);
+  color: #3ddc84;
+  border: 1px solid rgba(61, 220, 132, 0.25);
+}
+
+.dash-comp-bench-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-comp-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.dash-comp-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  line-height: 1.2;
+}
+
+.dash-comp-mode-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
+.dash-comp-mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dash-comp-mode-btn.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
 .dash-comp-cmd-list,
 .dash-comp-bench-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   width: 100%;
-  max-height: 140px;
+  flex: 1 1 0%;
+  min-height: 48px;
+  max-height: none;
   overflow-y: auto;
   padding-right: 2px;
   box-sizing: border-box;
@@ -4545,19 +4636,23 @@ kbd {
 }
 
 .dash-comp-bench-empty {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 20px 16px;
   background: rgba(0, 0, 0, 0.18);
   border: 1px dashed var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: 12px;
   cursor: pointer;
   transition: all var(--transition-fast);
-  text-align: left;
+  text-align: center;
   width: 100%;
+  flex: 1 1 0%;
+  min-height: 70px;
   box-sizing: border-box;
 }
 
@@ -4571,13 +4666,22 @@ kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
-  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
   font-weight: bold;
+  color: var(--text-muted);
   flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.dash-comp-bench-empty:hover .dash-comp-bench-empty-icon {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
 }
 
 /* Competitor Modal Dialog Layout & Target User Flows */
@@ -4711,6 +4815,9 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .dashboard-viewer.dash-list-mode .dash-comp-card {
@@ -4721,12 +4828,20 @@ kbd {
   padding: 16px 18px;
 }
 
+.dashboard-viewer.dash-list-mode .dash-competitor-list:has(> .dash-comp-card:only-child) .dash-comp-card {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 .dashboard-viewer.dash-list-mode .dash-comp-card-main {
   width: 100%;
+  flex: 0 0 auto;
 }
 
 .dashboard-viewer.dash-list-mode .dash-comp-bench-section {
   width: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .dash-comp-empty {
@@ -4739,9 +4854,12 @@ kbd {
   background: linear-gradient(180deg, rgba(20, 20, 22, 0.6) 0%, rgba(12, 12, 14, 0.8) 100%);
   border: 1.5px dashed var(--border-default);
   border-radius: var(--radius-lg);
-  gap: 10px;
+  gap: 12px;
   grid-column: 1 / -1;
   width: 100%;
+  height: 100%;
+  min-height: 220px;
+  flex: 1 1 0%;
   box-sizing: border-box;
   transition: border-color var(--transition-fast);
 }

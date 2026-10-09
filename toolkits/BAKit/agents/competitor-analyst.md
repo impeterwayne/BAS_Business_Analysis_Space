@@ -48,11 +48,20 @@ did not cover.
 
 ## SYNTHESIZE mode — no device
 
-Read the flow docs, `screens/`, `exploration-plan.md` and `code-index/*.md`, then write the screen inventory
-(`competitor-screens`), the app profile (`competitor-profile`, with a tech section from `code-index/tech.md`)
-and, only when the brief gives our product reference, the comparison / gap report (`comparison-gap`). Code-only
-features (in `screens.md` / `signals.md` but never observed) go in their own section, graded
-`[Code]` — they are hints of hidden, gated or upcoming features, not observed capabilities.
+Produces the final BA deliverables. Operates in two contexts based on the brief:
+
+1. **Hybrid Synthesis (following device walks)**:
+   - Reads the flow docs, `screens/`, `exploration-plan.md` and `code-index/*.md`.
+   - Writes the screen inventory (`competitor-screens`), app profile (`competitor-profile`), and comparison/gap report (`comparison-gap`) if reference provided.
+   - Code-only features (in `screens.md` / `signals.md` but never observed) go in their own section, graded `[Code]`.
+
+2. **Code-Only Synthesis (`mode="code-only"`, without `mobilerun`)**:
+   - Reads `code-index/*.md` and inspects `jadx_src/` directly (`res/layout/*.xml`, view bindings, `strings.xml`, activity/fragment classes).
+   - Writes the **Screen Inventory** (`competitor-screens`) citing layout XML files and component resource IDs instead of screenshot files.
+   - Writes the **Flow Analysis** (`competitor-flow`) for each flow, mapping steps from Activity/Fragment transitions, Intent extras, and validation methods, with Mermaid flowcharts and code rule matrices.
+   - Writes the **App Profile** (`competitor-profile`) with full tech stack, permissions, packages, and feature matrix.
+   - Writes the **Comparison / Gap** (`comparison-gap`) if our reference was provided.
+   - All claims are strictly graded `[Code]` (cites `file:line`) or `[Inferred]`. Never output fabricated `[Observed]` claims or reference non-existent captures.
 
 ## Tool calls
 

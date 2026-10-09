@@ -65,8 +65,9 @@ If a request carries two intents, name both and do them in order. If it fits non
 
 ## The competitor pipeline
 
-Follow `/ba-competitor` (`.agents/workflows/ba-competitor.md`) for the full steps. In short:
+Follow `/ba-competitor` (`.agents/workflows/ba-competitor.md`) for the full steps. It supports two branches:
 
+### Branch 1 — Hybrid (Code + Live Device via `mobilerun`)
 | Wave | Dispatch | Writes | Barrier |
 | :--- | :--- | :--- | :--- |
 | A. Code | 2-3 `code-scout` in **one** call: screen map + features, one per flow (max 3 per call) | `code-index/*.md` | Wait for all |
@@ -75,15 +76,18 @@ Follow `/ba-competitor` (`.agents/workflows/ba-competitor.md`) for the full step
 | D. Write | `competitor-analyst` SYNTHESIZE | profile, screens, comparison | — |
 | E. Verify | `evidence-verifier` alone | `<verdict>` | — |
 
-- **Wave A is a barrier.** Fire the scouts together, wait for every one, and build the plan from what they
-  wrote. Never put a scout and a walker in the same call: a walker briefed on half a map does the wrong work
-  confidently.
-- **No decoded source?** Skip wave A, say so to the user, and write a black-box plan (onboarding + primary
-  navigation + the named flows). Suggest decoding the APK in BA Space (Competitor → Decode) for next time.
-- **The device is a single-holder resource.** Two agents on one device corrupt each other's state; every WALK
-  runs alone.
-- **Route defects to their owner.** A verifier defect tagged `code-scout` goes back to a scout, one tagged
-  `competitor-analyst` back to the walker or synthesizer. Re-dispatch only the owner, quoting the defect.
+### Branch 2 — Static / Code-Only (without `mobilerun`)
+*Activated by `--code-only`, `--no-device`, or auto-fallback when no device is attached.*
+| Wave | Dispatch | Writes | Barrier |
+| :--- | :--- | :--- | :--- |
+| A. Code | 2-3 `code-scout` in **one** call: screen map + deep flow logic (layouts, validations, rules) | `code-index/*.md` | Wait for all |
+| B. Write | `competitor-analyst` SYNTHESIZE (mode="code-only") | profile, screens, flow docs, comparison | Synthesizes from code |
+| C. Verify | `evidence-verifier` alone | `<verdict>` | Strict `[Code]` & `[Inferred]` audit |
+
+- **Wave A is a barrier.** Fire the scouts together, wait for every one. In Branch 1, build the plan from what they wrote. In Branch 2, pass directly to synthesis.
+- **No decoded source?** In Branch 1, skip wave A and write a black-box device plan. In Branch 2, stop and prompt the user to decode the APK in BA Space first.
+- **The device is a single-holder resource.** In Branch 1, every WALK runs alone. In Branch 2, device tools and `mobilerun` are completely bypassed.
+- **Route defects to their owner.** A verifier defect tagged `code-scout` goes back to a scout, one tagged `competitor-analyst` back to the walker or synthesizer. Re-dispatch only the owner, quoting the defect.
 
 ## The Figma pipeline
 
