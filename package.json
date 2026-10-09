@@ -1,6 +1,6 @@
 {
   "name": "ba-space",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Business Analyst workspace manager with Git worktrees, screen inspection, and AI agent harnesses",
   "main": "dist/main/main.js",
   "scripts": {
@@ -66,7 +66,10 @@
       {
         "from": "runtimes/${os}-${arch}",
         "to": "runtimes",
-        "filter": ["**/*", "!.fetched"]
+        "filter": [
+          "**/*",
+          "!.fetched"
+        ]
       }
     ],
     "win": {
