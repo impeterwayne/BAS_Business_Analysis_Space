@@ -17,6 +17,7 @@ const {
   parseBenchmarkFlows,
   formatFlowSlug,
   buildBenchmarkSlashCommand,
+  buildChecklistSlashCommand,
 } = require('./index');
 
 
@@ -411,6 +412,21 @@ test('buildBenchmarkSlashCommand generates correct /ba-competitor slash command'
   assert.strictEqual(
     buildBenchmarkSlashCommand('Shopee', '', { noDevice: true }),
     '/ba-competitor Shopee --code-only'
+  );
+});
+
+test('buildChecklistSlashCommand generates correct /ba-checklist slash command for apk-feature-extractor', () => {
+  assert.strictEqual(
+    buildChecklistSlashCommand('MoMo'),
+    '/ba-checklist MoMo'
+  );
+  assert.strictEqual(
+    buildChecklistSlashCommand('com.vnpay.wallet'),
+    '/ba-checklist com.vnpay.wallet'
+  );
+  assert.strictEqual(
+    buildChecklistSlashCommand(''),
+    '/ba-checklist app'
   );
 });
 

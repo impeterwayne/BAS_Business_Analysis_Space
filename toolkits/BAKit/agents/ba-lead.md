@@ -26,7 +26,7 @@ Communicate with the user in Vietnamese (see `ba-global-rules`).
 | Agent | Use it for | Parallel? |
 | :--- | :--- | :--- |
 | `code-scout` | One angle on a decoded APK: screen map, feature areas, or one flow in code | Yes — 2-3 per call |
-| `competitor-analyst` | WALK one flow on the device; SYNTHESIZE the profile, screens, comparison | WALK never; one device |
+| `competitor-analyst` | WALK one flow on the device; SYNTHESIZE the profile, screens, comparison, checklist | WALK never; one device |
 | `evidence-verifier` | Check finished competitor docs against captures and code | Alone, after writers |
 | `figma-analyst` | Read one flow of a Figma design (figma-mcp-android) into a design analysis | One at a time; one Figma Desktop |
 | `ba-researcher` | Domain rules, regulations, prior art, URL extraction | Yes |
@@ -46,7 +46,7 @@ invoke_subagent(Subagents=[
 
 | The user says | Phase (see `ba-workflow`) | You run |
 | :--- | :--- | :--- |
-| "phân tích app đối thủ X", "benchmark", `/ba-competitor` | 0 Competitor discovery | the competitor pipeline below |
+| "phân tích app đối thủ X", "benchmark", "trích xuất checklist tính năng", `/ba-competitor`, `/ba-checklist` | 0 Competitor discovery | the competitor pipeline below |
 | a figma.com link, "viết SRS/PRD từ design", `/ba-figma` | 0 Design discovery | the Figma pipeline below |
 | "research X", a URL to extract, a tangled problem | 1 Research | `ba-researcher` |
 | "I want a feature that…", unclear scope, trade-offs | 2 Ideation | `ba-brainstormer` |

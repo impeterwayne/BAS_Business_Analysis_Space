@@ -51,6 +51,10 @@ jobs:
       - name: Fetch bundled runtimes
         run: node scripts/fetch-runtimes.mjs
 
+      - name: Fix permissions for codesign
+        if: runner.os == 'macOS'
+        run: chmod -R u+w runtimes
+
       - name: Package and upload
         run: npx electron-builder ${{ matrix.target }} --publish always
         env:

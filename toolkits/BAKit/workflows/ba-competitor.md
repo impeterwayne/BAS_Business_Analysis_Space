@@ -51,7 +51,7 @@ Paths below use `<dir>` = `docs/BA/competitor/<app-slug>/`.
 
 4. **Wave C — device walks (one flow per dispatch, strictly one at a time).** Dispatch `competitor-analyst` in WALK mode for each flow using `mobilerun`. Captures screens (`screens/`), records observed facts, and notes walls/barriers.
 
-5. **Wave D — synthesize.** Dispatch `competitor-analyst` in SYNTHESIZE mode: screen inventory from captures, app profile with tech stack, flow docs, and comparison/gap report if `compare` was provided.
+5. **Wave D — synthesize.** Dispatch `competitor-analyst` in SYNTHESIZE mode: screen inventory from captures, app profile with tech stack, flow docs, comparison/gap report if `compare` was provided, and optional Feature Checklist (`{app-slug}_checklist_{YYYYMMDD}_v1.md`) via `apk-feature-extractor` (or on-demand with `/ba-checklist`).
 
 6. **Wave E — verify.** Dispatch `evidence-verifier` alone with document list, captures, code index, and plan. Checks `[Observed]`, `[Code]`, and `[Inferred]` claims.
 
@@ -72,6 +72,7 @@ Paths below use `<dir>` = `docs/BA/competitor/<app-slug>/`.
      - **Flow Analysis** (`{app-slug}_flow-{flow}_{YYYYMMDD}_v1.md`): derived from Activity/Fragment transitions, Intent extras, validation methods, and error strings. Generates a Mermaid state transition diagram and a Code Rules table with `[Code]` citations.
      - **App Profile** (`{app-slug}_profile_{YYYYMMDD}_v1.md`): overview, tech stack from `tech.md`, permissions, and complete feature map (`CF-*`).
      - **Comparison / Gap** (`{topic}_comparison_{YYYYMMDD}_v1.md`): when `compare` was provided, evaluates code capabilities against our reference.
+     - **Feature Checklist** (`{app-slug}_checklist_{YYYYMMDD}_v1.md`): normalized feature inventory via `apk-feature-extractor` when requested.
 
 4. **Wave C — verify.** Dispatch `evidence-verifier` alone:
    - Verifies that all facts carry valid `[Code]` citations (`path:line`) that exist under `jadx_src/`.

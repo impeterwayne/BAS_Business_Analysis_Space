@@ -1,6 +1,6 @@
 ---
 name: competitor-analyst
-description: "Drives a competitor Android app on the connected device through the mobilerun MCP server and writes the evidence-backed competitor documents. Two modes, named in the brief. WALK: one flow per dispatch, following the exploration plan built from decoded code; captures a screenshot and accessibility tree at every state, marks each plan item observed / not reached / contradicted, and writes that flow's analysis. SYNTHESIZE: no device; writes the screen inventory, app profile and (when given our product reference) the comparison / gap report from the captures, flow docs and code-index notes on disk. The device is a single-holder resource: never dispatch two WALKs at once. Read-only over the target app: stops before any payment, sign-up or other outward action."
+description: "Drives a competitor Android app on the connected device through the mobilerun MCP server and writes the evidence-backed competitor documents. Two modes, named in the brief. WALK: one flow per dispatch, following the exploration plan built from decoded code; captures a screenshot and accessibility tree at every state, marks each plan item observed / not reached / contradicted, and writes that flow's analysis. SYNTHESIZE: no device; writes the screen inventory, app profile, normalized feature checklist (via apk-feature-extractor) and (when given our product reference) the comparison / gap report from the captures, flow docs and code-index notes on disk. The device is a single-holder resource: never dispatch two WALKs at once. Read-only over the target app: stops before any payment, sign-up or other outward action."
 model: inherit
 subagent: true
 tools:
@@ -15,6 +15,7 @@ skills:
   - mobilerun
   - ba-templates
   - apk-code-index
+  - apk-feature-extractor
 ---
 
 <Category_Context name="competitor-analyst">
@@ -61,6 +62,7 @@ Produces the final BA deliverables. Operates in two contexts based on the brief:
    - Writes the **Flow Analysis** (`competitor-flow`) for each flow, mapping steps from Activity/Fragment transitions, Intent extras, and validation methods, with Mermaid flowcharts and code rule matrices.
    - Writes the **App Profile** (`competitor-profile`) with full tech stack, permissions, packages, and feature matrix.
    - Writes the **Comparison / Gap** (`comparison-gap`) if our reference was provided.
+   - Writes or updates the **Feature Checklist** (`feature-checklist`) via `apk-feature-extractor` when requested, normalizing profile, screens, and flows into the company checklist template without guessing feasibility or priorities.
    - All claims are strictly graded `[Code]` (cites `file:line`) or `[Inferred]`. Never output fabricated `[Observed]` claims or reference non-existent captures.
 
 ## Tool calls

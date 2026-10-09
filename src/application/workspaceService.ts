@@ -235,6 +235,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       jadxSourcePath: typeof competitor.jadxSourcePath === 'string' ? competitor.jadxSourcePath.trim() : '',
       jadxStatus: typeof competitor.jadxStatus === 'string' ? competitor.jadxStatus.trim() : '',
       notes: (competitor.notes || '').trim(),
+      analysisMode: competitor.analysisMode === 'code-only' ? 'code-only' : 'hybrid',
       addedAt: competitor.addedAt || now(),
     };
     project.competitors.push(compEntry);
@@ -268,6 +269,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       jadxSourcePath: competitor.jadxSourcePath !== undefined ? (typeof competitor.jadxSourcePath === 'string' ? competitor.jadxSourcePath.trim() : '') : (existing.jadxSourcePath || ''),
       jadxStatus: competitor.jadxStatus !== undefined ? (typeof competitor.jadxStatus === 'string' ? competitor.jadxStatus.trim() : '') : (existing.jadxStatus || ''),
       notes: (competitor.notes !== undefined ? competitor.notes : existing.notes).trim(),
+      analysisMode: competitor.analysisMode !== undefined ? competitor.analysisMode : (existing.analysisMode || 'hybrid'),
     };
     enrichCompetitorFromDisk(projectPath, project.competitors[index]);
     configStore.saveConfig();

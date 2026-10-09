@@ -14,6 +14,7 @@ import { isWin, isMac, localDataDir, venvExecutable, findOnPath } from '../platf
 export const MOBILERUN_SETUP_ROOT = path.join(localDataDir(), 'BA Space', 'mobilerun');
 const MCP_DIR = path.join(MOBILERUN_SETUP_ROOT, 'mcp');
 const CLI_DIR = path.join(MOBILERUN_SETUP_ROOT, 'cli');
+const MCP_MARKER = path.join(MCP_DIR, '.installed');
 const PY_MIN_MINOR = 11;
 const PY_MAX_MINOR = 13;
 

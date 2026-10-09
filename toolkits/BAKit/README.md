@@ -13,9 +13,9 @@ Deliverables are written in Vietnamese; skill, rule and workflow files are in En
 | :--- | :--- | :--- |
 | `agents/` | `.agents/agents/` | `ba-lead` (orchestrator, main agent), `code-scout`, `competitor-analyst`, `evidence-verifier`, `figma-analyst`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer` |
 | `agents-md/` | `AGENTS.md` (marked block) | Delegation rule: the main session plans and dispatches subagents with `invoke_subagent` |
-| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `competitor-app-analysis`, `mobilerun`, `figma-ba-analysis`, `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`, `mermaidjs-v11`, `problem-solving`, `sequential-thinking` |
+| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `apk-feature-extractor` (checklist normalization), `competitor-app-analysis`, `mobilerun`, `figma-ba-analysis`, `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`, `mermaidjs-v11`, `problem-solving`, `sequential-thinking` |
 | `rules/` | `.agents/rules/` | Always-on: `ba-global-rules`, `ba-workflow`, `ba-naming-convention`, `ba-device-automation`, `ba-figma`, `ba-markdown-formatting` |
-| `workflows/` | `.agents/workflows/` | `/ba-competitor`, `/ba-figma`, `/ba-template`, `/ba-spec`, `/ba-review`, `/ba-testcases`, `/ba-device-check` |
+| `workflows/` | `.agents/workflows/` | `/ba-competitor`, `/ba-checklist`, `/ba-figma`, `/ba-template`, `/ba-spec`, `/ba-review`, `/ba-testcases`, `/ba-device-check` |
 | `config/` | `.agents/config/` | `ba-project-config.md` — created once, never overwritten or removed; fill it in and commit it |
 | `mcp/` | `.agents/plugins/mobilerun/`, `.agents/plugins/figma/` (workspace plugins) | `mobilerun` and `figma-mcp-android` server entries (see below) |
 

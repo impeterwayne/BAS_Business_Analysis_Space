@@ -518,6 +518,12 @@ function buildBenchmarkSlashCommand(target, flow, opts = {}) {
   return `/ba-competitor ${pkg}${slug ? ` ${slug}` : ''}${codeOnlyFlag}`;
 }
 
+// target: app name or package identifier. Returns /ba-checklist <app> for apk-feature-extractor
+function buildChecklistSlashCommand(target) {
+  const pkg = (target || 'app').trim();
+  return `/ba-checklist ${pkg}`;
+}
+
 function cleanApkAppName(fileName) {
   if (!fileName || typeof fileName !== 'string') return '';
   let base = fileName.trim().split(/[\\/]/).pop() || '';
@@ -569,5 +575,7 @@ module.exports = {
   formatFlowSlug,
   buildBenchmarkSlashCommand,
   buildTargetFlowSlashCommand: buildBenchmarkSlashCommand,
+  buildChecklistSlashCommand,
+  buildFeatureExtractorSlashCommand: buildChecklistSlashCommand,
 };
 

@@ -11,7 +11,7 @@ QA handoff. Adapted from the BA_Flow 4-phase workflow, with competitor and desig
 
 | Phase | Lead agent | Skills | Slash command |
 | :--- | :--- | :--- | :--- |
-| 0. Competitor discovery (optional) | `ba-lead` → `code-scout`, `competitor-analyst`, `evidence-verifier` | `apk-code-index`, `competitor-app-analysis`, `mobilerun`, `ba-templates` | `/ba-competitor` |
+| 0. Competitor discovery (optional) | `ba-lead` → `code-scout`, `competitor-analyst`, `evidence-verifier` | `apk-code-index`, `competitor-app-analysis`, `mobilerun`, `ba-templates`, `apk-feature-extractor` | `/ba-competitor`, `/ba-checklist` |
 | 0. Design discovery (optional) | `ba-lead` → `figma-analyst` | `figma-ba-analysis`, `ba-templates` (`figma-analysis`) | `/ba-figma` |
 | 1. Research & problem breakdown | `ba-researcher` | `problem-solving`, `sequential-thinking`, `document-extraction` | — |
 | 2. Ideation & trade-offs | `ba-brainstormer` | `brainstorm-features`, `ba-templates` (`feature-brief`) | — |
@@ -32,6 +32,8 @@ Operates in two branches depending on device availability or user flags (`/ba-co
 
 2. **Branch 2: Static Mode (Code-Only without `mobilerun`)**
    Triggered via `--code-only`, `--no-device`, or when no device is connected: `code-scout` agents extract screen maps, layouts, field validation rules, error strings (`strings.xml`), and API contracts directly from decoded source (`jadx_src`). `competitor-analyst` synthesizes full BA docs (screen inventory, flow analysis with Mermaid diagrams, profile, and comparison) using `[Code]` (cites `file:line`) and `[Inferred]` evidence grades. Zero device interaction or `mobilerun` required.
+
+When decoded APK evidence documents (`profile`, `screens`, `flow` docs) are available, `apk-feature-extractor` normalizes them into the company's structured **Feature Checklist** (`{app-slug}_checklist_{YYYYMMDD}_v1.md`, `/ba-checklist`), mapping reference feature groups and sub-features without guessing estimates or priorities.
 
 When our product reference is available, both branches produce the comparison / gap report; its `GAP-*` and `FR-CAND-*` items become inputs to Phase 2.
 

@@ -16,6 +16,7 @@ If `<key>` is omitted or unknown, list the catalog keys from `.agents/skills/ba-
    - `test-case`, `test-config`, `test-summary` → `test-cases`
    - `readiness-review` → `BA-audit-SRS`; `question-backlog` → `BA-audit-QnA`
    - `competitor-*`, `comparison-gap` → `competitor-app-analysis` (needs device evidence first)
+   - `feature-checklist` → `apk-feature-extractor` (extracts from competitor profile, screens, and flows)
 
 2. **Collect inputs.** Read the sources the user gave, `.agents/config/ba-project-config.md`, and any related files under `docs/`. If a mandatory input is missing, stop and ask — do not invent content.
 

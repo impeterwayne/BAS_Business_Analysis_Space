@@ -22,6 +22,7 @@ const {
   parseBenchmarkFlows,
   formatFlowSlug,
   buildBenchmarkSlashCommand,
+  buildChecklistSlashCommand,
   cleanApkAppName,
 } = require('../domain');
 
@@ -3172,6 +3173,32 @@ function updateCompetitorCardDecodeProgress(compId: string) {
     percentPill.textContent = `${progress.percent}%`;
     if (elapsedPill) elapsedPill.textContent = `${progress.elapsedSec || 0}s`;
     if (hintEl && progress.detail) hintEl.textContent = progress.detail;
+  } else {
+    // If card was rendered in idle/ready state, inject the decoding progress UI directly into decode-row
+    const decodeRow = card.querySelector('.dash-comp-artifact-row.decode-row') as HTMLElement;
+    if (decodeRow) {
+      decodeRow.className = 'dash-comp-artifact-row decode-row decoding';
+      decodeRow.innerHTML = `
+        <div class="dash-comp-artifact-main decode-progress-main">
+          <div class="dash-comp-artifact-badge decode decoding" title="Decompiling APK sources with ReaKit JADX">
+            <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #a78bfa transparent #a78bfa #a78bfa;"></span>
+          </div>
+          <div class="dash-comp-artifact-info">
+            <div class="dash-comp-artifact-name-row">
+              <span class="dash-comp-decode-status-text decoding">Decoding Source (JADX)</span>
+              <span class="dash-comp-pill-status decoding">${progress.percent}%</span>
+              <span class="dash-comp-decode-elapsed">${progress.elapsedSec || 0}s</span>
+            </div>
+            <div class="dash-comp-progress-wrap">
+              <div class="dash-comp-progress-bar">
+                <div class="dash-comp-progress-fill" style="width: ${progress.percent}%;"></div>
+              </div>
+            </div>
+            <span class="dash-comp-artifact-hint decode-progress-hint">${esc(progress.detail || 'Decompiling bytecode to Java/Kotlin...')}</span>
+          </div>
+        </div>
+      `;
+    }
   }
 }
 
@@ -3181,10 +3208,20 @@ if (window.api.onCompetitorDecodeProgress) {
     if (!data?.competitorId) return;
     if (data.stage === 'completed' || data.stage === 'failed') {
       competitorDecodeProgress.delete(data.competitorId);
+      reakitBusy.delete(data.competitorId);
+      const { activeProject, activeWt } = getActiveProjectAndWorktree();
+      if (activeProject) {
+        const comp = (activeProject.competitors || []).find((c: any) => c.id === data.competitorId);
+        if (comp && data.stage === 'completed') {
+          comp.jadxStatus = 'ready';
+        }
+        renderDashboardCompetitors(activeProject, activeWt);
+      }
     } else {
       competitorDecodeProgress.set(data.competitorId, data);
+      reakitBusy.set(data.competitorId, 'decompiling');
+      updateCompetitorCardDecodeProgress(data.competitorId);
     }
-    updateCompetitorCardDecodeProgress(data.competitorId);
     window.dispatchEvent(new CustomEvent('competitor-decode-progress', { detail: data }));
   });
 }
@@ -3234,10 +3271,12 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
   dom.dashCompetitorList.innerHTML = competitors.map((comp: any) => {
     const busyState = reakitBusy.get(comp.id);
+    const decodeProgress = competitorDecodeProgress.get(comp.id);
     const theme = getCompetitorTheme(comp.name);
     const initials = getCompetitorInitials(comp.name);
     const urlInfo = formatCompetitorUrlLabel(comp.url);
     const target = comp.packageName || comp.name;
+    const checklistCmd = buildChecklistSlashCommand(target);
     const shortPkg = comp.packageName ? (comp.packageName.split('.').pop() || comp.name) : comp.name;
     const hasIcon = Boolean(comp.iconUrl);
     const flows = parseBenchmarkFlows(comp.notes);
@@ -3358,6 +3397,10 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                     </div>
                   </div>
                   <div class="dash-comp-artifact-actions">
+                    <button type="button" class="dash-comp-btn-action checklist" data-action="copy-bench-cmd" data-cmd="${esc(checklistCmd)}" title="Copy apk-feature-extractor command: ${esc(checklistCmd)}">
+                      ${icons.check || ''}
+                      <span>Checklist</span>
+                    </button>
                     <button type="button" class="dash-comp-btn-action source" data-action="comp-open-jadx-src" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-jadx-path="${esc(comp.jadxSourcePath || '')}" title="Open decompiled source folder in Explorer">
                       ${icons.folder}
                       <span>Source</span>
@@ -3420,8 +3463,8 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         <div class="dash-comp-bench-section">
           <div class="dash-comp-bench-header">
             <div class="dash-comp-bench-header-left">
-              <span class="dash-comp-bench-title">Target User Flows</span>
-              ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length}</span>` : ''}
+              <span class="dash-comp-bench-title">Commands &amp; Benchmark Flows</span>
+              ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length} flows</span>` : ''}
               ${flows.length > 0 ? `
                 <span class="dash-comp-mcp-status ${comp.analysisMode === 'code-only' ? 'code-only' : 'hybrid'}" title="${comp.analysisMode === 'code-only' ? 'Mobilerun MCP disabled for this worktree to save agent tokens' : 'Mobilerun MCP active in workspace plugin'}">
                   ${comp.analysisMode === 'code-only' ? 'MCP Off' : 'MCP On'}
@@ -3432,7 +3475,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
               <div class="dash-comp-bench-header-right">
                 <div class="dash-comp-mode-toggle" title="Switch between Live Device (mobilerun) and Static Code-Only analysis">
                   <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? '' : 'active'}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="hybrid" title="Live Device Mode: Drives app on connected device with screenshots (mobilerun)">
-                    ${icons.mobile || icons.android || ''}
+                    ${(icons as any).mobile || icons.android || ''}
                     <span>Mobilerun</span>
                   </button>
                   <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? 'active' : ''}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="code-only" title="Code-Only Mode: Static decompiled code analysis without device (--code-only)">
@@ -3444,43 +3487,54 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
             ` : ''}
           </div>
 
-          ${flows.length > 0 ? `
-            <div class="dash-comp-cmd-list">
-              ${(() => {
-                const isCodeOnly = comp.analysisMode === 'code-only';
-                const cmdItems: Array<{ slashCmd: string; label: string; isAll: boolean }> = flows.map((flow: string) => ({
-                  slashCmd: buildBenchmarkSlashCommand(target, flow, { codeOnly: isCodeOnly }),
-                  label: flow,
-                  isAll: false,
-                }));
-                if (flows.length > 1) {
-                  cmdItems.push({
-                    slashCmd: buildBenchmarkSlashCommand(target, flows, { codeOnly: isCodeOnly }),
-                    label: `All ${flows.length} flows`,
-                    isAll: true,
-                  });
-                }
-                return cmdItems.map((item, index) => `
-                  <div class="dash-comp-cmd-item" data-action="copy-bench-cmd" data-cmd="${esc(item.slashCmd)}" title="Flow: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
-                    <div class="dash-comp-cmd-left">
-                      <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all flows' : `Flow #${index + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : index + 1}</span>
-                      <code class="dash-comp-cmd-code">${esc(item.slashCmd)}</code>
-                    </div>
-                    <div class="dash-comp-cmd-right">
-                      <span class="dash-comp-cmd-copy-btn" title="Copy command">
-                        <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
-                      </span>
-                    </div>
-                  </div>
-                `).join('');
-              })()}
+          <div class="dash-comp-cmd-list">
+            <div class="dash-comp-cmd-item checklist" data-action="copy-bench-cmd" data-cmd="${esc(checklistCmd)}" title="Feature Checklist (apk-feature-extractor) — Click to copy: ${esc(checklistCmd)}">
+              <div class="dash-comp-cmd-left">
+                <span class="dash-comp-cmd-num checklist" title="Feature Checklist (apk-feature-extractor)">📋</span>
+                <code class="dash-comp-cmd-code">${esc(checklistCmd)}</code>
+              </div>
+              <div class="dash-comp-cmd-right">
+                <span class="dash-comp-cmd-tag checklist">apk-feature-extractor</span>
+                <span class="dash-comp-cmd-copy-btn" title="Copy command">
+                  <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
+                </span>
+              </div>
             </div>
-          ` : `
-            <button type="button" class="dash-comp-bench-empty" data-action="edit-comp" data-id="${esc(comp.id)}" title="Click to add target user flows">
-              <span class="dash-comp-bench-empty-icon">+</span>
-              <span class="dash-comp-bench-empty-text">Add target flows to generate commands</span>
-            </button>
-          `}
+
+            ${flows.length > 0 ? (() => {
+              const isCodeOnly = comp.analysisMode === 'code-only';
+              const cmdItems: Array<{ slashCmd: string; label: string; isAll: boolean }> = flows.map((flow: string) => ({
+                slashCmd: buildBenchmarkSlashCommand(target, flow, { codeOnly: isCodeOnly }),
+                label: flow,
+                isAll: false,
+              }));
+              if (flows.length > 1) {
+                cmdItems.push({
+                  slashCmd: buildBenchmarkSlashCommand(target, flows, { codeOnly: isCodeOnly }),
+                  label: `All ${flows.length} flows`,
+                  isAll: true,
+                });
+              }
+              return cmdItems.map((item, index) => `
+                <div class="dash-comp-cmd-item" data-action="copy-bench-cmd" data-cmd="${esc(item.slashCmd)}" title="Flow: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
+                  <div class="dash-comp-cmd-left">
+                    <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all flows' : `Flow #${index + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : index + 1}</span>
+                    <code class="dash-comp-cmd-code">${esc(item.slashCmd)}</code>
+                  </div>
+                  <div class="dash-comp-cmd-right">
+                    <span class="dash-comp-cmd-copy-btn" title="Copy command">
+                      <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
+                    </span>
+                  </div>
+                </div>
+              `).join('');
+            })() : `
+              <button type="button" class="dash-comp-bench-empty" data-action="edit-comp" data-id="${esc(comp.id)}" title="Click to add target user flows for deep benchmark comparison">
+                <span class="dash-comp-bench-empty-icon">+</span>
+                <span class="dash-comp-bench-empty-text">Add target flows for /ba-competitor</span>
+              </button>
+            `}
+          </div>
         </div>
       </div>
     `;
@@ -3598,7 +3652,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           void window.api.updateProjectCompetitor(activeProject.path, comp);
         }
 
-        const wtPath = activeWt?.path || activeWorktreePath;
+        const wtPath = activeWt?.path || state.activeWorktreePath;
         if (wtPath) {
           try {
             if (mode === 'code-only') {
@@ -3649,7 +3703,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           withAsyncButtonState,
           onSuccess: async (updated: any) => {
             activeProject.competitors = updated.competitors;
-            const wtPath = activeWt?.path || activeWorktreePath;
+            const wtPath = activeWt?.path || state.activeWorktreePath;
             if (wtPath) {
               const allCodeOnly = (activeProject.competitors || []).length > 0 &&
                 (activeProject.competitors || []).every((c: any) => c.analysisMode === 'code-only');
@@ -3914,17 +3968,17 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         return;
       }
 
-      reakitBusy.set(compId, 'decompiling');
-      competitorDecodeProgress.set(compId, {
-        stage: 'preparing',
-        percent: 8,
-        detail: 'Preparing JADX environment...',
-        elapsedSec: 0,
-      });
-      renderDashboardCompetitors(activeProject, activeWt);
-      showToast(`Decoding ${compName} APK sources with ReaKit... Progress will show on card`, 'info');
-
       try {
+        reakitBusy.set(compId, 'decompiling');
+        competitorDecodeProgress.set(compId, {
+          stage: 'preparing',
+          percent: 8,
+          detail: 'Preparing JADX environment...',
+          elapsedSec: 0,
+        });
+        renderDashboardCompetitors(activeProject, activeWt);
+        showToast(`Decoding ${compName} APK sources with ReaKit... Progress will show on card`, 'info');
+
         const res = await window.api.decompileCompetitorJadx({
           projectPath: activeProject.path,
           competitorId: compId,
@@ -4184,7 +4238,7 @@ function applyDashboardViewMode(mode: 'grid' | 'list') {
 const initialDashViewMode = (localStorage.getItem('baspace_dashboard_view_mode') || 'grid') as 'grid' | 'list';
 applyDashboardViewMode(initialDashViewMode);
 
-if (dom.dashBtnList) {
+if ((dom as any).dashBtnList) {
   // kept for backwards compatibility if needed
 }
 
@@ -5652,10 +5706,11 @@ const BAKIT_COMPONENTS = [
     name: 'BA Skills & Templates (specs, competitor & Figma analysis, audits, test cases)',
     folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: 'ba-templates catalog, apk-code-index (jadx), competitor-app-analysis, mobilerun, figma-ba-analysis, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
+    description: 'ba-templates catalog, apk-code-index (jadx), apk-feature-extractor (checklist), competitor-app-analysis, mobilerun, figma-ba-analysis, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
       '.agents/skills/apk-code-index/',
+      '.agents/skills/apk-feature-extractor/',
       '.agents/skills/competitor-app-analysis/',
       '.agents/skills/mobilerun/',
       '.agents/skills/figma-ba-analysis/',
@@ -5681,7 +5736,7 @@ const BAKIT_COMPONENTS = [
       // The project config is filled in per project: never overwrite it, never delete it.
       { name: '.agents/config', source: 'config', pattern: '.agents/config/', preserveExisting: true, keepOnRemove: true }
     ],
-    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety, Figma routing) and /ba-competitor, /ba-figma, /ba-template, /ba-spec, /ba-review, /ba-testcases, /ba-device-check.',
+    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety, Figma routing) and /ba-competitor, /ba-checklist, /ba-figma, /ba-template, /ba-spec, /ba-review, /ba-testcases, /ba-device-check.',
     gitExcludePatterns: [
       '.agents/rules/ba-global-rules.md',
       '.agents/rules/ba-workflow.md',
@@ -5689,7 +5744,8 @@ const BAKIT_COMPONENTS = [
       '.agents/rules/ba-device-automation.md',
       '.agents/rules/ba-markdown-formatting.md',
       '.agents/rules/ba-figma.md',
-      '.agents/workflows/ba-*.md'
+      '.agents/workflows/ba-*.md',
+      '.agents/workflows/apk-feature-extractor.md'
     ]
   },
   {
