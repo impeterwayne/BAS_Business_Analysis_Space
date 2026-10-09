@@ -182,6 +182,18 @@ const dom = {
   btnAntigravity: $('#btn-antigravity'),
   btnAntigravityAgent: $('#btn-antigravity-agent'),
   btnFigma: $('#btn-figma'),
+  btnProjectResources: $('#btn-project-resources'),
+  btnResourcesBadge: $('#btn-resources-badge'),
+  projectResourcesScreen: $('#project-resources-screen'),
+  btnCloseProjectResourcesScreen: $('#btn-close-project-resources-screen'),
+  btnSyncResourcesConfig: $('#btn-sync-resources-config'),
+  resourcesViewToggle: $('#resources-view-toggle'),
+  resourcesBtnViewGrid: $('#resources-btn-view-grid'),
+  resourcesBtnViewList: $('#resources-btn-view-list'),
+  resourcesSectionsContainer: $('.resources-sections-container') as HTMLElement | null,
+  resourcesProjectName: $('#resources-project-name'),
+  resourcesBranchBadge: $('#resources-branch-badge'),
+  resourcesProjectPath: $('#resources-project-path'),
   btnObsidian: $('#btn-obsidian'),
   dashboardEmptyState: $('#dashboard-empty-state'),
   btnDashboardAddFirst: $('#btn-dashboard-add-first'),
@@ -427,10 +439,31 @@ dom.btnAddFirst.addEventListener('click', addProject);
 async function addProject() {
   const result = await window.api.addProject();
   if (!result) return;
-  if (result.error) { showToast(result.error, 'error'); return; }
+  if (result.error) {
+    if (result.path) {
+      state.expandedProjects.add(result.path);
+      state.selectedProjectPath = result.path;
+      if (state.workspaceSidebarCollapsed) {
+        setWorkspaceSidebarCollapsed(false);
+      }
+      hideTerminalScreen();
+      renderSidebar();
+      await openProjectWorkspaceAndTerminal(result.path);
+      scrollSelectedProjectIntoView(result.path);
+    }
+    showToast(result.error, result.path ? 'info' : 'error');
+    return;
+  }
   state.expandedProjects.add(result.path);
+  state.selectedProjectPath = result.path;
+  if (state.workspaceSidebarCollapsed) {
+    setWorkspaceSidebarCollapsed(false);
+  }
   showToast(`Added project: ${result.name}`, 'success');
   await loadWorkspaces();
+  hideTerminalScreen();
+  await openProjectWorkspaceAndTerminal(result.path);
+  scrollSelectedProjectIntoView(result.path);
 }
 
 // ── Refresh All Projects ───────────────────────────────
@@ -1473,6 +1506,8 @@ async function showTerminalScreen() {
   dom.settingsScreen?.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
 
   if (dom.terminalScreen) {
     dom.terminalScreen.classList.remove('hidden');
@@ -1530,6 +1565,7 @@ function switchWorktreeContext(wtPath) {
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
 
   if (state.activeWorktreePath === wtPath) {
     rebuildTabsForWorktree(wtPath);
@@ -2122,6 +2158,16 @@ dom.btnClaudeDesktop?.addEventListener('click', async () => {
 
 
 
+if (dom.btnProjectResources) {
+  dom.btnProjectResources.addEventListener('click', () => {
+    if (dom.projectResourcesScreen && !dom.projectResourcesScreen.classList.contains('hidden')) {
+      hideProjectResourcesScreen();
+    } else {
+      void showProjectResourcesScreen();
+    }
+  });
+}
+
 if (dom.btnFigma) {
   dom.btnFigma.addEventListener('click', async () => {
     const { activeProject } = getActiveProjectAndWorktree();
@@ -2221,8 +2267,47 @@ function updateSidebarFigmaButton(activeProject?: any) {
   }
 }
 
+function updateSidebarResourcesButton(activeProject?: any) {
+  if (!dom.btnProjectResources) return;
+  if (!activeProject) {
+    const res = getActiveProjectAndWorktree();
+    activeProject = res.activeProject;
+  }
+  const figmaUrl = (activeProject?.figmaUrl || '').trim();
+  const firebaseUrl = (activeProject?.firebaseUrl || '').trim();
+  const prdUrl = (activeProject?.legacyPrdUrl || '').trim();
+  const checklistUrl = (activeProject?.legacyChecklistUrl || '').trim();
+
+  let linkedCount = 0;
+  if (figmaUrl) linkedCount++;
+  if (firebaseUrl) linkedCount++;
+  if (prdUrl) linkedCount++;
+  if (checklistUrl) linkedCount++;
+
+  const btn = dom.btnProjectResources;
+  const badge = dom.btnResourcesBadge;
+
+  if (linkedCount > 0) {
+    const name = activeProject?.name || 'Project';
+    btn.title = `Project Resources: ${name} (${linkedCount}/4 linked)\nFigma: ${figmaUrl || 'None'}\nFirebase: ${firebaseUrl || 'None'}\nPRD: ${prdUrl || 'None'}\nChecklist: ${checklistUrl || 'None'}`;
+    btn.classList.add('has-link');
+    if (badge) {
+      badge.textContent = linkedCount === 4 ? 'All Linked' : `${linkedCount}/4 Linked`;
+      badge.className = 'workspace-tool-pill connected';
+      badge.style.display = 'inline-flex';
+    }
+  } else {
+    btn.title = 'Project Resources (Figma, Firebase, Legacy Docs)';
+    btn.classList.remove('has-link');
+    if (badge) {
+      badge.style.display = 'none';
+    }
+  }
+}
+
 function renderDashboardFigma(activeProject: any) {
   updateSidebarFigmaButton(activeProject);
+  updateSidebarResourcesButton(activeProject);
   if (!dom.dashFigmaBody) return;
   const figmaUrl = (activeProject.figmaUrl || '').trim();
 
@@ -3067,7 +3152,42 @@ function extractCompetitorFlows(notes: string): string {
 }
 
 const reakitBusy = new Map<string, string>(); // compId -> 'downloading' | 'decompiling'
+const competitorDecodeProgress = new Map<string, { stage: string; percent: number; detail: string; elapsedSec: number }>();
 const inFlightReakitChecks = new Set<string>();
+
+function updateCompetitorCardDecodeProgress(compId: string) {
+  if (!dom.dashCompetitorList) return;
+  const card = dom.dashCompetitorList.querySelector(`.dash-comp-card[data-comp-id="${compId}"]`);
+  if (!card) return;
+  const progress = competitorDecodeProgress.get(compId);
+  if (!progress) return;
+
+  const fillEl = card.querySelector('.dash-comp-progress-fill') as HTMLElement;
+  const percentPill = card.querySelector('.dash-comp-pill-status.decoding') as HTMLElement;
+  const elapsedPill = card.querySelector('.dash-comp-decode-elapsed') as HTMLElement;
+  const hintEl = card.querySelector('.decode-progress-hint') as HTMLElement;
+
+  if (fillEl && percentPill) {
+    fillEl.style.width = `${progress.percent}%`;
+    percentPill.textContent = `${progress.percent}%`;
+    if (elapsedPill) elapsedPill.textContent = `${progress.elapsedSec || 0}s`;
+    if (hintEl && progress.detail) hintEl.textContent = progress.detail;
+  }
+}
+
+// Global listener for competitor decode progress from backend
+if (window.api.onCompetitorDecodeProgress) {
+  window.api.onCompetitorDecodeProgress((data) => {
+    if (!data?.competitorId) return;
+    if (data.stage === 'completed' || data.stage === 'failed') {
+      competitorDecodeProgress.delete(data.competitorId);
+    } else {
+      competitorDecodeProgress.set(data.competitorId, data);
+    }
+    updateCompetitorCardDecodeProgress(data.competitorId);
+    window.dispatchEvent(new CustomEvent('competitor-decode-progress', { detail: data }));
+  });
+}
 
 function renderDashboardCompetitors(activeProject: any, activeWt: any) {
   if (!dom.dashCompetitorList) return;
@@ -3084,9 +3204,6 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           ${icons.agentToolkit || '<img src="icons/agent-toolkit.svg" width="22" height="22" />'}
         </div>
         <div class="dash-comp-empty-title">No Competitor Apps Configured</div>
-        <div class="dash-comp-empty-desc">
-          Add rival Android apps to benchmark user flows and run automated agent audits with <code>/ba-competitor</code>.
-        </div>
         <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap;">
           <button type="button" class="btn-primary btn-small dash-comp-empty-btn" id="dash-btn-empty-add-comp">
             ${icons.plus || '+'}
@@ -3174,15 +3291,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
             </div>
           ` : ''}
 
-          ${busyState ? `
-            <div class="dash-comp-busy-banner">
-              <div class="dash-comp-spinner"></div>
-              <div class="dash-comp-busy-info">
-                <span class="dash-comp-busy-title">${busyState === 'downloading' ? 'Downloading APK via ReaKit...' : 'Decoding APK with ReaKit (JADX)...'}</span>
-                <span class="dash-comp-busy-sub">${busyState === 'downloading' ? 'Fetching Android package artifacts' : 'Extracting Java/Kotlin sources & resources'}</span>
-              </div>
-            </div>
-          ` : (comp.apkPath ? `
+          ${comp.apkPath ? `
             <div class="dash-comp-workbench">
               <div class="dash-comp-artifact-row apk-row">
                 <div class="dash-comp-artifact-main">
@@ -3198,7 +3307,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                   </div>
                 </div>
                 <div class="dash-comp-artifact-actions">
-                  <button type="button" class="dash-comp-btn-action launch" data-action="comp-launch-app" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-path="${esc(comp.apkPath)}" data-name="${esc(comp.name)}" title="Launch ${esc(comp.name)} on connected Android device via ADB">
+                  <button type="button" class="dash-comp-btn-action launch" data-action="comp-launch-app" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-path="${esc(comp.apkPath)}" data-name="${esc(comp.name)}" title="Launch ${esc(comp.name)} on connected Android device via ADB (works even while decoding)">
                     ${icons.play || icons.device}
                     <span>Launch</span>
                   </button>
@@ -3215,8 +3324,27 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 </div>
               </div>
 
-              <div class="dash-comp-artifact-row decode-row">
-                ${(comp.jadxStatus === 'ready' || comp.jadxSourcePath) ? `
+              <div class="dash-comp-artifact-row decode-row ${busyState === 'decompiling' ? 'decoding' : ''}">
+                ${busyState === 'decompiling' ? `
+                  <div class="dash-comp-artifact-main decode-progress-main">
+                    <div class="dash-comp-artifact-badge decode decoding" title="Decompiling APK sources with ReaKit JADX">
+                      <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #a78bfa transparent #a78bfa #a78bfa;"></span>
+                    </div>
+                    <div class="dash-comp-artifact-info">
+                      <div class="dash-comp-artifact-name-row">
+                        <span class="dash-comp-decode-status-text decoding">Decoding Source (JADX)</span>
+                        <span class="dash-comp-pill-status decoding">${decodeProgress?.percent || 12}%</span>
+                        <span class="dash-comp-decode-elapsed">${decodeProgress?.elapsedSec || 0}s</span>
+                      </div>
+                      <div class="dash-comp-progress-wrap">
+                        <div class="dash-comp-progress-bar">
+                          <div class="dash-comp-progress-fill" style="width: ${decodeProgress?.percent || 12}%;"></div>
+                        </div>
+                      </div>
+                      <span class="dash-comp-artifact-hint decode-progress-hint">${esc(decodeProgress?.detail || 'Decompiling bytecode to Java/Kotlin...')}</span>
+                    </div>
+                  </div>
+                ` : (comp.jadxStatus === 'ready' || comp.jadxSourcePath) ? `
                   <div class="dash-comp-artifact-main">
                     <div class="dash-comp-artifact-badge decode ready" title="Decoded Java/Kotlin sources ready">
                       ${icons.decode || icons.code}
@@ -3260,6 +3388,14 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 `}
               </div>
             </div>
+          ` : (busyState === 'downloading' ? `
+            <div class="dash-comp-busy-banner">
+              <div class="dash-comp-spinner"></div>
+              <div class="dash-comp-busy-info">
+                <span class="dash-comp-busy-title">Downloading APK via ReaKit...</span>
+                <span class="dash-comp-busy-sub">Fetching Android package artifacts</span>
+              </div>
+            </div>
           ` : `
             <div class="dash-comp-no-apk-row">
               ${comp.packageName ? `
@@ -3284,38 +3420,45 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         <div class="dash-comp-bench-section">
           <div class="dash-comp-bench-header">
             <div class="dash-comp-bench-header-left">
-              <span class="dash-comp-bench-title">Benchmark Flows</span>
+              <span class="dash-comp-bench-title">Target User Flows</span>
               ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length}</span>` : ''}
             </div>
           </div>
 
           ${flows.length > 0 ? `
-            <div class="dash-comp-bench-list">
-              ${(flows.length > 1 ? [flows, ...flows] : flows).map((flow: string | string[], index: number) => {
-                // With several flows, the first item runs them all in one session: one plan, one profile.
-                const isAll = Array.isArray(flow);
-                const label = isAll ? `All ${flows.length} flows` : flow as string;
-                const slashCmd = buildBenchmarkSlashCommand(target, flow);
-                return `
-                  <div class="dash-comp-bench-item" data-action="copy-bench-cmd" data-cmd="${esc(slashCmd)}" title="Click to copy: ${esc(slashCmd)}">
-                    <div class="dash-comp-bench-item-header">
-                      <div class="dash-comp-bench-item-left">
-                        <span class="dash-comp-bench-index">${isAll ? '★' : (flows.length > 1 ? index : index + 1)}</span>
-                        <span class="dash-comp-bench-name" title="${esc(label)}">${esc(label)}</span>
-                      </div>
-                      <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
+            <div class="dash-comp-cmd-list">
+              ${(() => {
+                const cmdItems: Array<{ slashCmd: string; label: string; isAll: boolean }> = flows.map((flow: string) => ({
+                  slashCmd: buildBenchmarkSlashCommand(target, flow),
+                  label: flow,
+                  isAll: false,
+                }));
+                if (flows.length > 1) {
+                  cmdItems.push({
+                    slashCmd: buildBenchmarkSlashCommand(target, flows),
+                    label: `All ${flows.length} flows`,
+                    isAll: true,
+                  });
+                }
+                return cmdItems.map((item, index) => `
+                  <div class="dash-comp-cmd-item" data-action="copy-bench-cmd" data-cmd="${esc(item.slashCmd)}" title="Flow: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
+                    <div class="dash-comp-cmd-left">
+                      <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all flows' : `Flow #${index + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : index + 1}</span>
+                      <code class="dash-comp-cmd-code">${esc(item.slashCmd)}</code>
                     </div>
-                    <div class="dash-comp-bench-cmd-wrap">
-                      <code class="dash-comp-bench-code">${esc(slashCmd)}</code>
+                    <div class="dash-comp-cmd-right">
+                      <span class="dash-comp-cmd-copy-btn" title="Copy command">
+                        <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
+                      </span>
                     </div>
                   </div>
-                `;
-              }).join('')}
+                `).join('');
+              })()}
             </div>
           ` : `
-            <button type="button" class="dash-comp-bench-empty" data-action="edit-comp" data-id="${esc(comp.id)}" title="Click to add benchmark flows">
+            <button type="button" class="dash-comp-bench-empty" data-action="edit-comp" data-id="${esc(comp.id)}" title="Click to add target user flows">
               <span class="dash-comp-bench-empty-icon">+</span>
-              <span class="dash-comp-bench-empty-text">Add benchmark flows (e.g. Onboarding, KYC, Payment)</span>
+              <span class="dash-comp-bench-empty-text">Add target flows to generate commands</span>
             </button>
           `}
         </div>
@@ -3695,8 +3838,14 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       }
 
       reakitBusy.set(compId, 'decompiling');
+      competitorDecodeProgress.set(compId, {
+        stage: 'preparing',
+        percent: 8,
+        detail: 'Preparing JADX environment...',
+        elapsedSec: 0,
+      });
       renderDashboardCompetitors(activeProject, activeWt);
-      showToast(`Decoding ${compName} APK sources with ReaKit... (this may take a minute)`, 'info');
+      showToast(`Decoding ${compName} APK sources with ReaKit... Progress will show on card`, 'info');
 
       try {
         const res = await window.api.decompileCompetitorJadx({
@@ -3726,6 +3875,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         showToast(`Decode error: ${err?.message || String(err)}`, 'error');
       } finally {
         reakitBusy.delete(compId);
+        competitorDecodeProgress.delete(compId);
         renderDashboardCompetitors(activeProject, activeWt);
       }
     });
@@ -3867,6 +4017,7 @@ function renderDashboardViewer() {
 
   if (!activeProject) {
     updateSidebarFigmaButton(null);
+    updateSidebarResourcesButton(null);
     dom.dashboardEmptyState.style.display = 'flex';
     dom.dashboardViewer.style.display = 'none';
     return;
@@ -3884,10 +4035,8 @@ function renderDashboardViewer() {
     dom.dashProjectPath.textContent = currentPath;
     dom.dashProjectPath.title = currentPath;
   }
-  renderDashboardFigma(activeProject);
-  renderDashboardFirebase(activeProject);
-  renderDashboardLegacyDocs(activeProject);
   renderDashboardCompetitors(activeProject, activeWt);
+  renderProjectResourcesScreen();
 }
 
 // ── Dashboard Event Listeners ──
@@ -3958,15 +4107,45 @@ function applyDashboardViewMode(mode: 'grid' | 'list') {
 const initialDashViewMode = (localStorage.getItem('baspace_dashboard_view_mode') || 'grid') as 'grid' | 'list';
 applyDashboardViewMode(initialDashViewMode);
 
-if (dom.dashBtnViewGrid) {
-  dom.dashBtnViewGrid.addEventListener('click', () => {
-    applyDashboardViewMode('grid');
+if (dom.dashBtnList) {
+  // kept for backwards compatibility if needed
+}
+
+function applyResourcesViewMode(mode: 'grid' | 'list') {
+  const screen = dom.projectResourcesScreen;
+  const container = dom.resourcesSectionsContainer || (document.querySelector('.resources-sections-container') as HTMLElement | null);
+  if (mode === 'grid') {
+    screen?.classList.add('resources-grid-mode');
+    screen?.classList.remove('resources-list-mode');
+    container?.classList.add('resources-grid-mode');
+    container?.classList.remove('resources-list-mode');
+    dom.resourcesBtnViewGrid?.classList.add('active');
+    dom.resourcesBtnViewList?.classList.remove('active');
+  } else {
+    screen?.classList.add('resources-list-mode');
+    screen?.classList.remove('resources-grid-mode');
+    container?.classList.add('resources-list-mode');
+    container?.classList.remove('resources-grid-mode');
+    dom.resourcesBtnViewList?.classList.add('active');
+    dom.resourcesBtnViewGrid?.classList.remove('active');
+  }
+  try {
+    localStorage.setItem('baspace_resources_view_mode', mode);
+  } catch {}
+}
+
+const initialResourcesViewMode = (localStorage.getItem('baspace_resources_view_mode') || 'grid') as 'grid' | 'list';
+applyResourcesViewMode(initialResourcesViewMode);
+
+if (dom.resourcesBtnViewGrid) {
+  dom.resourcesBtnViewGrid.addEventListener('click', () => {
+    applyResourcesViewMode('grid');
   });
 }
 
-if (dom.dashBtnViewList) {
-  dom.dashBtnViewList.addEventListener('click', () => {
-    applyDashboardViewMode('list');
+if (dom.resourcesBtnViewList) {
+  dom.resourcesBtnViewList.addEventListener('click', () => {
+    applyResourcesViewMode('list');
   });
 }
 
@@ -4390,6 +4569,19 @@ function updateSidebarActiveState() {
   renderDashboardViewer();
 }
 
+function scrollSelectedProjectIntoView(projectPath?: string) {
+  const targetPath = projectPath || state.selectedProjectPath;
+  if (!targetPath || !dom.projectsContainer) return;
+  const navItem = dom.projectsContainer.querySelector(`.project-nav-item[data-project-path="${CSS.escape(targetPath)}"]`);
+  if (navItem instanceof HTMLElement) {
+    navItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  const detailCol = dom.projectsContainer.querySelector('.projects-detail-col');
+  if (detailCol instanceof HTMLElement) {
+    detailCol.scrollTop = 0;
+  }
+}
+
 function attachSelectedProjectEvents(project) {
   const container = dom.projectsContainer.querySelector('.projects-detail-col');
   if (!container) return;
@@ -4718,6 +4910,8 @@ async function showSettingsScreen() {
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
   dom.settingsScreen.classList.remove('hidden');
 
   try {
@@ -4809,6 +5003,8 @@ async function showSymlinkScreen() {
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.remove('hidden');
 
   if (dom.symlinkScreenNewPath) dom.symlinkScreenNewPath.value = '';
@@ -5203,6 +5399,8 @@ async function showAgentToolkitScreen() {
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.remove('hidden');
 
   await refreshAgentToolkitStatus();
@@ -5252,6 +5450,8 @@ const planeTaskScreen = createPlaneTaskScreen({
     if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
     if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
     if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+    if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+    if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
   },
   onHidden: () => {
     fitActiveTerminal();
@@ -5273,6 +5473,8 @@ async function showDeviceManagerScreen() {
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.add('active');
 
   await deviceManagerScreen.show();
@@ -5281,6 +5483,52 @@ async function showDeviceManagerScreen() {
 function hideDeviceManagerScreen() {
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   deviceManagerScreen.hide();
+  fitActiveTerminal();
+  startAutoRefreshLoop();
+}
+
+// ── Project Resources Screen (Figma, Firebase, Legacy Docs) ──
+function renderProjectResourcesScreen() {
+  const { activeProject, activeWt } = getActiveProjectAndWorktree();
+  if (dom.resourcesProjectName) {
+    dom.resourcesProjectName.textContent = activeProject ? activeProject.name : 'No active project';
+  }
+  if (dom.resourcesBranchBadge) {
+    dom.resourcesBranchBadge.textContent = activeWt ? (activeWt.branch || activeWt.name) : 'main';
+  }
+  const currentPath = activeWt ? activeWt.path : (activeProject ? activeProject.path : 'Please select a project first.');
+  if (dom.resourcesProjectPath) {
+    dom.resourcesProjectPath.textContent = currentPath;
+    dom.resourcesProjectPath.title = currentPath;
+  }
+  if (activeProject) {
+    renderDashboardFigma(activeProject);
+    renderDashboardFirebase(activeProject);
+    renderDashboardLegacyDocs(activeProject);
+  }
+  updateSidebarResourcesButton(activeProject);
+}
+
+function showProjectResourcesScreen() {
+  concealPlaneTaskScreen();
+  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
+  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
+  dom.settingsScreen?.classList.add('hidden');
+  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
+  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.add('active');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.remove('hidden');
+
+  renderProjectResourcesScreen();
+}
+
+function hideProjectResourcesScreen() {
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
   fitActiveTerminal();
   startAutoRefreshLoop();
 }
@@ -5791,6 +6039,30 @@ if (dom.btnCloseDeviceManagerScreen) {
   dom.btnCloseDeviceManagerScreen.addEventListener('click', hideDeviceManagerScreen);
 }
 
+if (dom.btnCloseProjectResourcesScreen) {
+  dom.btnCloseProjectResourcesScreen.addEventListener('click', hideProjectResourcesScreen);
+}
+
+if (dom.btnSyncResourcesConfig) {
+  dom.btnSyncResourcesConfig.addEventListener('click', async () => {
+    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    if (!activeProject) {
+      showToast('Please select a project first', 'error');
+      return;
+    }
+    showToast('Syncing to .agents/config/ba-project-config.md...', 'info');
+    const res = await window.api.syncBaProjectConfig({
+      projectPath: activeProject.path,
+      worktreePath: activeWt?.path,
+    });
+    if (res?.success) {
+      showToast('Successfully synced to ba-project-config.md!', 'success');
+    } else {
+      showToast(`Sync failed: ${res?.error || 'Unknown error'}`, 'error');
+    }
+  });
+}
+
 
 
 
@@ -5871,6 +6143,10 @@ window.addEventListener('keydown', (e) => {
     }
     if (planeTaskScreen.isVisible()) {
       planeTaskScreen.hide();
+      return;
+    }
+    if (dom.projectResourcesScreen && !dom.projectResourcesScreen.classList.contains('hidden')) {
+      hideProjectResourcesScreen();
       return;
     }
   }

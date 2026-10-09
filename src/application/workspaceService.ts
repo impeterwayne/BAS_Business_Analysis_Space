@@ -117,8 +117,9 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
 
   function addProject(projectPath) {
     const workspaceConfig = getWorkspaceConfig();
-    if (workspaceConfig.projects.find((project) => project.path === projectPath)) {
-      return { error: 'Project already added' };
+    const existing = workspaceConfig.projects.find((project) => project.path === projectPath);
+    if (existing) {
+      return { error: 'Project already added', path: projectPath, name: existing.name || path.basename(projectPath) };
     }
 
     const project = {

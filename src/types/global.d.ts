@@ -281,6 +281,7 @@ declare global {
         jadxSourcePath?: string;
         jadxFileCount?: number;
       }>;
+      onCompetitorDecodeProgress: (callback: (data: { competitorId: string; stage: string; percent: number; detail: string; elapsedSec: number }) => void) => () => void;
 
       // ── Device Manager ──
       deviceList: () => Promise<{

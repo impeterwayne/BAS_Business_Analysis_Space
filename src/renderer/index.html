@@ -92,9 +92,6 @@
         <!-- ─── Empty State (When no projects exist) ─── -->
         <div id="dashboard-empty-state" class="dashboard-empty-state" style="display: none;">
           <div class="welcome-hero">
-            <div class="welcome-logo-badge">
-              <img src="icons/app-logo.svg" width="36" height="36" alt="" />
-            </div>
             <h2 class="welcome-title">BA Space</h2>
             <div style="margin-top: 16px;">
               <button type="button" class="btn-primary" id="btn-dashboard-add-first">
@@ -113,9 +110,6 @@
             <div class="dash-header-main">
               <div class="dash-project-info">
                 <div class="dash-title-row">
-                  <div class="dash-project-badge-icon">
-                    <img src="icons/app-logo.svg" width="22" height="22" alt="" />
-                  </div>
                   <h1 class="dash-project-title" id="dash-project-name">BA Space</h1>
                   <span class="dash-badge-branch" id="dash-branch-badge">main</span>
                 </div>
@@ -132,126 +126,13 @@
                   </button>
                 </div>
               </div>
-
-              <!-- Header Controls Right: View Toggle -->
-              <div class="dash-header-right">
-
-                <!-- View Layout Switcher (Grid vs List) -->
-                <div class="dash-view-toggle" id="dash-view-toggle" title="Switch dashboard layout mode">
-                  <button type="button" class="dash-view-toggle-btn active" id="dash-btn-view-grid" title="Grid View" aria-label="Grid View">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="3" width="7" height="7"></rect>
-                      <rect x="14" y="3" width="7" height="7"></rect>
-                      <rect x="14" y="14" width="7" height="7"></rect>
-                      <rect x="3" y="14" width="7" height="7"></rect>
-                    </svg>
-                    <span>Grid</span>
-                  </button>
-                  <button type="button" class="dash-view-toggle-btn" id="dash-btn-view-list" title="List View" aria-label="List View">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="8" y1="6" x2="21" y2="6"></line>
-                      <line x1="8" y1="12" x2="21" y2="12"></line>
-                      <line x1="8" y1="18" x2="21" y2="18"></line>
-                      <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                      <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                      <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                    </svg>
-                    <span>List</span>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
-          <!-- ── Main Viewer Content Sections ── -->
+          <!-- ── Main Viewer Content Sections: Competitors Only ── -->
           <div class="dash-sections-container">
 
-            <!-- Section 1: Figma -->
-            <section class="dash-section-card" id="dash-section-figma">
-              <div class="dash-section-header">
-                <div class="dash-section-title-group">
-                  <div class="dash-section-icon figma-tint">
-                    <img src="icons/figma.svg" width="16" height="16" alt="" />
-                  </div>
-                  <div class="dash-title-with-badge">
-                    <h3 class="dash-section-title">Figma</h3>
-                    <span class="dash-status-pill" id="dash-figma-status-pill">Not Linked</span>
-                  </div>
-                </div>
-                <div class="dash-section-actions" id="dash-figma-actions">
-                  <button type="button" class="btn-primary btn-small" id="dash-btn-open-figma" title="Open in Figma Desktop app" style="display:none;">
-                    <img src="icons/figma.svg" width="12" height="12" alt="" />
-                    <span>Open in Figma</span>
-                  </button>
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-figma" title="Open Figma link in web browser" style="display:none;">
-                    <img src="icons/link.svg" width="12" height="12" alt="" />
-                    <span>Browser</span>
-                  </button>
-                </div>
-              </div>
-              <div class="dash-section-body" id="dash-figma-body">
-                <!-- Injected dynamically by JS (view card or empty state) -->
-              </div>
-            </section>
-
-            <!-- Section 2: Firebase -->
-            <section class="dash-section-card" id="dash-section-firebase">
-              <div class="dash-section-header">
-                <div class="dash-section-title-group">
-                  <div class="dash-section-icon firebase-tint">
-                    <img src="icons/firebase.svg" width="16" height="16" alt="" />
-                  </div>
-                  <div class="dash-title-with-badge">
-                    <h3 class="dash-section-title">Firebase</h3>
-                    <span class="dash-status-pill" id="dash-firebase-status-pill">Not Linked</span>
-                  </div>
-                </div>
-                <div class="dash-section-actions">
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-firebase" title="Open Firebase console in web browser" style="display:none;">
-                    <img src="icons/link.svg" width="12" height="12" alt="" />
-                    <span>Open Console</span>
-                  </button>
-                </div>
-              </div>
-              <div class="dash-section-body" id="dash-firebase-body">
-                <!-- Injected dynamically by JS (view card or empty state) -->
-              </div>
-            </section>
-
-            <!-- Section 3: Legacy Docs -->
-            <section class="dash-section-card" id="dash-section-legacy-docs">
-              <div class="dash-section-header">
-                <div class="dash-section-title-group">
-                  <div class="dash-section-icon legacy-docs-tint">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
-                      <path d="M6 6h10"></path>
-                      <path d="M6 10h10"></path>
-                      <path d="M6 14h6"></path>
-                    </svg>
-                  </div>
-                  <div class="dash-title-with-badge">
-                    <h3 class="dash-section-title">Legacy Docs</h3>
-                    <span class="dash-status-pill" id="dash-legacy-docs-status-pill">Not Linked</span>
-                  </div>
-                </div>
-                <div class="dash-section-actions" id="dash-legacy-docs-actions">
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-prd" title="Open PRD in web browser" style="display:none;">
-                    <img src="icons/link.svg" width="12" height="12" alt="" />
-                    <span>Open PRD</span>
-                  </button>
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-checklist" title="Open Checklist in web browser" style="display:none;">
-                    <img src="icons/link.svg" width="12" height="12" alt="" />
-                    <span>Open Checklist</span>
-                  </button>
-                </div>
-              </div>
-              <div class="dash-section-body" id="dash-legacy-docs-body">
-                <!-- Injected dynamically by JS (PRD and Checklist items) -->
-              </div>
-            </section>
-
-            <!-- Section 4: Competitors -->
+            <!-- Competitor Applications Section -->
             <section class="dash-section-card" id="dash-section-competitors">
               <div class="dash-section-header">
                 <div class="dash-section-title-group">
@@ -599,26 +480,27 @@
       <div id="device-manager-screen" class="hidden">
         <div class="settings-container">
           <header class="settings-header">
-            <div class="settings-title-group">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <div class="settings-card-icon" style="margin: 0; width: 32px; height: 32px; border-radius: 8px;">
-                  <img src="icons/device.svg" width="18" height="18" alt="" />
-                </div>
-                <h2 class="settings-title" style="margin: 0;">Device Manager</h2>
+            <div class="screen-title-group">
+              <div class="screen-header-badge dm-badge-tint">
+                <img src="icons/device.svg" width="20" height="20" alt="Device Manager" />
               </div>
-              <p class="settings-subtitle">Manage connected Android devices, screen mirroring, and UI inspection targets.</p>
+              <div class="screen-title-text">
+                <h2 class="screen-title">Device Manager</h2>
+                <p class="screen-subtitle">Manage connected Android devices, screen mirroring, and UI inspection targets.</p>
+              </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="screen-header-actions">
               <button type="button" class="btn-secondary btn-small" id="btn-dm-restart-adb" title="Restart ADB server (adb kill-server && adb start-server)">
-                <img src="icons/refresh.svg" width="12" height="12" alt="" />
+                <img src="icons/refresh.svg" width="13" height="13" alt="" />
                 <span>Restart ADB</span>
               </button>
               <button type="button" class="btn-primary btn-small" id="btn-dm-refresh" title="Refresh device roster">
-                <img src="icons/refresh.svg" width="12" height="12" alt="" />
+                <img src="icons/refresh.svg" width="13" height="13" alt="" />
                 <span>Refresh</span>
               </button>
+              <div class="screen-header-divider"></div>
               <button type="button" class="btn-close-settings" id="btn-close-device-manager-screen" title="Close Device Manager (Esc)" aria-label="Close Device Manager">
-                <img src="icons/close.svg" width="16" height="16" alt="" />
+                <img src="icons/close.svg" width="15" height="15" alt="" />
               </button>
             </div>
           </header>
@@ -974,6 +856,159 @@
         </div>
       </div>
 
+      <!-- ═══ Center — Project Resources Screen (Figma, Firebase, Legacy Docs) ═══ -->
+      <div id="project-resources-screen" class="hidden">
+        <div class="settings-container">
+          <header class="settings-header">
+            <div class="screen-title-group">
+              <div class="screen-header-badge">
+                <img src="icons/resources.svg" width="22" height="22" alt="Resources" />
+              </div>
+              <div class="screen-title-text">
+                <h2 class="screen-title">Project Resources</h2>
+                <p class="screen-subtitle">Manage Figma designs, Firebase console, and Legacy PRD &amp; Checklists for the active project.</p>
+              </div>
+            </div>
+            <div class="screen-header-actions">
+              <!-- View Layout Switcher (Grid vs List) -->
+              <div class="dash-view-toggle" id="resources-view-toggle" title="Switch layout mode (Grid / List)">
+                <button type="button" class="dash-view-toggle-btn active" id="resources-btn-view-grid" title="Grid View" aria-label="Grid View">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                  <span>Grid</span>
+                </button>
+                <button type="button" class="dash-view-toggle-btn" id="resources-btn-view-list" title="List View" aria-label="List View">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  </svg>
+                  <span>List</span>
+                </button>
+              </div>
+              <button type="button" class="btn-secondary btn-small" id="btn-sync-resources-config" title="Sync Figma, Firebase, and Legacy Docs to .agents/config/ba-project-config.md">
+                <img src="icons/refresh.svg" width="13" height="13" alt="" />
+                <span>Sync to Config</span>
+              </button>
+              <div class="screen-header-divider"></div>
+              <button type="button" class="btn-close-settings" id="btn-close-project-resources-screen" title="Close Project Resources (Esc)" aria-label="Close Project Resources">
+                <img src="icons/close.svg" width="15" height="15" alt="" />
+              </button>
+            </div>
+          </header>
+
+          <!-- Active Project Info Bar -->
+          <div class="resources-project-bar">
+            <div class="dash-project-info" style="margin: 0;">
+              <div class="dash-title-row">
+                <h3 class="dash-project-title" id="resources-project-name" style="font-size: 14.5px;">BA Space</h3>
+                <span class="dash-badge-branch" id="resources-branch-badge">main</span>
+              </div>
+              <div class="dash-path-row">
+                <span class="dash-path-text" id="resources-project-path">D:\Quest\BA_Space</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resources Cards Container -->
+          <div class="resources-sections-container">
+
+            <!-- Section 1: Figma -->
+            <section class="dash-section-card" id="dash-section-figma">
+              <div class="dash-section-header">
+                <div class="dash-section-title-group">
+                  <div class="dash-section-icon figma-tint">
+                    <img src="icons/figma.svg" width="16" height="16" alt="" />
+                  </div>
+                  <div class="dash-title-with-badge">
+                    <h3 class="dash-section-title">Figma</h3>
+                    <span class="dash-status-pill" id="dash-figma-status-pill">Not Linked</span>
+                  </div>
+                </div>
+                <div class="dash-section-actions" id="dash-figma-actions">
+                  <button type="button" class="btn-primary btn-small" id="dash-btn-open-figma" title="Open in Figma Desktop app" style="display:none;">
+                    <img src="icons/figma.svg" width="12" height="12" alt="" />
+                    <span>Open in Figma</span>
+                  </button>
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-figma" title="Open Figma link in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Browser</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dash-section-body" id="dash-figma-body">
+                <!-- Injected dynamically by JS (view card or empty state) -->
+              </div>
+            </section>
+
+            <!-- Section 2: Firebase -->
+            <section class="dash-section-card" id="dash-section-firebase">
+              <div class="dash-section-header">
+                <div class="dash-section-title-group">
+                  <div class="dash-section-icon firebase-tint">
+                    <img src="icons/firebase.svg" width="16" height="16" alt="" />
+                  </div>
+                  <div class="dash-title-with-badge">
+                    <h3 class="dash-section-title">Firebase</h3>
+                    <span class="dash-status-pill" id="dash-firebase-status-pill">Not Linked</span>
+                  </div>
+                </div>
+                <div class="dash-section-actions">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-firebase" title="Open Firebase console in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open Console</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dash-section-body" id="dash-firebase-body">
+                <!-- Injected dynamically by JS (view card or empty state) -->
+              </div>
+            </section>
+
+            <!-- Section 3: Legacy Docs -->
+            <section class="dash-section-card" id="dash-section-legacy-docs">
+              <div class="dash-section-header">
+                <div class="dash-section-title-group">
+                  <div class="dash-section-icon legacy-docs-tint">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+                      <path d="M6 6h10"></path>
+                      <path d="M6 10h10"></path>
+                      <path d="M6 14h6"></path>
+                    </svg>
+                  </div>
+                  <div class="dash-title-with-badge">
+                    <h3 class="dash-section-title">Legacy Docs</h3>
+                    <span class="dash-status-pill" id="dash-legacy-docs-status-pill">Not Linked</span>
+                  </div>
+                </div>
+                <div class="dash-section-actions" id="dash-legacy-docs-actions">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-prd" title="Open PRD in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open PRD</span>
+                  </button>
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-checklist" title="Open Checklist in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open Checklist</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dash-section-body" id="dash-legacy-docs-body">
+                <!-- Injected dynamically by JS (PRD and Checklist items) -->
+              </div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ Center — Plane Task Management Screen ═══ -->
       <div id="plane-task-screen" class="hidden">
         <header class="settings-header plane-task-header">
@@ -1139,6 +1174,11 @@
               <span class="workspace-tool-icon"><img src="icons/figma.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Figma</span>
               <span class="workspace-tool-pill" id="btn-figma-badge" style="display: none;">Linked</span>
+            </button>
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-project-resources" title="Project Resources (Figma, Firebase, Legacy Docs)" aria-label="Project Resources">
+              <span class="workspace-tool-icon"><img src="icons/resources.svg" width="16" height="16" alt="" /></span>
+              <span class="workspace-tool-text">Resources &amp; Docs</span>
+              <span class="workspace-tool-pill" id="btn-resources-badge" style="display: none;">Linked</span>
             </button>
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-obsidian" title="Open in Obsidian" aria-label="Open in Obsidian">
               <span class="workspace-tool-icon"><img src="icons/obsidian.svg" width="16" height="16" alt="" /></span>

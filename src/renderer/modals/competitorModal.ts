@@ -1,4 +1,11 @@
-const { getCompetitorInitials, parseBenchmarkFlows, formatBytes, cleanApkAppName } = require('../../domain');
+const {
+  getCompetitorInitials,
+  parseBenchmarkFlows,
+  formatBytes,
+  cleanApkAppName,
+  extractPlayStorePackageName,
+  inferAppNameFromPackage,
+} = require('../../domain');
 
 type CompetitorData = {
   id?: string;
@@ -49,6 +56,9 @@ export async function openCompetitorModal({
   const isEditing = Boolean(competitor && competitor.id);
   dom.modalTitle.textContent = isEditing ? 'Edit Competitor App' : (initialApk ? 'Import Competitor APK' : 'Add Competitor App');
 
+  // Enlarge modal dialog width for competitor workbench and flow management
+  dom.modal.classList.add('competitor-modal');
+
   let currentApkPath = competitor?.apkPath || initialApk?.path || '';
   let currentApkName = competitor?.apkName || initialApk?.name || (currentApkPath ? currentApkPath.split(/[\\/]/).pop() || '' : '');
   let currentApkSize = competitor?.apkSize !== undefined ? competitor.apkSize : (initialApk?.size || 0);
@@ -61,15 +71,21 @@ export async function openCompetitorModal({
   let currentIconUrl = defaultIconUrl;
   const flowList: string[] = parseBenchmarkFlows(defaultNotes);
 
+  let currentJadxSourcePath = competitor?.jadxSourcePath || '';
+  let currentJadxStatus = competitor?.jadxStatus || '';
+  let isLocalDecoding = false;
+  let activeDecodeProgress: { stage: string; percent: number; detail: string; elapsedSec: number } | null = null;
+
   dom.modalBody.innerHTML = `
-    <div class="form-group" style="margin-bottom: 12px;">
+    <!-- Play Store / App Link (Auto-detects App Name, Package ID, and Icon) -->
+    <div class="form-group" style="margin-bottom: 14px;">
       <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
         <span>Play Store / App Link</span>
         <span id="comp-detect-status" style="font-size: 11px; font-weight: normal; color: var(--text-muted); transition: all var(--transition-fast);"></span>
       </label>
       <div style="display: flex; gap: 8px;">
-        <input class="form-input" id="comp-input-url" placeholder="https://play.google.com/store/apps/details?id=..." value="${escapeHtml(defaultUrl)}" autocomplete="off" spellcheck="false" style="flex: 1;" />
-        <button type="button" class="btn-secondary btn-small" id="comp-btn-detect" title="Detect app name and package ID from link" style="white-space: nowrap; padding: 0 12px; height: 38px; display: inline-flex; align-items: center; gap: 6px;">
+        <input class="form-input" id="comp-input-url" placeholder="https://play.google.com/store/apps/details?id=..." value="${escapeHtml(defaultUrl)}" autocomplete="off" spellcheck="false" style="flex: 1; height: 38px;" />
+        <button type="button" class="btn-secondary btn-small" id="comp-btn-detect" title="Detect app name, package ID, and icon from Play Store link" style="white-space: nowrap; padding: 0 12px; height: 38px; display: inline-flex; align-items: center; gap: 6px;">
           ${icons.refresh || ''}
           <span>Detect</span>
         </button>
@@ -77,48 +93,57 @@ export async function openCompetitorModal({
       <span class="form-hint">Paste a Google Play link to automatically detect the App Name, Package ID, and Icon.</span>
     </div>
 
-    <div class="form-group" style="margin-bottom: 12px;">
+    <!-- App Identity: Name & Avatar -->
+    <div class="form-group" style="margin-bottom: 14px;">
       <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
         <span>Competitor App Name <strong style="color:var(--red);">*</strong></span>
         <span id="comp-detected-badge" style="display: none; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 6px; border-radius: 4px; transition: all var(--transition-fast);">Auto-detected</span>
       </label>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <div id="comp-modal-icon-preview" class="dash-comp-avatar" style="width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); position: relative;">
+        <div id="comp-modal-icon-preview" class="dash-comp-avatar" style="width: 40px; height: 40px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
           <img id="comp-modal-icon-img" src="${escapeHtml(defaultIconUrl)}" style="width: 100%; height: 100%; object-fit: cover; display: ${defaultIconUrl ? 'block' : 'none'}; border-radius: inherit;" alt="" />
-          <span id="comp-modal-avatar-initials" style="display: ${defaultIconUrl ? 'none' : 'block'}; font-weight: 700; font-size: 13px; color: var(--text-muted);">${escapeHtml(getCompetitorInitials(defaultName))}</span>
+          <span id="comp-modal-avatar-initials" style="display: ${defaultIconUrl ? 'none' : 'block'}; font-weight: 700; font-size: 14px; color: var(--text-muted);">${escapeHtml(getCompetitorInitials(defaultName))}</span>
         </div>
-        <input class="form-input" id="comp-input-name" placeholder="e.g. MoMo, Shopee, VNPAY" value="${escapeHtml(defaultName)}" autocomplete="off" spellcheck="false" style="flex: 1;" />
+        <input class="form-input" id="comp-input-name" placeholder="e.g. MoMo, Shopee, VNPAY *" value="${escapeHtml(defaultName)}" autocomplete="off" spellcheck="false" style="flex: 1; height: 38px; font-weight: 600;" />
       </div>
     </div>
 
-    <div class="form-group" style="margin-bottom: 12px;">
+    <!-- Package Name / App ID -->
+    <div class="form-group" style="margin-bottom: 14px;">
       <label class="form-label">Package Name / App ID</label>
-      <input class="form-input" id="comp-input-pkg" placeholder="e.g. com.mservice.momotransfer" value="${escapeHtml(defaultPkg)}" autocomplete="off" spellcheck="false" />
+      <input class="form-input" id="comp-input-pkg" placeholder="e.g. com.mservice.momotransfer" value="${escapeHtml(defaultPkg)}" autocomplete="off" spellcheck="false" style="height: 36px; font-family: var(--font-mono); font-size: 12px;" />
     </div>
 
+    <!-- Group 3: Linked Android Build & Decompiled Code -->
     <div class="form-group" style="margin-bottom: 12px;">
-      <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>Linked APK Build (Optional)</span>
-        <span class="form-hint" style="margin: 0; font-size: 11px;">Local .apk or .xapk for direct testing & install</span>
+      <label class="comp-modal-section-title">
+        <span>Linked Android Build (APK & Decompiled Code)</span>
+        <span class="form-hint" style="margin: 0; font-size: 11px; text-transform: none; letter-spacing: normal;">Local .apk or .xapk for device testing & JADX source</span>
       </label>
       <div id="comp-modal-apk-container" class="comp-modal-apk-zone">
         <!-- Injected dynamically by renderApkSection() -->
       </div>
     </div>
 
-    <div class="form-group" style="margin-bottom: 8px;">
-      <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>Benchmark Flows</span>
-        <span id="comp-modal-flow-count" style="font-size: 11px; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 9999px; padding: 1px 7px;">
+    <!-- Group 4: Target User Flows -->
+    <div class="form-group" style="margin-bottom: 6px;">
+      <label class="comp-modal-section-title">
+        <span>Target User Flows</span>
+        <span id="comp-modal-flow-count" class="comp-modal-count-pill">
           ${flowList.length} flow${flowList.length === 1 ? '' : 's'}
         </span>
       </label>
+      <div class="form-hint" style="margin-top: -3px; margin-bottom: 8px; font-size: 11px;">
+        Key user journeys to explore, audit, and benchmark.
+      </div>
 
       <div class="comp-modal-flow-container">
-        <div id="comp-modal-flow-list" class="comp-modal-flow-list"></div>
+        <!-- Interactive flow chips -->
+        <div id="comp-modal-flow-chips" class="comp-modal-flow-chips"></div>
 
-        <div class="comp-modal-add-flow-group" style="display: flex; gap: 8px; margin-top: 8px;">
-          <input class="form-input" id="comp-input-new-flow" placeholder="Add a benchmark flow (e.g. Onboarding KYC)..." autocomplete="off" spellcheck="false" style="flex: 1; height: 36px;" />
+        <!-- Add flow input group -->
+        <div class="comp-modal-add-flow-group" style="display: flex; gap: 8px; margin-top: 6px;">
+          <input class="form-input" id="comp-input-new-flow" placeholder="Type a flow name and press Enter, or paste comma-separated flows..." autocomplete="off" spellcheck="false" style="flex: 1; height: 36px; font-size: 12px;" />
           <button type="button" class="btn-secondary btn-small" id="comp-btn-add-flow" title="Add flow to list" style="white-space: nowrap; height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;">
             ${icons.plus || '+'}
             <span>Add Flow</span>
@@ -131,7 +156,7 @@ export async function openCompetitorModal({
   const urlInput = dom.modalBody.querySelector('#comp-input-url') as HTMLInputElement;
   const nameInput = dom.modalBody.querySelector('#comp-input-name') as HTMLInputElement;
   const pkgInput = dom.modalBody.querySelector('#comp-input-pkg') as HTMLInputElement;
-  const flowListEl = dom.modalBody.querySelector('#comp-modal-flow-list') as HTMLElement;
+  const flowChipsEl = dom.modalBody.querySelector('#comp-modal-flow-chips') as HTMLElement;
   const flowCountBadge = dom.modalBody.querySelector('#comp-modal-flow-count') as HTMLElement;
   const newFlowInput = dom.modalBody.querySelector('#comp-input-new-flow') as HTMLInputElement;
   const addFlowBtn = dom.modalBody.querySelector('#comp-btn-add-flow') as HTMLButtonElement;
@@ -140,6 +165,7 @@ export async function openCompetitorModal({
   const detectedBadge = dom.modalBody.querySelector('#comp-detected-badge') as HTMLElement;
   const modalIconImg = dom.modalBody.querySelector('#comp-modal-icon-img') as HTMLImageElement;
   const modalInitials = dom.modalBody.querySelector('#comp-modal-avatar-initials') as HTMLElement;
+  const apkContainerEl = dom.modalBody.querySelector('#comp-modal-apk-container') as HTMLElement;
 
   function updateFlowCount() {
     if (flowCountBadge) {
@@ -149,38 +175,31 @@ export async function openCompetitorModal({
 
   function renderFlowList() {
     updateFlowCount();
+
+    // Render interactive chips
     if (flowList.length === 0) {
-      flowListEl.innerHTML = `
-        <div class="comp-modal-flow-empty">
-          No benchmark flows added yet. Type a flow name above and click Add Flow.
-        </div>
+      flowChipsEl.innerHTML = `
+        <span class="comp-modal-flow-empty-hint">
+          No target flows added yet. Enter flow names below to track them.
+        </span>
       `;
       return;
     }
 
-    flowListEl.innerHTML = flowList.map((flow, idx) => `
-      <div class="comp-modal-flow-item" data-index="${idx}">
-        <span class="comp-modal-flow-num">${idx + 1}</span>
-        <input class="form-input comp-flow-input" data-index="${idx}" value="${escapeHtml(flow)}" placeholder="Flow name (e.g. Onboarding KYC)" spellcheck="false" autocomplete="off" />
-        <button type="button" class="comp-modal-flow-remove-btn" data-action="remove-flow" data-index="${idx}" title="Remove flow" aria-label="Remove flow">
+    flowChipsEl.innerHTML = flowList.map((flow, idx) => `
+      <div class="comp-modal-flow-chip" data-index="${idx}">
+        <span class="comp-modal-flow-chip-num">#${idx + 1}</span>
+        <span class="comp-modal-flow-chip-text" title="${escapeHtml(flow)}">${escapeHtml(flow)}</span>
+        <button type="button" class="comp-modal-flow-chip-del" data-action="remove-flow" data-index="${idx}" title="Remove flow" aria-label="Remove flow">
           ${icons.close || '×'}
         </button>
       </div>
     `).join('');
 
-    flowListEl.querySelectorAll('.comp-flow-input').forEach((inputEl: Element) => {
-      inputEl.addEventListener('input', (e: Event) => {
-        const target = e.currentTarget as HTMLInputElement;
-        const idx = Number(target.dataset.index);
-        if (!isNaN(idx) && flowList[idx] !== undefined) {
-          flowList[idx] = target.value;
-        }
-      });
-    });
-
-    flowListEl.querySelectorAll('[data-action="remove-flow"]').forEach((btnEl: Element) => {
+    flowChipsEl.querySelectorAll('[data-action="remove-flow"]').forEach((btnEl: Element) => {
       btnEl.addEventListener('click', (e: Event) => {
         e.preventDefault();
+        e.stopPropagation();
         const target = e.currentTarget as HTMLElement;
         const idx = Number(target.dataset.index);
         if (!isNaN(idx) && flowList[idx] !== undefined) {
@@ -199,14 +218,14 @@ export async function openCompetitorModal({
     for (const flow of toAdd) {
       const clean = flow.trim();
       if (!clean) continue;
-      if (!flowList.some(f => f.toLowerCase() === clean.toLowerCase())) {
+      if (!flowList.some((f) => f.toLowerCase() === clean.toLowerCase())) {
         flowList.push(clean);
         addedCount++;
       }
     }
     renderFlowList();
     if (addedCount > 0) {
-      flowListEl.scrollTop = flowListEl.scrollHeight;
+      flowChipsEl.scrollTop = flowChipsEl.scrollHeight;
     }
   }
 
@@ -232,6 +251,15 @@ export async function openCompetitorModal({
     }
   });
 
+  // Fast paste handler: paste multiple comma-separated or newline-separated flows directly
+  newFlowInput.addEventListener('paste', (e: ClipboardEvent) => {
+    const pastedText = e.clipboardData?.getData('text');
+    if (pastedText && (pastedText.includes(',') || pastedText.includes('\n') || pastedText.includes(';') || pastedText.includes('|'))) {
+      e.preventDefault();
+      addFlows(pastedText);
+      newFlowInput.value = '';
+    }
+  });
 
   renderFlowList();
 
@@ -246,11 +274,6 @@ export async function openCompetitorModal({
       modalInitials.style.display = 'block';
     }
   }
-
-  let currentJadxSourcePath = competitor?.jadxSourcePath || '';
-  let currentJadxStatus = competitor?.jadxStatus || '';
-
-  const apkContainerEl = dom.modalBody.querySelector('#comp-modal-apk-container') as HTMLElement;
 
   async function checkAndSyncReakitStatus() {
     const pkg = pkgInput.value.trim() || competitor?.packageName || defaultPkg;
@@ -290,8 +313,11 @@ export async function openCompetitorModal({
     if (!apkContainerEl) return;
     if (currentApkPath) {
       const isDecoded = currentJadxStatus === 'ready' || Boolean(currentJadxSourcePath);
+      const isDecoding = isLocalDecoding || (activeDecodeProgress !== null && activeDecodeProgress.stage !== 'completed' && activeDecodeProgress.stage !== 'failed');
+
       apkContainerEl.innerHTML = `
         <div class="comp-modal-workbench">
+          <!-- APK Build Row (ALWAYS active & Launchable) -->
           <div class="comp-modal-artifact-row apk-row">
             <div class="comp-modal-artifact-main">
               <div class="comp-modal-artifact-badge apk" title="Linked Android APK build">
@@ -306,7 +332,7 @@ export async function openCompetitorModal({
               </div>
             </div>
             <div class="comp-modal-artifact-actions">
-              <button type="button" class="dash-comp-btn-action launch" id="comp-modal-btn-launch-apk" title="Launch app on connected Android device via ADB">
+              <button type="button" class="dash-comp-btn-action launch" id="comp-modal-btn-launch-apk" title="Launch app on connected Android device via ADB (works even while decoding)">
                 ${icons.play || ''}
                 <span>Launch</span>
               </button>
@@ -319,8 +345,28 @@ export async function openCompetitorModal({
             </div>
           </div>
 
-          <div class="comp-modal-artifact-row decode-row">
-            ${isDecoded ? `
+          <!-- Decompiled JADX Source Row -->
+          <div class="comp-modal-artifact-row decode-row ${isDecoding ? 'decoding' : ''}">
+            ${isDecoding ? `
+              <div class="comp-modal-artifact-main">
+                <div class="comp-modal-artifact-badge decode decoding" title="Decompiling APK sources with ReaKit JADX">
+                  <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #a78bfa transparent #a78bfa #a78bfa;"></span>
+                </div>
+                <div class="comp-modal-artifact-info">
+                  <div class="comp-modal-artifact-name-row">
+                    <span class="comp-modal-decode-title decoding">Decoding Source (JADX)</span>
+                    <span class="comp-modal-pill-status decoding" id="comp-modal-decode-percent">${activeDecodeProgress?.percent || 12}%</span>
+                    <span class="comp-modal-pill-mono" id="comp-modal-decode-elapsed">${activeDecodeProgress?.elapsedSec || 0}s</span>
+                  </div>
+                  <div class="comp-modal-progress-wrap">
+                    <div class="comp-modal-progress-bar">
+                      <div class="comp-modal-progress-fill" id="comp-modal-progress-fill" style="width: ${activeDecodeProgress?.percent || 12}%;"></div>
+                    </div>
+                  </div>
+                  <span class="comp-modal-artifact-hint" id="comp-modal-decode-detail">${escapeHtml(activeDecodeProgress?.detail || 'Decompiling bytecode to Java/Kotlin...')}</span>
+                </div>
+              </div>
+            ` : isDecoded ? `
               <div class="comp-modal-artifact-main">
                 <div class="comp-modal-artifact-badge decode ready" title="Decoded Java/Kotlin sources ready">
                   ${icons.decode || icons.code || ''}
@@ -352,7 +398,7 @@ export async function openCompetitorModal({
                     <span class="comp-modal-decode-title idle">Decoded Source</span>
                     <span class="comp-modal-pill-status idle">Not Decoded</span>
                   </div>
-                  <span class="comp-modal-artifact-hint">Extract Java/Kotlin sources & layouts with ReaKit</span>
+                  <span class="comp-modal-artifact-hint">Extract Java/Kotlin sources & layouts with ReaKit JADX</span>
                 </div>
               </div>
               <div class="comp-modal-artifact-actions">
@@ -366,6 +412,7 @@ export async function openCompetitorModal({
         </div>
       `;
 
+      // Launch button — ALWAYS enabled and clickable!
       apkContainerEl.querySelector('#comp-modal-btn-launch-apk')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget as HTMLElement;
         const origHtml = btn.innerHTML;
@@ -427,16 +474,22 @@ export async function openCompetitorModal({
         }
       });
 
-      const handleDecode = async (btnEl: HTMLElement | null) => {
-        if (!btnEl) return;
-        const origHtml = btnEl.innerHTML;
-        btnEl.setAttribute('disabled', 'true');
-        btnEl.innerHTML = `<span class="spinner" style="width:11px; height:11px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:4px;"></span> Decoding...`;
-        showToast('Decoding APK with ReaKit (JADX)... This may take a minute.', 'info');
+      const handleDecode = async () => {
+        if (!currentApkPath || !project?.path) return;
+        isLocalDecoding = true;
+        activeDecodeProgress = {
+          stage: 'preparing',
+          percent: 8,
+          detail: 'Preparing JADX environment...',
+          elapsedSec: 0,
+        };
+        renderApkSection();
+        showToast('Decoding APK with ReaKit (JADX)... Progress will show below.', 'info');
+
         try {
           const res = await window.api.decompileCompetitorJadx({
             projectPath: project.path,
-            competitorId: competitor?.id,
+            competitorId: competitor?.id || 'temp',
             packageName: pkgInput.value.trim() || competitor?.packageName,
             apkPath: currentApkPath,
           });
@@ -444,26 +497,26 @@ export async function openCompetitorModal({
             currentJadxStatus = 'ready';
             currentJadxSourcePath = res.jadxSourcePath;
             showToast('APK successfully decoded with JADX!', 'success');
-            renderApkSection();
           } else {
             showToast(`Decode failed: ${res?.error || 'Unknown error'}`, 'error');
           }
         } catch (err: any) {
           showToast(`Decode error: ${err?.message || String(err)}`, 'error');
         } finally {
-          btnEl.removeAttribute('disabled');
-          btnEl.innerHTML = origHtml;
+          isLocalDecoding = false;
+          activeDecodeProgress = null;
+          renderApkSection();
         }
       };
 
       apkContainerEl.querySelector('#comp-modal-btn-decode')?.addEventListener('click', (e) => {
         e.preventDefault();
-        void handleDecode(apkContainerEl.querySelector('#comp-modal-btn-decode') as HTMLElement);
+        void handleDecode();
       });
 
       apkContainerEl.querySelector('#comp-modal-btn-redecode')?.addEventListener('click', (e) => {
         e.preventDefault();
-        void handleDecode(apkContainerEl.querySelector('#comp-modal-btn-redecode') as HTMLElement);
+        void handleDecode();
       });
     } else {
       const targetPkg = pkgInput.value.trim() || competitor?.packageName || '';
@@ -585,9 +638,49 @@ export async function openCompetitorModal({
     }
   }
 
+  // Listen to decode progress events in real-time
+  const onDecodeProgress = (e: any) => {
+    const data = e.detail;
+    const targetCompId = competitor?.id || 'temp';
+    if (!data || data.competitorId !== targetCompId) return;
+
+    activeDecodeProgress = data;
+
+    if (data.stage === 'completed') {
+      isLocalDecoding = false;
+      activeDecodeProgress = null;
+      void checkAndSyncReakitStatus();
+      return;
+    }
+
+    if (data.stage === 'failed') {
+      isLocalDecoding = false;
+      activeDecodeProgress = null;
+      renderApkSection();
+      return;
+    }
+
+    // Direct DOM updates for ultra-smooth 60fps progress bar without redraw
+    const fillEl = apkContainerEl.querySelector('#comp-modal-progress-fill') as HTMLElement;
+    const percentEl = apkContainerEl.querySelector('#comp-modal-decode-percent') as HTMLElement;
+    const elapsedEl = apkContainerEl.querySelector('#comp-modal-decode-elapsed') as HTMLElement;
+    const detailEl = apkContainerEl.querySelector('#comp-modal-decode-detail') as HTMLElement;
+
+    if (fillEl && percentEl) {
+      fillEl.style.width = `${data.percent}%`;
+      percentEl.textContent = `${data.percent}%`;
+      if (elapsedEl) elapsedEl.textContent = `${data.elapsedSec || 0}s`;
+      if (detailEl && data.detail) detailEl.textContent = data.detail;
+    } else {
+      renderApkSection();
+    }
+  };
+
+  window.addEventListener('competitor-decode-progress', onDecodeProgress);
+
   renderApkSection();
 
-  let userEditedName = Boolean(defaultName);
+  let userEditedName = false;
   nameInput.addEventListener('input', () => {
     userEditedName = true;
     detectedBadge.style.display = 'none';
@@ -613,23 +706,21 @@ export async function openCompetitorModal({
       return;
     }
 
-    // 1. Quick client-side extraction of package ID if URL contains it
-    try {
-      const parsed = new URL(rawUrl);
-      const id = parsed.searchParams.get('id');
-      if (id && (!pkgInput.value.trim() || force)) {
-        pkgInput.value = id.trim();
+    // 1. Instant client-side package extraction from URL
+    const quickPkg = extractPlayStorePackageName(rawUrl);
+    if (quickPkg) {
+      if (!pkgInput.value.trim() || force || !userEditedName) {
+        pkgInput.value = quickPkg;
+        if (!currentApkPath) renderApkSection();
+        void checkAndSyncReakitStatus();
       }
-    } catch {
-      const match = rawUrl.match(/[?&]id=([a-zA-Z0-9_.]+)/);
-      if (match && (!pkgInput.value.trim() || force)) {
-        pkgInput.value = match[1].trim();
+      const quickInferred = inferAppNameFromPackage(quickPkg);
+      if (quickInferred && (!nameInput.value.trim() || force || !userEditedName)) {
+        nameInput.value = quickInferred;
+        if (!currentIconUrl) {
+          modalInitials.textContent = getCompetitorInitials(quickInferred);
+        }
       }
-    }
-
-    // If user already typed their own name and this isn't a manual "Detect" click, don't overwrite
-    if (userEditedName && !force && nameInput.value.trim()) {
-      return;
     }
 
     detectStatus.textContent = 'Detecting app...';
@@ -638,15 +729,14 @@ export async function openCompetitorModal({
 
     try {
       const res = await window.api.detectCompetitorApp(rawUrl);
-      if (res && res.success && (res.appName || res.iconUrl)) {
-        if (res.appName) {
+      if (res && res.success && (res.appName || res.iconUrl || res.packageName)) {
+        if (res.appName && (!nameInput.value.trim() || force || !userEditedName)) {
           nameInput.value = res.appName;
+          userEditedName = false;
         }
-        if (res.packageName && (!pkgInput.value.trim() || force)) {
+        if (res.packageName && (!pkgInput.value.trim() || force || !userEditedName)) {
           pkgInput.value = res.packageName;
-          if (!currentApkPath) {
-            renderApkSection();
-          }
+          if (!currentApkPath) renderApkSection();
           void checkAndSyncReakitStatus();
         }
         if (res.iconUrl) {
@@ -677,32 +767,50 @@ export async function openCompetitorModal({
         detectStatus.style.color = 'var(--red)';
         showToast(res?.error || 'Could not detect app name from link', 'info');
       }
-    } catch {
+    } catch (err: any) {
       if (force) {
         detectStatus.textContent = 'Error detecting app';
         detectStatus.style.color = 'var(--red)';
+        showToast(`Detection error: ${err?.message || 'Network error'}`, 'error');
       }
     } finally {
       detectBtn.disabled = false;
     }
   }
 
-  detectBtn.addEventListener('click', () => {
+  detectBtn.addEventListener('click', (e: Event) => {
+    e.preventDefault();
     void runDetection(true);
   });
 
   urlInput.addEventListener('paste', () => {
     setTimeout(() => {
-      void runDetection(false);
+      void runDetection(true);
     }, 40);
   });
 
   let debounceTimer: any = null;
   urlInput.addEventListener('input', () => {
+    const val = urlInput.value.trim();
+    // Instant extraction on every keystroke
+    const quickPkg = extractPlayStorePackageName(val);
+    if (quickPkg && (!pkgInput.value.trim() || !userEditedName)) {
+      pkgInput.value = quickPkg;
+      const inferred = inferAppNameFromPackage(quickPkg);
+      if (inferred && (!nameInput.value.trim() || !userEditedName)) {
+        nameInput.value = inferred;
+        if (!currentIconUrl) modalInitials.textContent = getCompetitorInitials(inferred);
+      }
+      if (!currentApkPath) renderApkSection();
+      void checkAndSyncReakitStatus();
+    }
+
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      void runDetection(false);
-    }, 450);
+      if (val && (val.includes('play.google.com') || val.includes('id='))) {
+        void runDetection(false);
+      }
+    }, 400);
   });
 
   const { 'modal-cancel': cancelBtn, 'modal-confirm': confirmBtn } = configureModalFooter([
@@ -712,9 +820,14 @@ export async function openCompetitorModal({
   const defaultConfirmLabel = confirmBtn.innerHTML;
 
   showModal();
-  focusModalInputLater(defaultUrl ? nameInput : urlInput);
+  focusModalInputLater(isEditing ? nameInput : (defaultUrl ? nameInput : urlInput));
 
-  cancelBtn.addEventListener('click', hideModal);
+  const closeModal = () => {
+    window.removeEventListener('competitor-decode-progress', onDecodeProgress);
+    hideModal();
+  };
+
+  cancelBtn.addEventListener('click', closeModal);
 
   confirmBtn.addEventListener('click', async () => {
     const name = nameInput.value.trim();
@@ -724,20 +837,13 @@ export async function openCompetitorModal({
       return;
     }
 
-    const currentFlows: string[] = [];
-    flowListEl.querySelectorAll('.comp-flow-input').forEach((inputEl: Element) => {
-      const val = (inputEl as HTMLInputElement).value.trim();
-      if (val && !currentFlows.some(f => f.toLowerCase() === val.toLowerCase())) {
-        currentFlows.push(val);
-      }
-    });
-
+    const currentFlows: string[] = [...flowList];
     const pendingNew = newFlowInput.value.trim();
     if (pendingNew) {
       const parsedPending = parseBenchmarkFlows(pendingNew);
       const toAdd = parsedPending.length > 0 ? parsedPending : [pendingNew];
       for (const p of toAdd) {
-        if (!currentFlows.some(f => f.toLowerCase() === p.toLowerCase())) {
+        if (!currentFlows.some((f) => f.toLowerCase() === p.toLowerCase())) {
           currentFlows.push(p);
         }
       }
@@ -776,7 +882,7 @@ export async function openCompetitorModal({
 
     if (res?.success) {
       showToast(isEditing ? 'Competitor updated' : 'Competitor app added', 'success');
-      hideModal();
+      closeModal();
       if (res.project) {
         onSuccess(res.project);
       }

@@ -141,6 +141,13 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('competitor:open-jadx-source', opts),
   getCompetitorReakitStatus: (opts: { projectPath?: string; competitorId?: string; packageName?: string; apkPath?: string; jadxSourcePath?: string }) =>
     ipcRenderer.invoke('competitor:get-reakit-status', opts),
+  onCompetitorDecodeProgress: (callback: (data: { competitorId: string; stage: string; percent: number; detail: string; elapsedSec: number }) => void) => {
+    const handler = (_: any, data: any) => callback(data);
+    ipcRenderer.on('competitor:decode-progress', handler);
+    return () => {
+      ipcRenderer.removeListener('competitor:decode-progress', handler);
+    };
+  },
 
   // ── Device Manager ──
   deviceList: () => ipcRenderer.invoke('device:list'),

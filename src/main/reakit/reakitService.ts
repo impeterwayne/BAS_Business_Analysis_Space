@@ -106,6 +106,7 @@ export function executeReaCommand(options: {
   cwd?: string;
   customPath?: string;
   timeout?: number;
+  onLine?: (line: string, isStderr: boolean) => void;
 }): Promise<{ success: boolean; stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
     try {
@@ -128,6 +129,8 @@ export function executeReaCommand(options: {
 
       let stdout = '';
       let stderr = '';
+      let stdoutBuf = '';
+      let stderrBuf = '';
 
       const timer = setTimeout(() => {
         try {
@@ -142,11 +145,29 @@ export function executeReaCommand(options: {
       }, options.timeout || 180000);
 
       proc.stdout?.on('data', (chunk) => {
-        stdout += chunk.toString('utf-8');
+        const text = chunk.toString('utf-8');
+        stdout += text;
+        if (options.onLine) {
+          stdoutBuf += text;
+          const parts = stdoutBuf.split(/\r?\n/);
+          stdoutBuf = parts.pop() || '';
+          for (const line of parts) {
+            if (line.trim()) options.onLine(line, false);
+          }
+        }
       });
 
       proc.stderr?.on('data', (chunk) => {
-        stderr += chunk.toString('utf-8');
+        const text = chunk.toString('utf-8');
+        stderr += text;
+        if (options.onLine) {
+          stderrBuf += text;
+          const parts = stderrBuf.split(/\r?\n/);
+          stderrBuf = parts.pop() || '';
+          for (const line of parts) {
+            if (line.trim()) options.onLine(line, true);
+          }
+        }
       });
 
       proc.on('error', (err) => {
@@ -161,6 +182,10 @@ export function executeReaCommand(options: {
 
       proc.on('close', (code) => {
         clearTimeout(timer);
+        if (options.onLine) {
+          if (stdoutBuf.trim()) options.onLine(stdoutBuf, false);
+          if (stderrBuf.trim()) options.onLine(stderrBuf, true);
+        }
         resolve({
           success: code === 0,
           stdout,
@@ -438,6 +463,12 @@ export async function decompileCompetitorJadx(options: {
   customPath?: string;
   threads?: number;
   heap?: string;
+  onProgress?: (progress: {
+    stage: string;
+    percent: number;
+    detail: string;
+    elapsedSec: number;
+  }) => void;
 }): Promise<{
   success: boolean;
   jadxSourcePath?: string;
@@ -456,6 +487,26 @@ export async function decompileCompetitorJadx(options: {
   const targetPkg = pkg || (rawApkPath ? path.basename(rawApkPath).replace(/\.(apk|xapk|apks)$/i, '') : 'target');
   const targetDir = path.join(workspaceRoot, targetPkg);
   const apksDir = path.join(targetDir, 'apks');
+
+  const startTime = Date.now();
+  let currentPercent = 10;
+  let currentStage = 'preparing';
+  let currentDetail = 'Preparing workspace and APK build...';
+
+  const reportProgress = (stage: string, percent: number, detail: string) => {
+    currentStage = stage;
+    currentPercent = Math.max(currentPercent, percent);
+    currentDetail = detail;
+    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+    options.onProgress?.({
+      stage: currentStage,
+      percent: currentPercent,
+      detail: currentDetail,
+      elapsedSec,
+    });
+  };
+
+  reportProgress('preparing', 10, 'Preparing workspace and APK build...');
 
   try {
     if (!fs.existsSync(apksDir)) {
@@ -481,18 +532,81 @@ export async function decompileCompetitorJadx(options: {
     args.push('--heap', options.heap.trim());
   }
 
-  const res = await executeReaCommand({
-    args,
-    cwd: workspaceRoot,
-    customPath: options.customPath,
-    timeout: 600000, // 10 min timeout
-  });
+  // Active progress heartbeat while decompilation is running
+  const progressTimer = setInterval(() => {
+    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+    if (currentStage === 'decompiling' || currentStage === 'analyzing') {
+      if (currentPercent < 84) {
+        currentPercent = Math.min(84, currentPercent + 2);
+      }
+    } else if (currentStage === 'writing') {
+      if (currentPercent < 94) {
+        currentPercent = Math.min(94, currentPercent + 1);
+      }
+    } else if (currentStage === 'preparing' || currentStage === 'starting') {
+      if (currentPercent < 30) {
+        currentPercent = Math.min(30, currentPercent + 3);
+      }
+    }
+    options.onProgress?.({
+      stage: currentStage,
+      percent: currentPercent,
+      detail: currentDetail,
+      elapsedSec,
+    });
+  }, 1000);
+
+  const handleLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    if (trimmed.includes('Extracting split archive')) {
+      reportProgress('extracting', 18, 'Extracting split APK archives...');
+    } else if (trimmed.includes('Running JADX on')) {
+      reportProgress('starting', 25, 'Starting JADX decompiler...');
+    } else if (trimmed.includes('loading ...') || trimmed.includes('INFO  - loading')) {
+      reportProgress('loading', 35, 'Loading DEX bytecode & classes...');
+    } else {
+      const loadedMatch = trimmed.match(/Loaded classes:\s*(\d+)(?:,\s*methods:\s*(\d+))?/i);
+      if (loadedMatch) {
+        const cls = Number(loadedMatch[1]);
+        const mth = loadedMatch[2] ? Number(loadedMatch[2]) : null;
+        const msg = mth
+          ? `Loaded ${cls.toLocaleString()} classes (${mth.toLocaleString()} methods)`
+          : `Loaded ${cls.toLocaleString()} classes`;
+        reportProgress('analyzing', 48, msg);
+      } else if (trimmed.includes('processing ...') || trimmed.includes('INFO  - processing')) {
+        reportProgress('decompiling', 56, 'Decompiling classes to Java/Kotlin...');
+      } else if (trimmed.includes('writing ...') || trimmed.includes('INFO  - writing')) {
+        reportProgress('writing', 86, 'Writing source files and layouts...');
+      } else {
+        const doneMatch = trimmed.match(/Decompilation complete for .*\(([\d,]+)\s*source files\)/i);
+        if (doneMatch) {
+          reportProgress('finalizing', 96, `Extracted ${doneMatch[1]} source files`);
+        }
+      }
+    }
+  };
+
+  let res;
+  try {
+    res = await executeReaCommand({
+      args,
+      cwd: workspaceRoot,
+      customPath: options.customPath,
+      timeout: 600000, // 10 min timeout
+      onLine: (line) => handleLine(line),
+    });
+  } finally {
+    clearInterval(progressTimer);
+  }
 
   const jadxDir = path.join(targetDir, 'jadx_src');
   if (fs.existsSync(jadxDir)) {
     try {
       const items = fs.readdirSync(jadxDir);
       if (items.length > 0) {
+        reportProgress('completed', 100, 'Decompilation completed successfully!');
         return {
           success: true,
           jadxSourcePath: jadxDir,
@@ -503,9 +617,12 @@ export async function decompileCompetitorJadx(options: {
     } catch (_) {}
   }
 
+  const failError = (res.stderr || res.stdout || 'JADX decompilation failed to generate source files').trim();
+  reportProgress('failed', 0, failError);
+
   return {
     success: false,
-    error: (res.stderr || res.stdout || 'JADX decompilation failed to generate source files').trim(),
+    error: failError,
     stdout: res.stdout,
     stderr: res.stderr,
   };
@@ -549,7 +666,7 @@ export function registerReakitIpc({
   });
 
   // Decompile / Extract JADX Source via ReaKit
-  ipcMain.handle('competitor:decompile-jadx', async (_: any, { projectPath, competitorId, packageName, apkPath }: {
+  ipcMain.handle('competitor:decompile-jadx', async (event: any, { projectPath, competitorId, packageName, apkPath }: {
     projectPath: string;
     competitorId: string;
     packageName?: string;
@@ -557,11 +674,29 @@ export function registerReakitIpc({
   }) => {
     try {
       const settings = workspaceService.getSettings();
+      const sendProgress = (p: { stage: string; percent: number; detail: string; elapsedSec: number }) => {
+        try {
+          const payload = { competitorId, ...p };
+          if (event?.sender && !event.sender.isDestroyed()) {
+            event.sender.send('competitor:decode-progress', payload);
+          }
+          const { BrowserWindow } = require('electron');
+          BrowserWindow.getAllWindows().forEach((win: any) => {
+            if (win && win.webContents && !win.webContents.isDestroyed() && win.webContents !== event?.sender) {
+              win.webContents.send('competitor:decode-progress', payload);
+            }
+          });
+        } catch (_) {}
+      };
+
+      sendProgress({ stage: 'preparing', percent: 8, detail: 'Preparing decompiler...', elapsedSec: 0 });
+
       const result = await decompileCompetitorJadx({
         projectPath,
         packageName,
         apkPath,
         customPath: settings.reakitPath,
+        onProgress: sendProgress,
       });
 
       if (result.success && result.jadxSourcePath) {
@@ -570,6 +705,9 @@ export function registerReakitIpc({
           jadxSourcePath: result.jadxSourcePath,
           jadxStatus: 'ready',
         });
+        sendProgress({ stage: 'completed', percent: 100, detail: 'Sources successfully extracted!', elapsedSec: 0 });
+      } else {
+        sendProgress({ stage: 'failed', percent: 0, detail: result.error || 'Decompilation failed', elapsedSec: 0 });
       }
 
       return result;

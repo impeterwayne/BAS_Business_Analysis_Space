@@ -563,7 +563,9 @@ module.exports = {
   parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,
+  parseTargetFlows: parseBenchmarkFlows,
   formatFlowSlug,
   buildBenchmarkSlashCommand,
+  buildTargetFlowSlashCommand: buildBenchmarkSlashCommand,
 };
 
