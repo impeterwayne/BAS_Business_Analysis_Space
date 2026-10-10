@@ -1,0 +1,8 @@
+{
+  "accentColor": "#58aefd",
+  "theme": "obsidian",
+  "enabledCssSnippets": [
+    "accent_header"
+  ],
+  "cssTheme": ""
+}

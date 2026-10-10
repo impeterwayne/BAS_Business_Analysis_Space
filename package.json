@@ -11,6 +11,7 @@
     "test": "node --test src/domain/**/*.test.js",
     "start": "npm run build && electron .",
     "fetch-runtimes": "node scripts/fetch-runtimes.mjs",
+    "sync-obsidian-config": "node scripts/sync-obsidian-config.mjs",
     "pack": "npm run build && npm run fetch-runtimes && electron-builder --dir",
     "make": "npm run build && npm run fetch-runtimes && electron-builder",
     "make:win": "npm run build && npm run fetch-runtimes -- win-x64 && electron-builder --win",
@@ -62,6 +63,10 @@
       {
         "from": "toolkits",
         "to": "toolkits"
+      },
+      {
+        "from": "resources/obsidian-config",
+        "to": "obsidian-config"
       },
       {
         "from": "runtimes/${os}-${arch}",

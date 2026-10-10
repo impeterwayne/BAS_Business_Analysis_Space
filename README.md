@@ -20,6 +20,7 @@
 
 ### 3. BA Quick Launchers & External Integrations
 - **Antigravity IDE & Agent Manager**: Jump straight into Antigravity with your current worktree context.
+- **VS Code & Obsidian**: One-click launcher for Visual Studio Code, plus seamless Obsidian vault integration pre-seeded with portable BA plugins and settings.
 - **Figma Integration**: Launch Figma desktop app or navigate to custom project design URLs.
 - **Embedded & External Terminals**: Integrated xterm.js tabs with AI CLI launchers (Antigravity CLI with `--dangerously-skip-permissions`, OpenCode, Codex YOLO, Claude), alongside external terminal support (Windows Terminal on Windows, Terminal.app on macOS, default terminal emulator on Linux).
 
@@ -36,7 +37,7 @@
 - **Python**: 3.8+ on system PATH (required to run harness scripts such as `apk_index.py` and ReaKit APK decompilation)
 - **Git**: Installed and on system PATH
 - **ADB & Scrcpy**: Required for device mirroring and UI capture features (`scrcpy` and `adb` available on system PATH or standard SDK / Homebrew install paths)
-- **Optional Tools**: Android Studio, Antigravity CLI / IDE, Figma Desktop, Obsidian, Claude Desktop (all detected automatically across Windows, macOS, and Linux)
+- **Optional Tools**: Android Studio, Antigravity CLI / IDE, VS Code, Figma Desktop, Obsidian, Claude Desktop (all detected automatically across Windows, macOS, and Linux)
 
 ### Installation & Run
 

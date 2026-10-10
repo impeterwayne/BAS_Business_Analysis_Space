@@ -178,6 +178,7 @@ const dom = {
   tabListScroll: $('#tab-list-scroll'),
   tabNewBtn: $('#tab-new-btn'),
   tabCollapseBtn: $('#tab-collapse-btn'),
+  btnVsCode: $('#btn-vscode'),
   btnExplorer: $('#btn-explorer'),
   btnAndroidStudio: $('#btn-android-studio'),
   btnAntigravity: $('#btn-antigravity'),
@@ -241,6 +242,7 @@ const dom = {
   settingsPlaneApiKey: $('#settings-plane-api-key') as HTMLInputElement | null,
   btnCopyPlaneApiKey: $('#btn-copy-plane-api-key') as HTMLButtonElement | null,
   btnSavePlaneApiKey: $('#btn-save-plane-api-key') as HTMLButtonElement | null,
+  settingsVsCodePath: $('#settings-vscode-path') as HTMLInputElement | null,
   settingsAndroidStudioPath: $('#settings-android-studio-path'),
   settingsFigmaPath: $('#settings-figma-path'),
   settingsFigmaUrl: $('#settings-figma-url'),
@@ -251,6 +253,7 @@ const dom = {
   btnBrowseAntigravity: $('#btn-browse-antigravity'),
   btnBrowseAntigravityAgent: $('#btn-browse-antigravity-agent'),
   btnBrowseClaudeDesktop: $('#btn-browse-claude-desktop'),
+  btnBrowseVsCode: $('#btn-browse-vscode'),
   btnBrowseAndroidStudio: $('#btn-browse-android-studio'),
   btnBrowseFigma: $('#btn-browse-figma'),
   btnBrowseObsidian: $('#btn-browse-obsidian'),
@@ -328,6 +331,7 @@ function setupBrowseButton(btn, input) {
 setupBrowseButton(dom.btnBrowseAntigravity, dom.settingsAntigravityPath);
 setupBrowseButton(dom.btnBrowseAntigravityAgent, dom.settingsAntigravityAgentPath);
 setupBrowseButton(dom.btnBrowseClaudeDesktop, dom.settingsClaudeDesktopPath);
+setupBrowseButton(dom.btnBrowseVsCode, dom.settingsVsCodePath);
 setupBrowseButton(dom.btnBrowseAndroidStudio, dom.settingsAndroidStudioPath);
 setupBrowseButton(dom.btnBrowseFigma, dom.settingsFigmaPath);
 setupBrowseButton(dom.btnBrowseObsidian, dom.settingsObsidianPath);
@@ -2149,6 +2153,7 @@ dom.tabNewBtn.addEventListener('click', (e) => {
 // Tab bar external tool buttons
 bindWorktreeQuickAction(dom.btnAntigravity, (wtPath) => window.api.openInAntigravity(wtPath), 'Opening Antigravity...');
 bindWorktreeQuickAction(dom.btnAntigravityAgent, (wtPath) => window.api.openInAntigravityAgent(wtPath), 'Opening Agent Manager...');
+bindWorktreeQuickAction(dom.btnVsCode, (wtPath) => window.api.openInVsCode(wtPath), 'Opening VS Code...');
 dom.btnClaudeDesktop?.addEventListener('click', async () => {
   const wtPath = getRequiredActiveWorktreePath();
   if (!wtPath) return;
@@ -5004,6 +5009,7 @@ async function saveSettingsFromUI() {
     antigravityPath: dom.settingsAntigravityPath ? cleanVal(dom.settingsAntigravityPath.value) : '',
     antigravityAgentPath: dom.settingsAntigravityAgentPath ? cleanVal(dom.settingsAntigravityAgentPath.value) : '',
     claudeDesktopPath: dom.settingsClaudeDesktopPath ? cleanVal(dom.settingsClaudeDesktopPath.value) : '',
+    vscodePath: dom.settingsVsCodePath ? cleanVal(dom.settingsVsCodePath.value) : '',
     planeApiKey: dom.settingsPlaneApiKey ? dom.settingsPlaneApiKey.value.trim() : (state.settings?.planeApiKey || ''),
     androidStudioPath: dom.settingsAndroidStudioPath ? cleanVal(dom.settingsAndroidStudioPath.value) : '',
     figmaPath: dom.settingsFigmaPath ? cleanVal(dom.settingsFigmaPath.value) : '',
@@ -5024,6 +5030,7 @@ async function showSettingsScreen() {
     if (dom.settingsAntigravityPath) dom.settingsAntigravityPath.value = state.settings.antigravityPath || 'detecting...';
     if (dom.settingsAntigravityAgentPath) dom.settingsAntigravityAgentPath.value = state.settings.antigravityAgentPath || 'detecting...';
     if (dom.settingsClaudeDesktopPath) dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || 'detecting...';
+    if (dom.settingsVsCodePath) dom.settingsVsCodePath.value = state.settings.vscodePath || 'detecting...';
     if (dom.settingsPlaneApiKey) dom.settingsPlaneApiKey.value = state.settings.planeApiKey || '';
     if (dom.settingsAndroidStudioPath) dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || 'detecting...';
     if (dom.settingsFigmaPath) dom.settingsFigmaPath.value = state.settings.figmaPath || '';
@@ -5057,6 +5064,9 @@ async function showSettingsScreen() {
       if (dom.settingsClaudeDesktopPath) {
         dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || detected.claudeDesktopPath || 'not detected';
       }
+      if (dom.settingsVsCodePath) {
+        dom.settingsVsCodePath.value = state.settings.vscodePath || detected.vscodePath || 'not detected';
+      }
       if (dom.settingsAndroidStudioPath) {
         dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || detected.androidStudioPath || 'not detected';
       }
@@ -5087,6 +5097,9 @@ async function showSettingsScreen() {
       }
       if (dom.settingsClaudeDesktopPath) {
         dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || 'not detected';
+      }
+      if (dom.settingsVsCodePath) {
+        dom.settingsVsCodePath.value = state.settings.vscodePath || 'not detected';
       }
       if (dom.settingsAndroidStudioPath) {
         dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || 'not detected';

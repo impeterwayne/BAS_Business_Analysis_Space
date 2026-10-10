@@ -4109,6 +4109,8 @@ kbd {
   flex: 1 1 0%;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
   align-content: stretch;
 }
 
@@ -4122,7 +4124,7 @@ kbd {
   flex-direction: column;
   justify-content: flex-start;
   gap: 14px;
-  transition: all var(--transition-normal);
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   overflow: hidden;
   width: 100%;
@@ -4132,9 +4134,8 @@ kbd {
 }
 
 .dash-comp-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(56, 189, 248, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(56, 189, 248, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .dash-comp-card-main {
@@ -4879,6 +4880,8 @@ kbd {
   flex: 1 1 0%;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
 }
 
 .dashboard-viewer.dash-list-mode .dash-comp-card {

@@ -1,0 +1,34 @@
+/* -----------------------------------------------------------------
+   Obsidian Snippet: Accent Color for Headers and Bold Text
+   ----------------------------------------------------------------- */
+
+body {
+  /* 1. Set Header Colors to Accent
+     This uses Obsidian's native variables, which works with 
+     the Default theme and most community themes. */
+  --h1-color: var(--text-accent);
+  --h2-color: var(--text-accent);
+  --h3-color: var(--text-accent);
+  --h4-color: var(--text-accent);
+  --h5-color: var(--text-accent);
+  --h6-color: var(--text-accent);
+
+  /* 2. Set Bold Text Color variable 
+     Some themes support this variable directly. */
+  --bold-color: var(--text-accent);
+}
+
+/* 3. Force Bold Text Color (Direct Targeting)
+   This ensures it works even if the theme ignores the variable above.
+   We use !important to override default theme specificities. */
+
+/* Reading View */
+.markdown-preview-view strong, 
+.markdown-preview-view b {
+  color: var(--text-accent) !important;
+}
+
+/* Editing View (Live Preview & Source) */
+.cm-s-obsidian .cm-strong {
+  color: var(--text-accent) !important;
+}

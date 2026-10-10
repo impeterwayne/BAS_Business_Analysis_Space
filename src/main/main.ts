@@ -247,6 +247,13 @@ function getToolkitsDir() {
     : path.join(app.getAppPath(), 'toolkits');
 }
 
+// Bundled .obsidian snapshot (scripts/sync-obsidian-config.mjs), seeded into workspaces opened in Obsidian.
+function getObsidianConfigTemplateDir() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'obsidian-config')
+    : path.join(app.getAppPath(), 'resources', 'obsidian-config');
+}
+
 // ── Window ─────────────────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -929,6 +936,23 @@ app.whenReady().then(() => {
     }
   });
 
+  function openVsCode(dirPath: string) {
+    try {
+      const settings = workspaceService.getSettings();
+      const exe = settings.vscodePath || findVsCodeExecutable();
+      const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
+      const useShell = isWin && !path.isAbsolute(exe);
+      const child = spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
+      child.unref();
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  ipcMain.handle('open-in-vscode', (_, dirPath) => openVsCode(dirPath));
+  ipcMain.handle('open-in-editor', (_, dirPath) => openVsCode(dirPath));
+
   function detectPath(command, possiblePaths) {
     return firstExisting(possiblePaths) || findOnPath(command, { preferScripts: true });
   }
@@ -1020,8 +1044,38 @@ app.whenReady().then(() => {
     ];
   }
 
+  function vscodeCandidates() {
+    if (isWin) {
+      return [
+        path.join(localDataDir(), 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd'),
+        path.join(localDataDir(), 'Programs', 'Microsoft VS Code', 'Code.exe'),
+        path.join(programFiles, 'Microsoft VS Code', 'bin', 'code.cmd'),
+        path.join(programFiles, 'Microsoft VS Code', 'Code.exe'),
+        path.join(programFilesX86, 'Microsoft VS Code', 'bin', 'code.cmd'),
+        path.join(localDataDir(), 'Programs', 'Microsoft VS Code Insiders', 'bin', 'code-insiders.cmd'),
+      ];
+    }
+    if (isMac) {
+      return [
+        ...macApps('Visual Studio Code.app'),
+        ...macApps('Visual Studio Code - Insiders.app'),
+        ...macApps('VSCodium.app'),
+      ];
+    }
+    return [
+      '/usr/bin/code',
+      '/usr/local/bin/code',
+      '/snap/bin/code',
+      '/usr/bin/codium',
+      '/usr/bin/code-insiders',
+      '/var/lib/flatpak/exports/bin/com.visualstudio.code',
+      path.join(os.homedir(), '.local', 'share', 'flatpak', 'exports', 'bin', 'com.visualstudio.code'),
+    ];
+  }
+
   ipcMain.handle('detect-integration-paths', () => {
     return {
+      vscodePath: detectPath('code', vscodeCandidates()),
       antigravityPath: detectPath('antigravity-ide', antigravityCandidates()),
       antigravityAgentPath: detectPath('antigravity', antigravityAgentCandidates()),
       claudeDesktopPath: findClaudeDesktopExecutable(),
@@ -1048,6 +1102,10 @@ app.whenReady().then(() => {
 
   function findAntigravityAgentExecutable() {
     return detectPath('antigravity', antigravityAgentCandidates()) || 'antigravity';
+  }
+
+  function findVsCodeExecutable() {
+    return detectPath('code', vscodeCandidates()) || 'code';
   }
 
   function findAndroidStudioExecutable() {
@@ -1158,6 +1216,33 @@ app.whenReady().then(() => {
     } catch (e) {
       console.error('Failed to register Obsidian vault:', e);
       return { registered: false, vaultName };
+    }
+  }
+
+  // A folder that already has its own .obsidian keeps it; otherwise it starts from the bundled config.
+  function seedObsidianConfig(folderPath: string) {
+    const target = path.join(folderPath, '.obsidian');
+    const template = getObsidianConfigTemplateDir();
+    if (fs.existsSync(target) || !fs.existsSync(template)) return;
+    try {
+      fs.cpSync(template, target, { recursive: true });
+      excludeFromGit(folderPath, '.obsidian/');
+    } catch (e) {
+      console.error('Failed to seed Obsidian config:', e);
+    }
+  }
+
+  // Uses .git/info/exclude (resolved per worktree) so the repo's .gitignore stays untouched.
+  function excludeFromGit(folderPath: string, pattern: string) {
+    try {
+      const rel = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], { cwd: folderPath, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      const excludePath = path.resolve(folderPath, rel);
+      const current = fs.existsSync(excludePath) ? fs.readFileSync(excludePath, 'utf-8') : '';
+      if (current.split(/\r?\n/).some((line) => line.trim() === pattern)) return;
+      fs.mkdirSync(path.dirname(excludePath), { recursive: true });
+      fs.appendFileSync(excludePath, `${current && !current.endsWith('\n') ? '\n' : ''}${pattern}\n`);
+    } catch (_) {
+      // Not a git repo.
     }
   }
 
@@ -1299,12 +1384,9 @@ app.whenReady().then(() => {
       if (typeof dirPathOrVault === 'string' && dirPathOrVault.trim()) {
         const candidate = dirPathOrVault.trim();
         if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-          if (configuredVault && !fs.existsSync(path.join(candidate, '.obsidian'))) {
-            targetVaultNameOrPath = configuredVault;
-          } else {
-            ensureObsidianVaultRegistered(candidate);
-            targetVaultNameOrPath = candidate;
-          }
+          seedObsidianConfig(candidate);
+          ensureObsidianVaultRegistered(candidate);
+          targetVaultNameOrPath = candidate;
         } else {
           targetVaultNameOrPath = candidate;
         }

@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('api', {
   openInExplorer: (path) => ipcRenderer.invoke('open-in-explorer', path),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openInAndroidStudio: (path) => ipcRenderer.invoke('open-in-android-studio', path),
+  openInVsCode: (path) => ipcRenderer.invoke('open-in-vscode', path),
+  openInEditor: (path) => ipcRenderer.invoke('open-in-vscode', path),
   openInAntigravity: (path) => ipcRenderer.invoke('open-in-antigravity', path),
   openInAntigravityAgent: (path) => ipcRenderer.invoke('open-in-antigravity-agent', path),
   openInClaudeDesktop: (path) => ipcRenderer.invoke('open-in-claude-desktop', path),

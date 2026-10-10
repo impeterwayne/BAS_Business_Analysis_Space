@@ -46,6 +46,8 @@ declare global {
       openInExplorer: (path: string) => Promise<any>;
       openExternal: (url: string) => Promise<any>;
       openInAndroidStudio: (path: string) => Promise<any>;
+      openInVsCode: (path: string) => Promise<any>;
+      openInEditor: (path: string) => Promise<any>;
       openInAntigravity: (path: string) => Promise<any>;
       openInAntigravityAgent: (path: string) => Promise<any>;
       openInClaudeDesktop: (path: string) => Promise<{ success: boolean; method?: string; path?: string; error?: string }>;
@@ -72,6 +74,7 @@ declare global {
       onPtyExit: (callback: (payload: { id: string; exitCode: number }) => void) => () => void;
       getSettings: () => Promise<{
         subworktreeBranchParents?: Record<string, string>;
+        vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
@@ -92,6 +95,7 @@ declare global {
       }>;
       updateSettings: (settings: {
         subworktreeBranchParents?: Record<string, string>;
+        vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
@@ -111,6 +115,7 @@ declare global {
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }) => Promise<{
         subworktreeBranchParents?: Record<string, string>;
+        vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
         antigravityAgentPath?: string;
@@ -131,6 +136,7 @@ declare global {
       }>;
       selectExecutable: () => Promise<string | null>;
       detectIntegrationPaths: () => Promise<{
+        vscodePath?: string | null;
         antigravityPath: string | null;
         antigravityAgentPath: string | null;
         claudeDesktopPath?: string | null;
