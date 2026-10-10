@@ -1,6 +1,6 @@
 # BA Space
 
-BA Space is an AI-augmented Business Analyst workspace and requirement orchestration platform built with Electron, TypeScript, and xterm.js. Tailored specifically for Business Analysts, Product Managers, and Solution Architects, BA Space bridges the gap between requirements, live application screens, Figma specifications, and AI Agent harnesses.
+> AI-augmented Business Analyst workspace bridging requirements, live application screens, Figma specifications, and AI agent harnesses.
 
 ![BA Space Workspace](docs/images/screenshot.png)
 
@@ -113,24 +113,3 @@ Outputs in `release/`:
 
 All distribution artifacts are generated into the `release/` directory.
 
----
-
-## Project Structure
-
-- **Main Process**: [`src/main/main.ts`](file:///D:/Quest/BA_Space/src/main/main.ts) & [`src/main/ipc/workspaceIpc.ts`](file:///D:/Quest/BA_Space/src/main/ipc/workspaceIpc.ts)
-  - Handles Electron lifecycle, window creation, PTY session management, external process spawning, and system dialogs.
-- **Cross-Platform Abstraction**: [`src/main/platform.ts`](file:///D:/Quest/BA_Space/src/main/platform.ts)
-  - PATH discovery (`where.exe` vs `which`), per-OS data and config directories, Android SDK paths, login-shell PATH importation on macOS/Linux, and terminal emulator selection.
-- **Preload Bridge**: [`src/main/preload.ts`](file:///D:/Quest/BA_Space/src/main/preload.ts)
-  - Exposes typed IPC methods to the renderer context.
-- **Renderer Frontend**:
-  - [`src/renderer/index.html`](file:///D:/Quest/BA_Space/src/renderer/index.html): Semantic layout, sidebar launchers, and settings modal.
-  - [`src/renderer/app.ts`](file:///D:/Quest/BA_Space/src/renderer/app.ts): Workspace state, xterm.js terminals, BAKit toolkit management, device mirror/capture handlers.
-  - [`src/renderer/styles.css`](file:///D:/Quest/BA_Space/src/renderer/styles.css): High-contrast dark theme optimized for analytical density and multi-tab workflows.
-- **Domain & Services**:
-  - [`src/application/workspaceService.ts`](file:///D:/Quest/BA_Space/src/application/workspaceService.ts): Git worktree manipulation and repository state.
-  - [`src/application/workspaceConfigStore.ts`](file:///D:/Quest/BA_Space/src/application/workspaceConfigStore.ts): Workspace settings persistence, tool paths (Figma, Scrcpy, Antigravity), and symlink rules.
-  - [`src/domain/settings/index.js`](file:///D:/Quest/BA_Space/src/domain/settings/index.js): Settings normalization and defaults.
-- **Bundled Toolkits & Modules**:
-  - `toolkits/BAKit/`: BA agents, skills, template catalog, rules, slash workflows, and mobilerun MCP registration.
-  - `toolkits/ReaKit/`: Competitor APK decompilation and reverse engineering harness tools.
