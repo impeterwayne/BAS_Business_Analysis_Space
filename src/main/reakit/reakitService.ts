@@ -2,18 +2,8 @@ import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
-import { isWin, findOnPath, buildCmdLaunch, localDataDir } from '../platform';
+import { isWin, findOnPath, buildCmdLaunch } from '../platform';
 import { pythonCommand, withBundledRuntimes } from '../runtimes';
-
-// Decoded APKs go here when ReaKit is the copy bundled with the installed app: its resources folder can sit
-// under Program Files, which a normal user cannot write to, and an update replaces it.
-const USER_WORKSPACE_ROOT = path.join(localDataDir(), 'BA Space', 'reakit', 'workspaces');
-
-function isBundledReaDir(reaDir: string): boolean {
-  if (!app.isPackaged || !process.resourcesPath) return false;
-  const rel = path.relative(process.resourcesPath, reaDir);
-  return !rel.startsWith('..') && !path.isAbsolute(rel);
-}
 
 export interface ReaExecutableInfo {
   file: string;
@@ -204,43 +194,17 @@ export function executeReaCommand(options: {
   });
 }
 
-export function findWorkspaceRoots(projectPath?: string, customPath?: string): string[] {
-  const roots: string[] = [];
-  if (projectPath && fs.existsSync(projectPath)) {
-    roots.push(path.join(projectPath, 'workspaces'));
-    roots.push(path.join(projectPath, '.reakit', 'workspaces'));
-  }
-  roots.push(USER_WORKSPACE_ROOT);
-  const exeInfo = resolveReaExecutable(customPath);
-  if (exeInfo.reaDir && fs.existsSync(exeInfo.reaDir)) {
-    roots.push(path.join(exeInfo.reaDir, 'workspaces'));
-  }
-  roots.push('D:\\Quest\\BA_Space\\toolkits\\ReaKit\\workspaces');
-  roots.push('D:\\Quest\\ReaKit\\workspaces');
-  roots.push('D:\\Quest\\BA_Space\\workspaces');
-  return [...new Set(roots.filter(r => fs.existsSync(r)))];
+export function findWorkspaceRoots(projectPath?: string): string[] {
+  if (!projectPath || !fs.existsSync(projectPath)) return [];
+  const roots = [path.join(projectPath, 'workspaces'), path.join(projectPath, '.reakit', 'workspaces')];
+  return roots.filter(r => fs.existsSync(r));
 }
 
-export function resolveWorkspaceRoot(projectPath?: string, customPath?: string): string {
-  // Downloads and decodes for a project live in its own workspaces folder; callers create it on first use
-  if (projectPath && fs.existsSync(projectPath)) {
-    return path.join(projectPath, 'workspaces');
-  }
-  // Otherwise default to ReaKit's workspaces directory
-  const exeInfo = resolveReaExecutable(customPath);
-  if (exeInfo.reaDir && isBundledReaDir(exeInfo.reaDir)) return USER_WORKSPACE_ROOT;
-  if (exeInfo.reaDir) {
-    const reaWs = path.join(exeInfo.reaDir, 'workspaces');
-    if (fs.existsSync(reaWs)) return reaWs;
-    return reaWs;
-  }
-  if (fs.existsSync('D:\\Quest\\BA_Space\\toolkits\\ReaKit\\workspaces')) {
-    return 'D:\\Quest\\BA_Space\\toolkits\\ReaKit\\workspaces';
-  }
-  if (fs.existsSync('D:\\Quest\\ReaKit\\workspaces')) {
-    return 'D:\\Quest\\ReaKit\\workspaces';
-  }
-  return 'D:\\Quest\\BA_Space\\toolkits\\ReaKit\\workspaces';
+// Downloads and decodes always land in the project's own workspaces folder, never in the ReaKit install
+// folder; callers create it on first use.
+export function resolveWorkspaceRoot(projectPath?: string): string | null {
+  if (!projectPath || !fs.existsSync(projectPath)) return null;
+  return path.join(projectPath, 'workspaces');
 }
 
 export function getCompetitorReakitStatus(options: {
@@ -256,7 +220,7 @@ export function getCompetitorReakitStatus(options: {
   };
 
   const pkg = options.packageName?.trim();
-  const roots = findWorkspaceRoots(options.projectPath, options.customPath);
+  const roots = findWorkspaceRoots(options.projectPath);
 
   // If apkPath is inside a workspaces folder, also include its workspace root
   if (options.apkPath) {
@@ -412,7 +376,10 @@ export async function downloadCompetitorApk(options: {
     return { success: false, error: 'Package name is required for download' };
   }
 
-  const workspaceRoot = resolveWorkspaceRoot(options.projectPath, options.customPath);
+  const workspaceRoot = resolveWorkspaceRoot(options.projectPath);
+  if (!workspaceRoot) {
+    return { success: false, error: 'Open a project first: APKs are downloaded into the project folder' };
+  }
   try {
     if (!fs.existsSync(workspaceRoot)) {
       fs.mkdirSync(workspaceRoot, { recursive: true });
@@ -483,7 +450,10 @@ export async function decompileCompetitorJadx(options: {
     return { success: false, error: 'Package name or APK path is required for decompilation' };
   }
 
-  const workspaceRoot = resolveWorkspaceRoot(options.projectPath, options.customPath);
+  const workspaceRoot = resolveWorkspaceRoot(options.projectPath);
+  if (!workspaceRoot) {
+    return { success: false, error: 'Open a project first: APKs are decoded into the project folder' };
+  }
   const targetPkg = pkg || (rawApkPath ? path.basename(rawApkPath).replace(/\.(apk|xapk|apks)$/i, '') : 'target');
   const targetDir = path.join(workspaceRoot, targetPkg);
   const apksDir = path.join(targetDir, 'apks');

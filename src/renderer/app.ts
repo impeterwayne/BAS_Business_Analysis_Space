@@ -4442,8 +4442,8 @@ function applyDashboardViewMode(mode: 'grid' | 'list') {
   } catch {}
 }
 
-const initialDashViewMode = (localStorage.getItem('baspace_dashboard_view_mode') || 'grid') as 'grid' | 'list';
-applyDashboardViewMode(initialDashViewMode);
+// Competitors always render as a stacked list on the dashboard
+applyDashboardViewMode('list');
 
 if ((dom as any).dashBtnList) {
   // kept for backwards compatibility if needed

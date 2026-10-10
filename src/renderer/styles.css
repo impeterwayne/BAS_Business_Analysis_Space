@@ -5074,6 +5074,8 @@ kbd {
   align-items: stretch;
   gap: 12px;
   padding: 16px 18px;
+  height: auto;
+  flex: 0 0 auto;
 }
 
 .dashboard-viewer.dash-list-mode .dash-competitor-list:has(> .dash-comp-card:only-child) .dash-comp-card {
@@ -5088,6 +5090,10 @@ kbd {
 
 .dashboard-viewer.dash-list-mode .dash-comp-bench-section {
   width: 100%;
+  flex: 0 0 auto;
+}
+
+.dashboard-viewer.dash-list-mode .dash-competitor-list:has(> .dash-comp-card:only-child) .dash-comp-bench-section {
   flex: 1 1 0%;
   min-height: 0;
 }

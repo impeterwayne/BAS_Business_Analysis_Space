@@ -27,6 +27,30 @@ def _short_path(path: Path) -> str:
     return buf.value if 0 < n < len(buf) else ""
 
 
+def _long_path(path: Path) -> Path:
+    """path in the \\\\?\\ form on Windows, so Python reaches files past the 260-character limit.
+
+    JADX output mirrors the app's Java packages and runs past 260 characters once the project folder is deep;
+    without the prefix Python only gets there when Windows' LongPathsEnabled is on. Never hand this form to java.exe.
+    """
+    if os.name != "nt":
+        return path
+    s = os.path.abspath(path)
+    if s.startswith("\\\\?\\"):
+        return Path(s)
+    if s.startswith("\\\\"):  # UNC share: \\server\share -> \\?\UNC\server\share
+        return Path("\\\\?\\UNC\\" + s[2:])
+    return Path("\\\\?\\" + s)
+
+
+def _count_sources(out_path: Path) -> int:
+    """Number of .java and .kt files JADX wrote, however deep they sit."""
+    count = 0
+    for _, _, files in os.walk(_long_path(out_path)):
+        count += sum(1 for f in files if f.endswith((".java", ".kt")))
+    return count
+
+
 def _java_safe_path(path: Path, cwd: Path) -> str | None:
     """A spelling of path that survives java.exe on Windows, or None.
 
@@ -186,7 +210,7 @@ class Decompiler:
                 log_info(f"Decoding standard APK {item.name} for {pkg} -> {out_path}...")
                 log_info(f"Running JADX on {item.name} with {heap_memory} heap (threads: {cpu_count})...")
                 returncode = self._run_jadx(out_path, cpu_count, [str(item)], extra_flags, env)
-                src_count = len(list(out_path.glob("**/*.java"))) + len(list(out_path.glob("**/*.kt")))
+                src_count = _count_sources(out_path)
                 if returncode == 0:
                     log_success(f"Decompilation complete for {item.name} ({src_count} source files)")
                 elif src_count > 0:
@@ -201,14 +225,16 @@ class Decompiler:
                 if not extract_dir.exists():
                     log_info(f"Extracting split archive {item.name}...")
                     try:
-                        with zipfile.ZipFile(item, "r") as zip_ref:
-                            zip_ref.extractall(extract_dir)
+                        with zipfile.ZipFile(_long_path(item), "r") as zip_ref:
+                            zip_ref.extractall(_long_path(extract_dir))
                     except zipfile.BadZipFile:
                         log_error(f"Corrupted or invalid zip archive: {item.name}")
                         all_succeeded = False
                         continue
 
-                extracted_apks = [str(f) for f in extract_dir.rglob("*.apk")]
+                long_extract_dir = _long_path(extract_dir)
+                # Plain spellings for java.exe, which gets them through _java_safe_path
+                extracted_apks = [str(extract_dir / f.relative_to(long_extract_dir)) for f in long_extract_dir.rglob("*.apk")]
                 if not extracted_apks:
                     log_warn(f"No .apk files found inside {item.name}")
                     all_succeeded = False
@@ -217,7 +243,7 @@ class Decompiler:
                 log_info(f"Decoding {item.name} ({len(extracted_apks)} split APKs) for {pkg} -> {out_path}...")
                 log_info(f"Running JADX on split APKs with {heap_memory} heap (threads: {cpu_count})...")
                 returncode = self._run_jadx(out_path, cpu_count, extracted_apks, extra_flags, env)
-                src_count = len(list(out_path.glob("**/*.java"))) + len(list(out_path.glob("**/*.kt")))
+                src_count = _count_sources(out_path)
                 if returncode == 0:
                     log_success(f"Decompilation complete for {item.name} ({src_count} source files)")
                 elif src_count > 0:
