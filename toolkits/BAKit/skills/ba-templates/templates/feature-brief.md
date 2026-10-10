@@ -39,7 +39,7 @@
 - **Ranh giới & giao diện (Boundaries & interfaces):** {…}
 
 ```mermaid
-flowchart LR
+flowchart TD
     U[Người dùng] --> S[Hệ thống]
 ```
 

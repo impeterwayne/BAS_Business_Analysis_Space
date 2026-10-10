@@ -31,6 +31,7 @@ Before writing any Markdown file to disk, the agent MUST perform these checks:
 3. **HTML tag check:** Scan for any `<br>`, `<p>`, `<div>` or other HTML tags inside tables. Remove or replace them.
 4. **Horizontal rule check:** Ensure no `---` line appears directly adjacent to a table (must have at least one blank line of separation).
 5. **Trailing whitespace:** Remove trailing spaces that could cause unintended line breaks.
+6. **Mermaid direction check:** Every `flowchart` / `graph` header is `TD` (or `TB`), and no diagram or `subgraph` sets `direction LR` / `direction RL` (see section 5).
 
 ### 3. General Document Structure
 
@@ -43,6 +44,19 @@ Before writing any Markdown file to disk, the agent MUST perform these checks:
 - **NEVER modify business content** when fixing formatting issues. Only fix structural/syntactic problems.
 - Preserve all original text, terminology, and data values exactly as provided.
 - If reformatting requires splitting a cell's content, ensure no information is lost.
+
+### 5. Mermaid Diagram Direction (vertical by default)
+
+Documents are read top-down in a narrow pane (Obsidian, preview panels). Horizontal diagrams overflow
+the width, shrink the text to unreadable sizes, and force sideways scrolling. So diagrams flow **vertically**.
+
+- **Flowcharts:** always `flowchart TD` (or `TB`). NEVER `flowchart LR` / `RL` / `graph LR`.
+- **Subgraphs:** do not add `direction LR` / `direction RL` inside a `subgraph`.
+- **State, class and ER diagrams:** keep the default top-to-bottom layout; do not add `direction LR`.
+- **Wide fan-out:** when one node branches into many siblings and the diagram gets wide, split it into
+  stacked `subgraph`s or several smaller diagrams — do not switch to a horizontal direction.
+- **Exempt (horizontal by nature):** `sequenceDiagram`, `gantt`, `timeline`, `journey`. Their layout is fixed.
+- **Only exception:** the user explicitly asks for a horizontal diagram.
 
 ## Error Examples
 
@@ -79,4 +93,16 @@ Before writing any Markdown file to disk, the agent MUST perform these checks:
 ### GOOD — Inline bullets:
 ```
 | 1 | Description | Label | • Line 1 • Line 2 • Line 3 |
+```
+
+### BAD — Horizontal flowchart:
+```
+flowchart LR
+    A[Mở app] --> B[Đăng nhập] --> C[Trang chủ]
+```
+
+### GOOD — Vertical flowchart:
+```
+flowchart TD
+    A[Mở app] --> B[Đăng nhập] --> C[Trang chủ]
 ```

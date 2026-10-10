@@ -47,12 +47,18 @@ flowchart TD
 ---
 theme: dark
 ---
-flowchart LR
+flowchart TD
     A --> B
 ```
 ````
 
 **Comments:** Use `%% ` prefix for single-line comments.
+
+**Direction — vertical by default:** Use `flowchart TD` (or `TB`), never `LR` / `RL`, and do not set
+`direction LR` on subgraphs or state/class/ER diagrams. If a diagram gets too wide, split it into stacked
+subgraphs or smaller diagrams instead of going horizontal. `sequenceDiagram`, `gantt`, `timeline` and
+`journey` are exempt. Only go horizontal when the user explicitly asks. Full rule: `ba-markdown-formatting`
+(section 5).
 
 ## CLI Usage
 
