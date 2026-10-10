@@ -20,7 +20,7 @@
 
 ### 3. BA Quick Launchers & External Integrations
 - **Antigravity IDE & Agent Manager**: Jump straight into Antigravity with your current worktree context.
-- **VS Code & Obsidian**: One-click launcher for Visual Studio Code, plus seamless Obsidian vault integration pre-seeded with portable BA plugins and settings.
+- **VS Code & Obsidian**: One-click launcher for Visual Studio Code, plus seamless Obsidian vault integration opening the workspace's `docs/` folder directly under the workspace name with pre-seeded BA plugins and settings.
 - **Figma Integration**: Launch Figma desktop app or navigate to custom project design URLs.
 - **Embedded & External Terminals**: Integrated xterm.js tabs with AI CLI launchers (Antigravity CLI with `--dangerously-skip-permissions`, OpenCode, Codex YOLO, Claude), alongside external terminal support (Windows Terminal on Windows, Terminal.app on macOS, default terminal emulator on Linux).
 

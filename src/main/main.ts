@@ -1177,7 +1177,7 @@ app.whenReady().then(() => {
     return detectPath('obsidian', obsidianCandidates()) || 'obsidian';
   }
 
-  function ensureObsidianVaultRegistered(folderPath: string): { registered: boolean; vaultName: string } {
+  function ensureObsidianVaultRegistered(folderPath: string, stalePaths?: string[]): { registered: boolean; vaultName: string } {
     const vaultName = path.basename(folderPath);
     try {
       const configPath = getObsidianConfigPath();
@@ -1196,6 +1196,15 @@ app.whenReady().then(() => {
       }
       if (!parsed.vaults || typeof parsed.vaults !== 'object') {
         parsed.vaults = {};
+      }
+
+      // Remove stale entries pointing directly to repo root or docsDir
+      if (Array.isArray(stalePaths) && stalePaths.length > 0) {
+        for (const [id, item] of Object.entries(parsed.vaults) as [string, any][]) {
+          if (item && item.path && stalePaths.some((p) => samePath(p, item.path))) {
+            delete parsed.vaults[id];
+          }
+        }
       }
 
       for (const item of Object.values(parsed.vaults) as any[]) {
@@ -1219,16 +1228,90 @@ app.whenReady().then(() => {
     }
   }
 
-  // A folder that already has its own .obsidian keeps it; otherwise it starts from the bundled config.
-  function seedObsidianConfig(folderPath: string) {
-    const target = path.join(folderPath, '.obsidian');
-    const template = getObsidianConfigTemplateDir();
-    if (fs.existsSync(target) || !fs.existsSync(template)) return;
+  // Ensures an alias junction/symlink exists pointing to docsDir, named after the workspace
+  // so Obsidian opens strictly the docs folder while displaying the workspace name instead of "docs".
+  function ensureObsidianVaultLink(docsDir: string, vaultName: string, repoRoot: string): string {
     try {
-      fs.cpSync(template, target, { recursive: true });
-      excludeFromGit(folderPath, '.obsidian/');
-    } catch (e) {
-      console.error('Failed to seed Obsidian config:', e);
+      const key = crypto.createHash('md5').update(path.resolve(repoRoot).toLowerCase()).digest('hex').slice(0, 8);
+      const vaultsBase = path.join(app.getPath('userData'), 'obsidian-vaults', key);
+      if (!fs.existsSync(vaultsBase)) {
+        fs.mkdirSync(vaultsBase, { recursive: true });
+      }
+
+      const linkPath = path.join(vaultsBase, vaultName);
+      let needsCreate = true;
+
+      if (fs.existsSync(linkPath)) {
+        try {
+          const stats = fs.lstatSync(linkPath);
+          if (stats.isSymbolicLink() || (isWin && stats.isDirectory())) {
+            let currentTarget = '';
+            try {
+              currentTarget = fs.readlinkSync(linkPath);
+            } catch (_) {}
+            if (currentTarget && samePath(currentTarget, docsDir)) {
+              needsCreate = false;
+            }
+          }
+        } catch (_) {}
+
+        if (needsCreate) {
+          try {
+            fs.rmSync(linkPath, { recursive: true, force: true });
+          } catch (_) {}
+        }
+      }
+
+      if (needsCreate) {
+        const type = isWin ? 'junction' : 'dir';
+        fs.symlinkSync(docsDir, linkPath, type);
+      }
+      return linkPath;
+    } catch (err) {
+      console.error('Failed to create Obsidian vault link, falling back to docsDir:', err);
+      return docsDir;
+    }
+  }
+
+  // Resolves the workspace vault: targets strictly the docs/ folder and names vault after workspace
+  function resolveObsidianWorkspaceVault(workspaceDir: string): { vaultPath: string; vaultName: string; repoRoot: string; docsDir: string } {
+    const norm = path.resolve(workspaceDir);
+    const isAlreadyDocs = path.basename(norm).toLowerCase() === 'docs';
+    const repoRoot = isAlreadyDocs ? path.dirname(norm) : norm;
+    const docsDir = isAlreadyDocs ? norm : path.join(repoRoot, 'docs');
+    const vaultName = path.basename(repoRoot) || 'docs';
+
+    if (!fs.existsSync(docsDir)) {
+      fs.mkdirSync(docsDir, { recursive: true });
+    }
+
+    seedObsidianConfig(docsDir, repoRoot);
+    const vaultPath = ensureObsidianVaultLink(docsDir, vaultName, repoRoot);
+    return { vaultPath, vaultName, repoRoot, docsDir };
+  }
+
+  // A docs folder that already has its own .obsidian keeps it; otherwise it starts from the bundled config.
+  function seedObsidianConfig(docsDir: string, repoRoot?: string) {
+    const target = path.join(docsDir, '.obsidian');
+    const template = getObsidianConfigTemplateDir();
+    if (!fs.existsSync(target)) {
+      const rootObsidian = repoRoot ? path.join(repoRoot, '.obsidian') : '';
+      if (rootObsidian && fs.existsSync(rootObsidian)) {
+        try {
+          fs.cpSync(rootObsidian, target, { recursive: true });
+        } catch (e) {
+          console.error('Failed to copy root Obsidian config to docs:', e);
+        }
+      } else if (fs.existsSync(template)) {
+        try {
+          fs.cpSync(template, target, { recursive: true });
+        } catch (e) {
+          console.error('Failed to seed Obsidian config:', e);
+        }
+      }
+    }
+    if (repoRoot) {
+      excludeFromGit(repoRoot, 'docs/.obsidian/');
     }
   }
 
@@ -1384,9 +1467,9 @@ app.whenReady().then(() => {
       if (typeof dirPathOrVault === 'string' && dirPathOrVault.trim()) {
         const candidate = dirPathOrVault.trim();
         if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-          seedObsidianConfig(candidate);
-          ensureObsidianVaultRegistered(candidate);
-          targetVaultNameOrPath = candidate;
+          const { vaultPath, repoRoot, docsDir } = resolveObsidianWorkspaceVault(candidate);
+          ensureObsidianVaultRegistered(vaultPath, [repoRoot, docsDir]);
+          targetVaultNameOrPath = vaultPath;
         } else {
           targetVaultNameOrPath = candidate;
         }
