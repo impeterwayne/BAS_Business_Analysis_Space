@@ -20,8 +20,10 @@ const {
   parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,
+  parseTargetFlows,
   formatFlowSlug,
   buildBenchmarkSlashCommand,
+  buildTargetFlowSlashCommand,
   buildChecklistSlashCommand,
   cleanApkAppName,
 } = require('../domain');
@@ -3468,16 +3470,16 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         <div class="dash-comp-bench-section">
           <div class="dash-comp-bench-header">
             <div class="dash-comp-bench-header-left">
-              <span class="dash-comp-bench-title">Commands &amp; Benchmark Flows</span>
-              ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length} flows</span>` : ''}
+              <span class="dash-comp-bench-title" title="Target user flows and slash commands for /ba-competitor">Target Flows &amp; Commands</span>
+              ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length} flow${flows.length === 1 ? '' : 's'}</span>` : ''}
               ${flows.length > 0 ? `
                 <span class="dash-comp-mcp-status ${comp.analysisMode === 'code-only' ? 'code-only' : 'hybrid'}" title="${comp.analysisMode === 'code-only' ? 'Mobilerun MCP disabled for this worktree to save agent tokens' : 'Mobilerun MCP active in workspace plugin'}">
                   ${comp.analysisMode === 'code-only' ? 'MCP Off' : 'MCP On'}
                 </span>
               ` : ''}
             </div>
-            ${flows.length > 0 ? `
-              <div class="dash-comp-bench-header-right">
+            <div class="dash-comp-bench-header-right">
+              ${flows.length > 0 ? `
                 <div class="dash-comp-mode-toggle" title="Switch between Live Device (mobilerun) and Static Code-Only analysis">
                   <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? '' : 'active'}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="hybrid" title="Live Device Mode: Drives app on connected device with screenshots (mobilerun)">
                     ${(icons as any).mobile || icons.android || ''}
@@ -3488,8 +3490,12 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                     <span>Code-Only</span>
                   </button>
                 </div>
-              </div>
-            ` : ''}
+              ` : ''}
+              <button type="button" class="dash-comp-btn-add-flow-header" data-action="quick-add-flow-toggle" data-id="${esc(comp.id)}" title="Add a target user flow to ${esc(comp.name)}">
+                ${icons.plus || '+'}
+                <span>Add Flow</span>
+              </button>
+            </div>
           </div>
 
           <div class="dash-comp-cmd-list">
@@ -3521,9 +3527,9 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 });
               }
               return cmdItems.map((item, index) => `
-                <div class="dash-comp-cmd-item" data-action="copy-bench-cmd" data-cmd="${esc(item.slashCmd)}" title="Flow: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
+                <div class="dash-comp-cmd-item" data-action="copy-bench-cmd" data-cmd="${esc(item.slashCmd)}" title="Target Flow: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
                   <div class="dash-comp-cmd-left">
-                    <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all flows' : `Flow #${index + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : index + 1}</span>
+                    <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all target flows' : `Flow #${index + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : index + 1}</span>
                     <code class="dash-comp-cmd-code">${esc(item.slashCmd)}</code>
                   </div>
                   <div class="dash-comp-cmd-right">
@@ -3533,10 +3539,30 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                   </div>
                 </div>
               `).join('');
-            })() : `
-              <button type="button" class="dash-comp-bench-empty" data-action="edit-comp" data-id="${esc(comp.id)}" title="Click to add target user flows for deep benchmark comparison">
+            })() : ''}
+
+            <!-- Inline Quick Add Input (Available in both empty and populated states) -->
+            <div class="dash-comp-inline-add-wrap" id="dash-comp-inline-add-${esc(comp.id)}" style="display: none;">
+              <div class="dash-comp-inline-input-row">
+                <input type="text" class="dash-comp-inline-input" placeholder="e.g. Onboarding KYC, Checkout (press Enter)..." autocomplete="off" spellcheck="false" />
+                <button type="button" class="dash-comp-inline-submit-btn" data-action="quick-add-flow-submit" data-id="${esc(comp.id)}" title="Save flow">Add</button>
+                <button type="button" class="dash-comp-inline-cancel-btn" data-action="quick-add-flow-cancel" data-id="${esc(comp.id)}" title="Cancel">✕</button>
+              </div>
+              <div class="dash-comp-inline-hint-row">
+                <span>Tip: Type flow name &amp; press Enter</span>
+                <a href="#" class="dash-comp-inline-modal-link" data-action="edit-comp-flows" data-id="${esc(comp.id)}" title="Open modal for full flow management">Full editor ↗</a>
+              </div>
+            </div>
+
+            ${flows.length > 0 ? `
+              <button type="button" class="dash-comp-btn-add-flow-row" data-action="quick-add-flow-toggle" data-id="${esc(comp.id)}" title="Add another target user flow to ${esc(comp.name)}">
+                <span class="dash-comp-add-flow-plus">+</span>
+                <span class="dash-comp-add-flow-text">Add Target Flow</span>
+              </button>
+            ` : `
+              <button type="button" class="dash-comp-bench-empty" data-action="quick-add-flow-toggle" data-id="${esc(comp.id)}" title="Click to add target user flows for /ba-competitor">
                 <span class="dash-comp-bench-empty-icon">+</span>
-                <span class="dash-comp-bench-empty-text">Add target flows for /ba-competitor</span>
+                <span class="dash-comp-bench-empty-text">Add Target Flow for /ba-competitor</span>
               </button>
             `}
           </div>
@@ -3721,6 +3747,182 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 } catch (_) {}
               }
             }
+            renderDashboardCompetitors(activeProject, activeWt);
+          },
+        });
+      }
+    });
+  });
+
+  async function submitQuickAddFlow(card: HTMLElement, compId: string) {
+    const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
+    const input = inlineWrap?.querySelector('.dash-comp-inline-input') as HTMLInputElement;
+    const submitBtn = inlineWrap?.querySelector('.dash-comp-inline-submit-btn') as HTMLButtonElement;
+    const flowText = input?.value.trim();
+    if (!flowText) {
+      showToast('Please enter a target flow name', 'info');
+      input?.focus();
+      return;
+    }
+
+    const comp = (activeProject?.competitors || []).find((c: any) => c.id === compId);
+    if (!comp || !activeProject?.path) return;
+
+    const existingFlows = parseBenchmarkFlows(comp.notes);
+    const parsedNew = parseBenchmarkFlows(flowText);
+    const toAdd = parsedNew.length > 0 ? parsedNew : [flowText];
+
+    let addedCount = 0;
+    for (const flow of toAdd) {
+      const cf = flow.trim();
+      if (!cf) continue;
+      if (!existingFlows.some((f: string) => f.toLowerCase() === cf.toLowerCase())) {
+        existingFlows.push(cf);
+        addedCount++;
+      }
+    }
+
+    if (addedCount === 0) {
+      showToast(`Flow "${flowText}" already in list`, 'info');
+      if (input) input.value = '';
+      return;
+    }
+
+    comp.notes = existingFlows.join('\n');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
+
+    try {
+      const res = await window.api.updateProjectCompetitor(activeProject.path, comp);
+      if (res?.success) {
+        showToast(`Added target flow: ${toAdd.join(', ')}`, 'success');
+        const wtPath = activeWt?.path || state.activeWorktreePath;
+        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: wtPath });
+        renderDashboardCompetitors(activeProject, activeWt);
+      } else {
+        showToast(`Failed to add flow: ${res?.error || 'Unknown error'}`, 'error');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Add';
+        }
+      }
+    } catch (err: any) {
+      showToast(`Error: ${err?.message || 'Unknown error'}`, 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add';
+      }
+    }
+  }
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="quick-add-flow-toggle"]').forEach((el: Element) => {
+    el.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+      const btn = e.currentTarget as HTMLElement;
+      const card = btn.closest('.dash-comp-card') as HTMLElement;
+      if (!card) return;
+      const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
+      const input = inlineWrap?.querySelector('.dash-comp-inline-input') as HTMLInputElement;
+      const rowBtn = card.querySelector('.dash-comp-btn-add-flow-row') as HTMLElement;
+      const emptyBtn = card.querySelector('.dash-comp-bench-empty') as HTMLElement;
+
+      if (inlineWrap) {
+        const isHidden = inlineWrap.style.display === 'none' || !inlineWrap.style.display;
+        if (isHidden) {
+          inlineWrap.style.display = 'flex';
+          if (rowBtn) rowBtn.style.display = 'none';
+          if (emptyBtn) emptyBtn.style.display = 'none';
+          input?.focus();
+        } else {
+          input?.focus();
+        }
+      }
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="quick-add-flow-cancel"]').forEach((el: Element) => {
+    el.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+      const btn = e.currentTarget as HTMLElement;
+      const card = btn.closest('.dash-comp-card') as HTMLElement;
+      if (!card) return;
+      const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
+      const input = inlineWrap?.querySelector('.dash-comp-inline-input') as HTMLInputElement;
+      const rowBtn = card.querySelector('.dash-comp-btn-add-flow-row') as HTMLElement;
+      const emptyBtn = card.querySelector('.dash-comp-bench-empty') as HTMLElement;
+
+      if (inlineWrap) {
+        inlineWrap.style.display = 'none';
+        if (input) input.value = '';
+        if (rowBtn) rowBtn.style.display = '';
+        if (emptyBtn) emptyBtn.style.display = '';
+      }
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="quick-add-flow-submit"]').forEach((el: Element) => {
+    el.addEventListener('click', async (e: Event) => {
+      e.stopPropagation();
+      const btn = e.currentTarget as HTMLElement;
+      const id = btn.dataset.id;
+      const card = btn.closest('.dash-comp-card') as HTMLElement;
+      if (card && id) {
+        await submitQuickAddFlow(card, id);
+      }
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('.dash-comp-inline-input').forEach((el: Element) => {
+    const input = el as HTMLInputElement;
+    input.addEventListener('keydown', async (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const card = input.closest('.dash-comp-card') as HTMLElement;
+        const id = card?.dataset.compId;
+        if (card && id) {
+          await submitQuickAddFlow(card, id);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        const card = input.closest('.dash-comp-card') as HTMLElement;
+        if (!card) return;
+        const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
+        const rowBtn = card.querySelector('.dash-comp-btn-add-flow-row') as HTMLElement;
+        const emptyBtn = card.querySelector('.dash-comp-bench-empty') as HTMLElement;
+        if (inlineWrap) {
+          inlineWrap.style.display = 'none';
+          input.value = '';
+          if (rowBtn) rowBtn.style.display = '';
+          if (emptyBtn) emptyBtn.style.display = '';
+        }
+      }
+    });
+  });
+
+  dom.dashCompetitorList.querySelectorAll('[data-action="edit-comp-flows"]').forEach((el: Element) => {
+    el.addEventListener('click', (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = (e.currentTarget as HTMLElement).dataset.id;
+      const comp = competitors.find((c: any) => c.id === id);
+      if (comp) {
+        openCompetitorModal({
+          project: activeProject,
+          competitor: comp,
+          initialFocusField: 'flow',
+          dom,
+          icons,
+          configureModalFooter,
+          showModal,
+          hideModal,
+          showToast,
+          focusModalInputLater,
+          bindModalEnterSubmit,
+          withAsyncButtonState,
+          onSuccess: async (updated: any) => {
+            activeProject.competitors = updated.competitors;
             renderDashboardCompetitors(activeProject, activeWt);
           },
         });

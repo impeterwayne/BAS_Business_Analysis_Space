@@ -27,6 +27,7 @@ type OpenCompetitorModalOptions = {
   project: any;
   competitor?: CompetitorData | null;
   initialApk?: { name: string; path: string; size: number } | null;
+  initialFocusField?: 'flow' | 'name' | 'url';
   dom: any;
   icons: Record<string, string>;
   configureModalFooter: (actions: Array<{ id: string; label: string; kind?: 'primary' | 'secondary'; danger?: boolean }>) => Record<string, HTMLElement>;
@@ -43,6 +44,7 @@ export async function openCompetitorModal({
   project,
   competitor = null,
   initialApk = null,
+  initialFocusField,
   dom,
   icons,
   configureModalFooter,
@@ -154,10 +156,10 @@ export async function openCompetitorModal({
       </div>
     </div>
 
-    <!-- Group 5: Benchmark Execution Mode -->
+    <!-- Group 5: Flow Analysis Mode -->
     <div class="form-group" style="margin-bottom: 6px; margin-top: 14px;">
       <label class="comp-modal-section-title">
-        <span>Benchmark Analysis Mode</span>
+        <span>Target Flow Analysis Mode</span>
         <span class="form-hint" style="margin: 0; font-size: 11px; text-transform: none; letter-spacing: normal;">Default for generated /ba-competitor slash commands</span>
       </label>
       <div style="display: flex; gap: 10px; margin-top: 6px;">
@@ -852,7 +854,14 @@ export async function openCompetitorModal({
   const defaultConfirmLabel = confirmBtn.innerHTML;
 
   showModal();
-  focusModalInputLater(isEditing ? nameInput : (defaultUrl ? nameInput : urlInput));
+  if (initialFocusField === 'flow') {
+    focusModalInputLater(newFlowInput);
+    try {
+      newFlowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (_) {}
+  } else {
+    focusModalInputLater(isEditing ? nameInput : (defaultUrl ? nameInput : urlInput));
+  }
 
   const closeModal = () => {
     window.removeEventListener('competitor-decode-progress', onDecodeProgress);

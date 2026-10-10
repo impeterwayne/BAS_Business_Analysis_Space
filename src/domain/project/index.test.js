@@ -15,8 +15,10 @@ const {
   parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,
+  parseTargetFlows,
   formatFlowSlug,
   buildBenchmarkSlashCommand,
+  buildTargetFlowSlashCommand,
   buildChecklistSlashCommand,
 } = require('./index');
 
@@ -412,6 +414,14 @@ test('buildBenchmarkSlashCommand generates correct /ba-competitor slash command'
   assert.strictEqual(
     buildBenchmarkSlashCommand('Shopee', '', { noDevice: true }),
     '/ba-competitor Shopee --code-only'
+  );
+  assert.strictEqual(
+    buildTargetFlowSlashCommand('MoMo', 'Checkout'),
+    '/ba-competitor MoMo checkout'
+  );
+  assert.deepStrictEqual(
+    parseTargetFlows('Checkout, Onboarding KYC'),
+    ['Checkout', 'Onboarding KYC']
   );
 });
 
