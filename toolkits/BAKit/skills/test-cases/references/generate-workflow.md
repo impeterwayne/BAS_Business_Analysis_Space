@@ -19,7 +19,7 @@ If not, error: "No use cases found. Run `/specs init` first to create use case d
 ### 2. Determine Scope
 
 - List target use case files based on scope argument
-- Read `docs/project-fsd.md` business rules section for context
+- Read the business rules section of `docs/project-srs.md` (or legacy `docs/project-fsd.md`) for context
 
 ### 3. Spawn QA Engineer Agent
 
@@ -30,7 +30,7 @@ Generate test cases from use case documents.
 
 Scope: {all | module: X | specific UC: X/Y}
 Use case files: {list of UC file paths}
-Business rules from FSD: {BR section content}
+Business rules from SRS: {BR section content}
 
 Instructions:
 1. Read templates:

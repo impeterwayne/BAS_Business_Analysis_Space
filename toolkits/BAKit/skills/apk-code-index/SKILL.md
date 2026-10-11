@@ -18,10 +18,12 @@ Script: `.agents/skills/apk-code-index/scripts/apk_index.py` (Python 3.8+, stand
 It understands both jadx layouts: `--export-gradle` (`app/src/main/{java,res,AndroidManifest.xml}`,
 what ReaKit produces) and the default (`sources/` + `resources/`).
 
+The commands below use `python3` (macOS and Linux ship only `python3`); on Windows use `python`.
+
 ## 1. Build the index (once per app version)
 
-```powershell
-python .agents/skills/apk-code-index/scripts/apk_index.py build "<jadx_src>" --out docs/BA/competitor/<app-slug>/code-index
+```bash
+python3 .agents/skills/apk-code-index/scripts/apk_index.py build "<jadx_src>" --out docs/BA/competitor/<app-slug>/code-index
 ```
 
 It finishes in seconds and writes six files, each under 250 lines:
@@ -41,8 +43,8 @@ already exists for the same version, read it instead of rebuilding.
 
 ## 2. Map a flow to code
 
-```powershell
-python .agents/skills/apk-code-index/scripts/apk_index.py find "<jadx_src>" "chuyển tiền|transfer|send money" --limit 40
+```bash
+python3 .agents/skills/apk-code-index/scripts/apk_index.py find "<jadx_src>" "chuyển tiền|transfer|send money" --limit 40
 ```
 
 Prints three sections: the string resources whose text or name matches (with the default, Vietnamese

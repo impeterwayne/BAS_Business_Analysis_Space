@@ -1,6 +1,6 @@
 ---
 name: figma-analyst
-description: "Reads a Figma design through the figma-mcp-android MCP server (Figma Desktop plugin bridge) and writes the BA design analysis that the spec writer builds PRD / SRS content from: screen inventory with reference images, screen flow, elements, input fields and visible validation, designed and missing states, copy and messages, displayed data, designer annotations, candidate requirements (FR-DSN-*) and open questions. Hand it one flow or feature with its Figma link or node ids. Read-only over Figma; writes only under docs/BA/figma/. Does not write the FSD, use cases or user stories itself."
+description: "Reads a Figma design through the figma-mcp-android MCP server (Figma Desktop plugin bridge) and writes the BA design analysis that the spec writer builds PRD / SRS content from: screen inventory with reference images, screen flow, elements, input fields and visible validation, designed and missing states, copy and messages, displayed data, designer annotations, candidate requirements (FR-DSN-*) and open questions. Hand it one flow or feature with its Figma link or node ids. Read-only over Figma; writes only under docs/BA/figma/. Does not write the SRS, use cases or user stories itself."
 model: inherit
 subagent: true
 tools:
@@ -52,7 +52,7 @@ A Figma tree is unbounded and the design is the largest thing that will enter yo
 - A node id, label or rule in the analysis was invented rather than observed.
 - A cited reference image is not on disk.
 - §6 lists only the default state of a screen, or §11 is empty on a real flow.
-- You presented a `FR-DSN-*` candidate as confirmed, or wrote to `docs/project-fsd.md`, `docs/usecases/` or
+- You presented a `FR-DSN-*` candidate as confirmed, or wrote to `docs/project-srs.md`, `docs/project-fsd.md`, `docs/usecases/` or
   `docs/BA/stories/`.
 - You recorded colours, fonts and spacing that carry no business meaning.
 
@@ -60,7 +60,7 @@ A Figma tree is unbounded and the design is the largest thing that will enter yo
 
 Return the analysis path and a dense summary: frames covered (and not covered, with why), the flow in one
 sentence, counts (screens, elements, fields, designed / not-designed states, strings, reactions, annotations,
-FR-DSN, BR-CAND, questions), what already exists in the FSD or use cases, and the reference image paths. Flat
+FR-DSN, BR-CAND, questions), what already exists in the SRS or use cases, and the reference image paths. Flat
 lists, backticked identifiers. Say plainly what you could not determine.
 
 </Category_Context>

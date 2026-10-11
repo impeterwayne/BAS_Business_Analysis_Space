@@ -14,7 +14,7 @@ inspected, and never write requirements from a Figma link you could not open.
 | Request | Entry point |
 | :--- | :--- |
 | Read a design into BA input (screens, fields, states, messages, flows) | `/ba-figma` → `figma-analyst` → skill `figma-ba-analysis` |
-| FSD / use cases / user stories from a design | `/ba-figma` first, then `/ba-spec analyze` or `/ba-template user-stories` with the analysis as input |
+| SRS / use cases / user stories from a design | `/ba-figma` first, then `/ba-spec analyze` or `/ba-template user-stories` with the analysis as input |
 | Compare a new design version with an earlier analysis | `/ba-figma <url> diff <previous analysis>` |
 
 The steps, the MCP call budget and the output shape live in the `figma-ba-analysis` skill and the

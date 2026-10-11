@@ -7,7 +7,7 @@ tool, grep through `jadx_src/`, or write a document under `docs/BA/`, dispatch i
 itself is a competitor `exploration-plan.md`.
 
 The full playbook is `.agents/agents/ba-lead.md`; `/ba-competitor` is `.agents/workflows/ba-competitor.md`, `/ba-figma`
-(Figma design → analysis → FSD / use cases / user stories) is `.agents/workflows/ba-figma.md`.
+(Figma design → analysis → SRS use cases / user stories) is `.agents/workflows/ba-figma.md`.
 
 ## 1. The roster
 
@@ -18,8 +18,8 @@ The full playbook is `.agents/agents/ba-lead.md`; `/ba-competitor` is `.agents/w
 | `evidence-verifier` | Check finished competitor docs against captures and code | Alone |
 | `figma-analyst` | Read one flow of a Figma design into `docs/BA/figma/<feature>/` (figma-mcp-android) | Never: one Figma Desktop |
 | `ba-researcher` | Domain rules, regulations, prior art, URL extraction | Yes |
-| `ba-brainstormer` | Options, trade-offs, feature brief | — |
-| `ba-spec-writer` | FSD, use cases, user stories, readiness reviews, test cases | One per deliverable |
+| `ba-brainstormer` | Product decisions (KEEP / MODIFY / REMOVE / NEW / TBD) from competitor + Figma evidence, or options and trade-offs for a new idea | — |
+| `ba-spec-writer` | SRS, use cases, diagrams, user stories, SRS / UC audits, test cases | One per deliverable |
 
 `Subagents` is an array, so N parallel spawns are one call:
 
@@ -40,7 +40,7 @@ invoke_subagent(Subagents=[
 - **The verifier runs alone, after the writers.**
 - **Shared inputs exist before a parallel wave starts.** If scouts need the code index, one scout builds it
   first, alone; never dispatch readers alongside the agent that writes what they read.
-- **Paths in dispatch prompts use forward slashes** (`D:/RE/app/jadx_src`); backslashes get mangled in tool calls.
+- **Paths in dispatch prompts use forward slashes** (`<workspaces>/<package>/jadx_src`); backslashes get mangled in tool calls.
 - **A subagent that dies on a tool error** is relaunched once with the same brief plus the error; a second
   failure goes to the user.
 

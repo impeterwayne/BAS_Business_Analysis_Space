@@ -38,7 +38,7 @@ token is needed. Only one server can hold the port, so run it in one Antigravity
 ```
 get_metadata
 get_design_context  {nodeId: "102:456", depth: 2, detail: "minimal"}
-save_screenshots    {format: "PNG", scale: 2, items: [{nodeId: "102:456", outputPath: "D:/proj/docs/BA/figma/login/screens/01-login.png"}]}
+save_screenshots    {format: "PNG", scale: 2, items: [{nodeId: "102:456", outputPath: "<project>/docs/BA/figma/login/screens/01-login.png"}]}
 get_design_context  {nodeId: "102:470", depth: 3, detail: "compact", dedupe_components: true}
 scan_text_nodes     {nodeId: "102:456", depth: 4}
 get_reactions       {nodeId: "102:480"}

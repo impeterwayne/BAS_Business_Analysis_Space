@@ -1,72 +1,76 @@
-## Re-Audit Workflow
+## Mobile Re-Audit Workflow
 
-### Step 1 — Ingest Current State & Answers
-1. Locate the highest version of the audited file.
-2. Locate and read the `question-backlog` file - `Answered Questions` section and `Deferred Questions` section.
+Re-check previously reported SRS / UC gaps after BA, PO or Designer updates, preserving the audit history and
+the question backlog. The review stays mobile-client focused (see the TEST SCOPE note in
+`mobile_first-audit-workflow.md`). Use the same template as the previous version
+(`mobile_srs_readiness_review_template.md` for Full SRS / module, `UC_readiness_review_template_v3.md` for a
+single UC).
 
-### Step 2 — Apply Answers & Resolve Gaps
-1. Analyze the BA's answers in the backlog.
-2. Incorporate the clarified business rules, logic, and UI behavior into the 5 synthesis sections (Object Attributes, Workflows, etc.) of the previous audited file.
+### Step 1 — Load the baseline
 
-### Step 3 — Backlog Maintenance & Re-Audit
-1. Recalculate the Readiness Score based on the newly introduced information. Determine the new Readiness verdict (Ready / Conditionally Ready / Not Ready).
+1. Locate the highest version of the audited file for this scope (SKILL.md → Output Contract).
+2. Read the `*_question-backlog.md` — `Open Questions`, `Answered Questions` and any deferred items.
+3. Read the updated sources: SRS / UCs, Figma analysis, diagrams, and the latest Product Decision Summary
+   (`PD-*` may have moved from TBD to a decision in a new `v{N+1}`).
+4. Record the exact versions reviewed; keep the previous gap IDs (`AUD-*`), question IDs, owners and
+   severities.
+5. If questions are still open, the user has already been asked (SKILL.md → Routing step 3). Proceed on what
+   is available; unanswered items stay open. Never assume an answer.
 
-Mark each as:
+### Step 2 — Verify fixes and apply answers
 
-- ✅ **Clear** — explicitly stated and unambiguous (full marks)
-- ⚠️ **Partial** — present but vague, incomplete, or only inferred (half marks)
-- ❌ **Missing** — absent from all provided artefacts (zero marks)
+1. For **every** previous gap, compare its original assertion with the updated source and its evidence. Do
+   not assume an item is resolved because the document was edited. Classify it `Resolved`, `Open`,
+   `Reopened` or `Deferred`.
+2. `Deferred` needs an explicit rationale, owner and downstream impact. A P0 / Critical item cannot become
+   handoff-ready by being deferred.
+3. Incorporate the BA / PO answers and confirmed decisions into the synthesis (Single UC: the 5 synthesis
+   sections of the previous audited file, applying the Common Reference Resolution rule of
+   `first-audit-workflow.md` Phase 1 Step 1 to the SRS global rules — legacy: CMR).
+4. **Re-scan the design (mandatory for UI-bearing UCs).** Do not trust the previous Section 4 / UI coverage.
+   Re-open every Figma screen / screenshot in scope, re-extract the components and redo the coverage delta
+   check until it is 0.
+5. Verify the specific improvements that were requested: feature coverage, UI Specification, flow branching,
+   business rules, Product Decision alignment, diagram coverage and traceability.
 
-| #   | Knowledge Area                        | Max Pts | Critical? | What to look for  |
-| --- | ------------------------------------- | ------- | --------- | ---------------- |
-| 1   | Feature Identity (title, ID, context) | 5       | Yes       | Is it clear what this feature is and where it fits in the system? |
-| 2   | Objective & Scope                     | 5      | Yes       | Why does this feature exist? What is in/out of scope? |
-| 3   | Actors & User Roles                   | 10      | Yes       | Who triggers the feature? What roles/permissions are involved? |
-| 4   | Preconditions & Postconditions        | 10      | Yes       | What must be true before? What is the system state after success? |
-| 5   | UI Object Inventory & Mapping         | 15      | Yes       | List all user interface components based on the Design Mockup and map them correspondingly to the Functional Specification  document.|
-| 6   | Object Attributes & Behavior Definition| 20      | Yes       | Determine the state and response of each UI object based on specific system conditions|
-| 7   | Functional Logic & Workflow Decomposition| 20      | Yes       | Analyze in detail the business processes of each function available on the feature screen. Duplicate the block below for each major sub-function (e.g., View List, Create Record).|
-| 8   | Functional Integration Analysis       | 10      | Yes       | Analyze and evaluate the linkages and influences between the cataloged functions, acting as an integration check between functions.|
-| 9   | Acceptance Criteria                   | 10      | Yes       | Measurable, verifiable pass/fail statements|
-| 10   | Non-functional Requirements           | 5       | No        | Performance, security, compatibility, accessibility|
+### Step 3 — Regression and consistency
 
-**Total: 110 points → Normalise to 100 for the final score.**
+1. Check whether the edits created new issues in related UCs, shared BRs, navigation, diagrams, other
+   features, permissions or dependencies.
+2. Verify that User Flow and Activity coverage is still complete; shared diagram reuse stays valid. Inspect
+   Sequence Diagrams only where complex interaction warrants them — a simple UC without one still passes.
+3. Apply the conditional section policy: absent, non-applicable Ads / IAP and other optional sections are not
+   defects.
+4. Re-run the cross-artefact conflict check and the blocked artefact protocol
+   (`mobile_first-audit-workflow.md` Step 10).
 
-**Normalization formula:** `Final Score = round((Raw Score / 110) × 100, 1)`
+### Step 4 — Backlog maintenance and re-score
 
-> Example: Raw score 88 / 110 → Final Score = round((88 / 110) × 100, 1) = **80.0 / 100**
-> Example: Raw score 95 / 110 → Final Score = round((95 / 110) × 100, 1) = **86.4 / 100**
+1. **Answered questions:** for every satisfactory answer, change the status in the backlog from `Open` to
+   `Resolved` and move the row to the `Answered Questions` table.
+2. **New questions:** for new conflicts or missing information (including those caused by the answers), call
+   `BA-audit-QnA` to append them to the `Open Questions` table — no duplicates, new IDs continue the sequence.
+3. Keep unresolved questions open; report unresolved PO decisions, never assume them.
+4. Recompute the score with the same scheme as the first audit (`mobile_first-audit-workflow.md` Step 12 for
+   Full SRS / module, Step 9 knowledge areas for a single UC), on applicable dimensions only. A high score
+   never overrides an open P0 / Critical gap.
+5. Issue the updated verdict — `Ready`, `Conditionally Ready` or `Not Ready` — with specific handoff
+   conditions. "Ready for Dev/QA Handoff" only with no open P0.
 
-**Auto-fail rule:** If any Critical knowledge area scores 0, verdict = NOT READY
-regardless of total score.
+### Step 5 — Generate audited v{N+1}
 
-> **Critical areas** (rows marked "Yes"): Areas #1–#9. If ANY of these score 0, the verdict is automatically NOT READY regardless of total score.
-> **Non-critical areas** (rows marked "No"): Areas #10–#12. Scoring 0 here reduces the total but does not trigger auto-fail.
+1. Update the Gap Report with statuses and linked evidence; keep the previous `AUD-*` IDs and add new IDs for
+   new gaps. Fill section H (Re-audit Changes) of the mobile template, or the Unified Gap & Question Report of
+   the UC template.
+2. Update the `📋 Unified Gap & Question Report` to reflect resolved and new questions.
+3. Add a Change Log / Changelog entry summarizing what answers, decisions and fixes were integrated and the
+   score change.
+4. Save as a new file next to the previous report, version `v{N+1}`, named per `ba-naming-convention`. Never
+   overwrite the previous version.
+5. Do not modify the SRS and do not generate test cases. Report the remaining corrections and their owners
+   (`ba-spec-writer` for SRS / UC content, `ba-brainstormer` + `product-decision` for unresolved product
+   choices) to the user.
 
-### Cross-Artefact Conflict Check
-
-After scoring, check for **conflicts between artefacts**:
-
-- Does the UC doc describe a flow that contradicts the wireframe?
-- Does the API spec define fields not mentioned in requirements?
-- Are there UI elements in the design with no corresponding business rule?
-- Are labels/field names inconsistent across documents?
-
-List all conflicts found — they are automatic Warnings.
-
-### Blocked Artefact Protocol
-
-If a referenced artefact (wireframe, API spec, supporting doc) is **unavailable or inaccessible**:
-
-- Mark the dependent knowledge area(s) as `[BLOCKED: artefact name not accessible]`
-- Score those areas as 0
-- Since blocked artefacts almost always affect Critical knowledge areas (#1–#9), surface each blocked area as a 🔴 **Blocker** in the report under the "Blockers" section
-- Do NOT infer or assume content from unavailable artefacts
-
-2. **Handle Existing Questions:** For any questions where the BA provided a satisfactory answer, update the `question-backlog` file to change the status of that question from `Open` to `Resolved`. Move these rows to the "Answered Questions" section table.
-3. **Handle New Questions:** If the re-audit reveals *new* conflicts or missing information arising from the BA's answers, immediately call the `qc-ask-ba` skill to append these new questions to the "Open Questions" table of the backlog file.
-
-### Step 4 — Generate Audited v[N+1]
-1. Update the "Unified Gap & Question Report" inside the audited document to reflect the resolved and new questions.
-2. Add a "Changelog" at the bottom of the audited document summarizing what rules/answers were integrated.
-3. Save the combined updated content as a new file, incrementing the version: `v[N+1]`. (Never overwrite the `v[N]` version).
+> **Backlog sync:** the re-audit maintains `*_question-backlog.md` inline (Step 4.1 resolve, Step 4.2 append).
+> No end-of-workflow chain to `BA-audit-QnA` is needed — that chain belongs to the first audit, where the
+> backlog does not exist yet.

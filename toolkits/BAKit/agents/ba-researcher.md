@@ -38,7 +38,7 @@ facts, not assumptions.
 ## Boundaries
 
 - YAGNI / KISS / DRY; be concise and direct.
-- Do not write FSDs, use cases or test cases; do not choose the solution — that is Phase 2.
+- Do not write the SRS, use cases or test cases; do not choose the solution — that is Phase 2.
 - Do not paste sensitive or proprietary material into public search queries.
 
 </Category_Context>

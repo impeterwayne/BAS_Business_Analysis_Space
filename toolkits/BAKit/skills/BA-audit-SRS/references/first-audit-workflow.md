@@ -23,7 +23,9 @@ All file formats are supported: plain text, Markdown, PDF, Word (.docx), images 
 
 ### Step 1: Read all artefacts
 
-**Read the common files first** — they hold shared definitions that the UC will reference by code/ID. Located in `docs/BA/SRS-report/CMR/`:
+> This is the **Web/Report (legacy)** per-UC workflow. Mobile audits use `mobile_first-audit-workflow.md`.
+
+**Read the common files first** (when the project keeps them) — they hold shared definitions that the UC will reference by code/ID. Legacy Web/Report projects keep them in `docs/BA/SRS-report/CMR/`; a project that uses the living SRS keeps them in the global business rules / message sections of `docs/project-srs.md` (or legacy `docs/project-fsd.md`). The file names below are the legacy layout — use the names the project actually has:
 
 | File | Holds |
 |---|---|
@@ -33,7 +35,7 @@ All file formats are supported: plain text, Markdown, PDF, Word (.docx), images 
 | `Sơ đồ quy trình.docx` | Process flow diagrams |
 | `Mô tả dự án.md` | Project overview |
 
-For `.docx` files, invoke the `.agents/skills/docx/SKILL.md` skill to extract text/tables — do NOT use the Read tool directly on `.docx`.
+For `.docx` files, invoke the `.agents/skills/document-extraction/SKILL.md` skill to extract text/tables — do NOT use the Read tool directly on `.docx`.
 
 **Common Reference Resolution rule (MANDATORY):** When the source UC references a common-file entry by code/ID/name (e.g., `MSG_E001`, `BR_xxx`, the name of a common function), do NOT leave the bare code in the audit output. Open the corresponding common file, copy the **exact original text** (message wording, full rule statement, function description), and inline that text into the audit section that uses it (Section 6.1.B Business Rules, 6.1.C Error Codes / Toast Messages, Section 3 Preconditions if a common function is reused, etc.). Preserve the original code in parentheses for traceability — e.g., `"Mã báo cáo đã tồn tại trong hệ thống" (MSG_E001)`.
 
@@ -45,8 +47,8 @@ Then read each provided UC file or pasted content fully before scoring anything.
 | Input type           | Action  |
 | -------------------- | -------------------|
 | URL provided         | Invoke the `.agents\skills\document-extraction\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on URL files.|
-|PDF provided          | Invoke the `.agents\skills\pdf\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on PDF files.|
-|DOCX provided          | Invoke the `.agents\skills\docx\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on DOCX files.|
+| PDF provided         | Invoke the `.agents\skills\document-extraction\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on PDF files.|
+| DOCX provided        | Invoke the `.agents\skills\document-extraction\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on DOCX files.|
 | File path provided   | Read the file using the appropriate tools|
 | Image file provided  | Use the Read tool — it renders images inline; describe all visible UI elements, labels, states, and flows in detail |
 | Pasted text provided | Treat as a document; parse directly from the prompt |
@@ -152,7 +154,7 @@ Mark each as:
 regardless of total score.
 
 > **Critical areas** (rows marked "Yes"): Areas #1–#9. If ANY of these score 0, the verdict is automatically NOT READY regardless of total score.
-> **Non-critical areas** (rows marked "No"): Areas #10–#12. Scoring 0 here reduces the total but does not trigger auto-fail.
+> **Non-critical areas** (rows marked "No"): Area #10. Scoring 0 here reduces the total but does not trigger auto-fail.
 
 ### Cross-Artefact Conflict Check
 
@@ -177,7 +179,7 @@ If a referenced artefact (wireframe, API spec, supporting doc) is **unavailable 
 
 ## Phase 3 — Report
 
-The report is based on the **UC Readiness Review Template**. Open the template file, fill every section based on what was found (or not found) in the provided artefacts, then save the completed as the report output.
+The report is based on the **UC Readiness Review Template** (`template/UC_readiness_review_template_v3.md`). Open the template file, fill every section based on what was found (or not found) in the provided artefacts, then save the completed version as the report output, named per `ba-naming-convention` (`{UC-ID}_{feature-name}_audited_{YYYYMMDD}_v{N}.md`) in the location given by the SKILL.md Output Contract. Write the report in Vietnamese with English terminology (`ba-global-rules`); quote source labels and messages verbatim.
 Section 8 — Acceptance Criteria: Based on the AC synthesis performed in Phase 1 Step 2.5, populate Section 8 of the template with concrete Given/When/Then acceptance criteria derived from the analyzed workflows, business rules, and UI behaviors. Even if the source document lacks explicit AC, the agent MUST generate them from the synthesized understanding. Score this section based on the source document's AC, but always provide generated AC in the output.
 Add the Audit Summary in the end of the report.
 
@@ -206,7 +208,10 @@ Add the Audit Summary in the end of the report.
 | 10              | Non-functional Requirements              | 5             | X/5   | ✅/⚡/⚠️                 |
 | **Total**       |                                          | **110**       |       | **XX/110 → XX/100**       |
 
-### Unified Gap & Question Report
+### 📋 Unified Gap & Question Report
+
+> Keep this heading exactly as written (English, with the 📋 emoji) — `BA-audit-QnA` locates the table by it.
+
 Synthesize all gaps, missing info, warnings, conflicts, and open questions from all analyzed sections into a single comprehensive table for the BA to review. Ensure there is no duplicated content.
 | ID | Priority | Ref | Question | Why It Matters | Status |
 |----|----------|-----|----------|----------------|--------|
@@ -277,7 +282,7 @@ One paragraph: overall state of the artefact set, key actions required, and a cl
 
 ## Phase 4 — Sync Question Backlog (auto-chain, MANDATORY)
 
-After the audited file is saved successfully, the agent MUST automatically invoke the `qc-ask-ba` skill — without waiting for further user prompt — to transfer all entries in the "Unified Gap & Question Report" of the audited file into a `*_question-backlog.md` file at the same UC folder.
+After the audited file is saved successfully, the agent MUST automatically invoke the `BA-audit-QnA` skill — without waiting for further user prompt — to transfer all entries in the "Unified Gap & Question Report" of the audited file into a `*_question-backlog.md` file at the same UC folder.
 
 **Trigger condition:** The audited file has been saved AND the "Unified Gap & Question Report" table contains ≥ 1 row.
 

@@ -1,12 +1,14 @@
 ## Re-Audit Workflow
 
+> This is the **Web/Report (legacy)** per-UC re-audit. Mobile re-audits use `mobile_re-audit-workflow.md`.
+
 ### Step 1 — Ingest Current State & Answers
 1. Locate the highest version of the audited file.
 2. Locate and read the `question-backlog` file - `Answered Questions` section and `Deferred Questions` section.
 
 ### Step 2 — Apply Answers & Resolve Gaps
 1. Analyze the BA's answers in the backlog.
-2. Incorporate the clarified business rules, logic, and UI behavior into the 5 synthesis sections (Object Attributes, Workflows, etc.) of the previous audited file. **Apply the Common Reference Resolution rule** defined in `first-audit-workflow.md` Phase 1 Step 1 — if the BA's answer or the updated UC references a common-file code (`MSG_*`, `BR_*`, common function name), inline the exact text from the corresponding file in `docs/BA/SRS-report/CMR/`, keeping the code in parentheses.
+2. Incorporate the clarified business rules, logic, and UI behavior into the 5 synthesis sections (Object Attributes, Workflows, etc.) of the previous audited file. **Apply the Common Reference Resolution rule** defined in `first-audit-workflow.md` Phase 1 Step 1 — if the BA's answer or the updated UC references a common-file code (`MSG_*`, `BR_*`, common function name), inline the exact text from the corresponding common file (legacy `docs/BA/SRS-report/CMR/`, or the global rules / message sections of the SRS), keeping the code in parentheses.
 3. **Re-scan all design images (mandatory).** Do NOT trust v[N-1]'s Section 4/5 to be complete. Open every design image listed in the input set and re-extract atomic UI elements per the granularity rule (1 component = 1 row, with label/type/required/default/placeholder/enum values). For every element missing from v[N-1]'s Section 4 or 5, add it to v[N+1]. Re-scan covers `*.png`, `*.jpg`, design exports, and screen mockups embedded in `.docx`/`.pdf`.
 4. **Coverage delta check.** For each design image, record `elements_in_image` vs `rows_in_section_4` in working notes. If a delta is found, expand and document; do NOT advance to Step 3 until delta = 0 for every image.
 
@@ -43,7 +45,7 @@ Mark each as:
 regardless of total score.
 
 > **Critical areas** (rows marked "Yes"): Areas #1–#9. If ANY of these score 0, the verdict is automatically NOT READY regardless of total score.
-> **Non-critical areas** (rows marked "No"): Areas #10–#12. Scoring 0 here reduces the total but does not trigger auto-fail.
+> **Non-critical areas** (rows marked "No"): Area #10. Scoring 0 here reduces the total but does not trigger auto-fail.
 
 ### Cross-Artefact Conflict Check
 
@@ -66,11 +68,11 @@ If a referenced artefact (wireframe, API spec, supporting doc) is **unavailable 
 - Do NOT infer or assume content from unavailable artefacts
 
 2. **Handle Existing Questions:** For any questions where the BA provided a satisfactory answer, update the `question-backlog` file to change the status of that question from `Open` to `Resolved`. Move these rows to the "Answered Questions" section table.
-3. **Handle New Questions:** If the re-audit reveals *new* conflicts or missing information arising from the BA's answers, immediately call the `qc-ask-ba` skill to append these new questions to the "Open Questions" table of the backlog file.
+3. **Handle New Questions:** If the re-audit reveals *new* conflicts or missing information arising from the BA's answers, immediately call the `BA-audit-QnA` skill to append these new questions to the "Open Questions" table of the backlog file.
 
 ### Step 4 — Generate Audited v[N+1]
 1. Update the "Unified Gap & Question Report" inside the audited document to reflect the resolved and new questions.
 2. Add a "Changelog" at the bottom of the audited document summarizing what rules/answers were integrated.
-3. Save the combined updated content as a new file, incrementing the version: `v[N+1]`. (Never overwrite the `v[N]` version).
+3. Save the combined updated content as a new file, incrementing the version: `v[N+1]`, named per `ba-naming-convention` (`{UC-ID}_{feature-name}_audited_{YYYYMMDD}_v{N+1}.md`). (Never overwrite the `v[N]` version).
 
-> **Note on backlog sync:** Re-audit maintains the `*_question-backlog.md` file inline via Step 3.2 (mark resolved) and Step 3.3 (append new). No end-of-workflow chain to `qc-ask-ba` is needed — that chain is only for the **first-audit** workflow where the backlog does not yet exist.
+> **Note on backlog sync:** Re-audit maintains the `*_question-backlog.md` file inline via Step 3.2 (mark resolved) and Step 3.3 (append new). No end-of-workflow chain to `BA-audit-QnA` is needed — that chain is only for the **first-audit** workflow where the backlog does not yet exist.

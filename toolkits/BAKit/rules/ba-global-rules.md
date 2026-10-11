@@ -51,8 +51,9 @@ English. On-screen labels and quotes still follow the rule above (original langu
 
 - All output files MUST follow `ba-naming-convention`.
 - Versioned deliverables are immutable: NEVER overwrite; create `v2`, `v3`, … instead.
-- Exception: living specs owned by `specs` / `test-cases` (`docs/project-fsd.md`, `docs/usecases/**`,
-  `docs/testcases/**`) are updated in place with a version bump and a Change Log entry.
+- Exception: living specs owned by `specs` / `test-cases` (`docs/project-srs.md`, legacy `docs/project-fsd.md`,
+  `docs/usecases/**`, `docs/diagrams/**`, `docs/testcases/**`) are updated in place with a version bump and a
+  Change Log entry.
 - Every file MUST start with a header holding: document title, date created, author/agent, version.
 
 ## Output Quality Standards

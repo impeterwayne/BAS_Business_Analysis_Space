@@ -1,167 +1,229 @@
-## First Audit Workflow
+## Mobile First Audit Workflow
 
-1. **Ingest & Understand** — read all provided artefacts, understand the feature
-2. **Audit** — score completeness across all required knowledge areas
-3. **Report** — deliver a structured readiness report with verdict, score, gaps, and suggestions
+1. **Ingest & Understand** — read every available artefact, separate target scope from reference behavior
+2. **Audit** — coverage, UI, business logic, Product Decisions, diagrams, optional sections; score readiness
+3. **Report** — versioned readiness report with verdict, score, gaps, questions and handoff conditions
+4. **Sync Question Backlog** — auto-chain `BA-audit-QnA`
 
-## Supported Artefact Types
+## Purpose and Boundaries
 
-Accept any combination of:
+Perform the first audit of a **full mobile SRS**, a **module / selected UCs**, or a **single UC**. The audit
+never edits the SRS, use cases, diagrams or decisions, and never generates test cases.
+
+> **TEST SCOPE — READ BEFORE STARTING:**
+> The project tests the **Mobile Client** only. Look at everything through "how does the client display /
+> handle it?" — NOT "what does the server / API do?".
+> - API descriptions (endpoint, payload, response) are **context** for client behavior only.
+> - Do NOT audit API logic, judge backend correctness, or raise questions about server-side processing.
+> - A gap that belongs to the API / backend layer is **recorded in the report, without suggesting tests for
+>   that layer**.
+> - Documented integration expectations the client depends on (an SDK callback, a push payload the app
+>   renders) are in scope as client-facing behavior.
+
+| Scope | Template | Depth |
+| :--- | :--- | :--- |
+| Full SRS (`docs/project-srs.md` or legacy `docs/project-fsd.md`) | `../template/mobile_srs_readiness_review_template.md` | Steps 1–8 and 10–13 for every in-scope feature, then Phase 4 |
+| Module / UC group (`srs {module}` or a UC list) | `../template/mobile_srs_readiness_review_template.md` | Same, limited to the module plus the global rules and shared diagrams it uses |
+| Single UC | `../template/UC_readiness_review_template_v3.md` | Steps 1–8, then **Step 9 (Single-UC depth)**, then 10–13 and Phase 4 |
+
+### Supported Artefact Types
 
 | Type | Examples |
-| --------------------------- | -------------------------------------------------- |
-| Requirements / Use Case doc | UC spec, feature brief, BRD, user story |
-| UI Design / Wireframe | Figma export, mockup image, screen flow PDF |
-| API Specification | REST API doc, Swagger/OpenAPI, integration spec |
-| Business Process doc | Workflow diagram, BPMN, process description |
-| Design document | Technical design, system design, architecture note |
-| Other supporting docs | Data dictionary, error code list, email templates |
+| :--- | :--- |
+| SRS / Use Case | `docs/project-srs.md`, `docs/usecases/{module}/uc-*.md`, feature brief, user story |
+| Product Decisions | `docs/BA/decisions/{feature-slug}_decisions_*.md` (`PD-*`), PO notes |
+| Scope inventory | Feature Checklist `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` |
+| UI Design | Figma analysis `docs/BA/figma/{feature}/`, Figma export, screenshot, mockup |
+| Reference evidence | APK `*_profile_*`, `*_screens_*`, `*_flow-*` in `docs/BA/competitor/{app-slug}/` |
+| Diagrams | `docs/diagrams/{module}/` — `UF-*`, `ACT-*`, `SEQ-*` |
+| API / integration | REST doc, Swagger/OpenAPI, SDK spec (context only) |
+| Other | Data dictionary, message catalog, legacy common rules (`docs/BA/SRS-report/CMR/`) |
 
->**PHẠM VI TEST — ĐỌC TRƯỚC KHI BẮT ĐẦU:**
-> Dự án này chỉ kiểm thử **phía Mobile Client**. Mọi phân tích trong workflow này đều phải được nhìn qua lăng kính "client hiển thị/xử lý thế nào?" — KHÔNG phải "server/API làm gì?".
-> - Nếu gặp mô tả API (endpoint, payload, response): chỉ dùng làm **context** để hiểu hành vi phía client.
-> - KHÔNG audit logic API, KHÔNG đánh giá tính đúng đắn của backend, KHÔNG đặt câu hỏi về xử lý server-side.
-> - Nếu phát hiện gap thuộc tầng API/backend: **ghi nhận vào báo cáo nhưng KHÔNG đề xuất test case cho tầng đó**.
-
-All file formats are supported: plain text, Markdown, PDF, Word (.docx), images (PNG/JPG).
+All formats are supported: Markdown, plain text, PDF, Word (.docx), images (PNG/JPG).
 
 ## Phase 1 — Ingest & Understand
 
-### Step 1: Read all artefacts
+### Step 1 — Read all artefacts
 
-<!-- ✏️ CHANGED: Mandatory reading order explicitly defined -->
-**Mandatory reading order:**
+**Mandatory reading order** (skip what does not exist, never invent it):
 
-1. Read Common Rules (CMR) document first — this is the foundation for detecting conflicts
-2. Read the Use Case document in full
-3. Analyze Wireframe / Design Mockup (if available)
-4. Read API Specification (if available)
+1. Product Decision Summary (latest `v{N}` per feature) and PO notes — target decisions, `PD-*`, TBD items,
+   READY / NOT READY FOR SRS verdict.
+2. Feature Checklist — candidate scope and `PO note` column.
+3. SRS global sections — scope, FR list, global business rules, message catalog. In a legacy project, read
+   the common rules (CMR) first; they are the foundation for detecting conflicts.
+4. Use cases in scope, in full.
+5. Figma analysis and its `screens/` images; any other screenshot or mockup.
+6. APK evidence — `profile`, `screens`, `flow-*` for the related flows.
+7. Diagram sources linked from the SRS / UCs.
+8. Briefs and research relevant to the scope.
+9. Audit history: previous `*_audited_*` reports and `*_question-backlog.md` (first audit: confirm there is
+   none for this scope).
 
-> ⚠️ **LƯU Ý PHẠM VI TEST:**
-> API Specification chỉ đọc để **hiểu context hành vi phía client**. KHÔNG audit logic API, KHÔNG đánh giá tính đúng đắn của endpoint/payload/response phía backend. Khi requirement mô tả API → chỉ tập trung vào cách client hiển thị/xử lý kết quả trả về.
+> ⚠️ **TEST SCOPE:** API specifications are read only to understand client behavior. Focus on how the client
+> displays and handles results.
 
-Input-type routing:
-| Input type           | Action                                                                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| URL provided         | Invoke the `.claude\skills\document-extraction\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on URL files.   |
-| PDF provided         | Invoke the `.claude\skills\pdf\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on PDF files.                   |
-| DOCX provided        | Invoke the `.claude\skills\docx\SKILL.md` skill to extract text, tables, images first. Do NOT use the Read tool directly on DOCX files.                 |
-| File path provided   | Read the file using the appropriate tools.                                                                                                              |
-| Image file provided  | Use the Read tool — it renders images inline; describe all visible UI elements, labels, states, and flows in detail.                                    |
-| Pasted text provided | Treat as a document; parse directly from the prompt.
-DO NOT score any knowledge area before finishing all documents.
+**Input-type routing:**
 
-### Step 2: Synthesise a Feature Understanding
+| Input type | Action |
+| :--- | :--- |
+| URL provided | Invoke `.agents/skills/document-extraction/SKILL.md` to extract text, tables, images first. Do NOT read URL files directly. |
+| PDF provided | Invoke `.agents/skills/document-extraction/SKILL.md` first. Do NOT read PDF files directly. |
+| DOCX provided | Invoke `.agents/skills/document-extraction/SKILL.md` first. Do NOT read DOCX files directly. |
+| File path provided | Read the file with the appropriate tool. |
+| Image file provided | Open the image; describe all visible UI elements, labels, states and flows in detail. |
+| Pasted text provided | Treat as a document; parse it directly from the prompt. |
 
-After fully comprehending all provided documents, including analyzing the design images (and any screen mockups embedded within the specification documents), proceed to synthesize the requirement content according to the following 5 sections:
+Record each expected source as `Provided`, `Not Provided`, `Not Applicable` or `Unavailable`
+(`input-files-format.md` §3). Respect the evidence grades observed / `[Code]` / `[Inferred]`.
 
-**1. UI Object Inventory & Mapping**
+DO NOT score anything before all documents are read.
 
-Build a complete table of all UI components from the Wireframe, mapped to the UC document:
+### Step 2 — Build the target understanding
 
-| # | Component Name | Type | In UC? | In Wireframe? | Notes |
-| --- | ------------------- | ------------- | ------ | ------------- | ----- |
+Establish, with source references:
+
+- **Target scope:** in scope / out of scope / TBD features, from the checklist filtered by the Product
+  Decisions (`PD-*` with KEEP / MODIFY / REMOVE / NEW / TBD).
+- **Requirement map:** FR → UC → screen → BR → diagram (`UF-*`, `ACT-*`, `SEQ-*`).
+- Screens and target flows, confirmed product changes, applicable permissions / monetization, known
+  technical dependencies.
+- **Reference vs target:** what the reference app does (APK evidence) versus what the target must do. Keep
+  them apart in working notes.
+
+Working-note table (not the report):
+
+| Feature | Checklist ref | PD-ID | Decision | Target status | FR / UC | Screens | Diagrams |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| {feature} | {row / CF-ID} | {PD-001} | {KEEP / MODIFY / REMOVE / NEW / TBD} | {In / Out / TBD} | {FR-…, UC-…} | {Figma screen NN} | {UF-…, ACT-…} |
+
+## Phase 2 — Audit
+
+### Step 3 — Feature scope and traceability
+
+- Every confirmed in-scope checklist item maps to an FR / UC or a documented shared rule.
+- Flag omitted requirements, requirements with no source (orphans), REMOVE behavior written as active, and
+  TBD treated as final.
+- APK features outside the target scope are **not** missing target requirements.
+- Check IDs and links: FR / UC / BR / PD / diagram IDs exist, are unique and resolve to real files.
+
+### Step 4 — UI specification coverage
+
+For each UI-bearing UC:
+
+- The UI Specification is embedded in the UC **before** the flows and references the authentic Figma frame /
+  screenshot for each screen (or `Design Pending`, which is itself a gap when the screen is in scope).
+- The specified components match the supplied design and the screen purpose; labels are consistent between
+  design and UC (verbatim, original language).
+- For each relevant component check: label, default value, visibility, enabled / disabled state, tap action,
+  system response, error / empty / loading state, input constraint, Back / Close / Cancel.
+- Record a gap only for **applicable or demonstrably necessary** states — there is no penalty for not filling
+  a generic exhaustive state checklist.
+
+### Step 5 — Business logic and testability
+
+- Verify trigger, actor, pre/postconditions, Main / Alternative / Exception flows, branch conditions,
+  validation, limits, navigation, save / reset, permission denied, data loss and error / retry behavior
+  **when applicable**.
+- Cross-check shared rules, duplicated logic and UC-to-UC transitions; a rule restated differently in two UCs is
+  a conflict.
+- Flag vague or non-verifiable wording ("should", "may", "fast", "easy", "appropriate").
+- If a behavior is unconfirmed, raise a question — never add an assumption.
+
+**Edge-case lens** — use these groups to look for gaps; raise one only where the case applies to the UC:
+
+- **A — Extreme data states:** text overflow (truncate / wrap rule); numeric 0, negative, very large; empty
+  list vs exactly 1 vs the maximum count; null / missing data shown to the user (placeholder?).
+- **B — Network & API states (client behavior only):** slow response (loading / skeleton), timeout and
+  retry, partial failure (one call fails, others succeed — independent handling or full-screen block?),
+  duplicate calls (double tap, back then re-enter), network loss mid-load (is loaded data kept?).
+- **C — Abnormal interactions:** rapid repeated taps, gestures outside the allowed area, rotation (if
+  landscape is supported), Android system Back while a modal / sheet is open.
+- **D — Permissions & session:** session expiry on the screen, reopen after force-close, role-dependent
+  content, OS permission denied / revoked.
+- **E — Internationalization:** text updates after a language change, long strings breaking layout, where the
+  language choice persists (logout / reinstall).
+
+> ⚠️ **TEST SCOPE:** groups A–B check only how the **client displays and reacts**; they do not test why the
+> API returned null or an error. Correct scope example: "The app shows toast 'Có lỗi xảy ra' (An error
+> occurred) and keeps the entered data when the API returns 5xx."
+
+### Step 6 — Product Decision alignment
+
+| Decision | Expected in the SRS | Gap when |
+| :--- | :--- | :--- |
+| `KEEP` | The named behavior is specified (only what the decision names, not every reference detail) | Missing, or reference details silently added |
+| `MODIFY` | The modified target behavior, not the reference behavior | SRS still describes the reference behavior |
+| `REMOVE` | Absent, or listed as out of scope | Specified as an active requirement |
+| `NEW` | Specified with flows and rules | Missing or only named |
+| `TBD` | An Open Question with P0/P1/P2, not an FR | Written as a final requirement |
+
+- An `[Inferred]` reference claim must not appear as a confirmed target rule.
+- If the decision summary for an in-scope feature is `NOT READY FOR SRS`, check which `PD-*` were unresolved
+  and whether the SRS invented their answers.
+- Distinguish a deliberate, confirmed divergence from the reference (not a defect) from a conflict between
+  sources (a gap). Cite both sources.
+
+### Step 7 — Diagram audit
+
+- **User Flow (required):** the main feature journeys are covered; entry points, screens, decisions and
+  navigation match the target UCs.
+- **Activity (required):** the core business processes are covered; validations, branches, success / failure
+  and end states match the UCs and BRs.
+- **Shared diagrams:** valid when each UC references the covered path (`Sơ đồ liên quan (Related Diagrams)`
+  or the coverage matrix). Do not require duplicate diagrams per UC.
+- **Sequence (conditional):** assess the need only for intricate cross-component or asynchronous interaction
+  (app ↔ backend / SDK / third party). **A missing Sequence Diagram for a simple UC is a pass.** If one is
+  needed and its participants are unknown, raise a question instead of requiring invented architecture.
+- Flag absent coverage, wrong direction or branch, conflicts with target rules, unconfirmed APK assumptions,
+  a User Flow used as an Activity Diagram (or vice versa), and horizontal flowcharts (`ba-markdown-formatting`
+  §5).
+
+### Step 8 — Optional requirement audit
+
+- Permissions, Ads / IAP, NFR and dependencies are checked only when confirmed in target scope or
+  operationally applicable based on evidence.
+- Target Ads / IAP absent → mark `N/A`; **absence of Ads / IAP is not a defect**.
+- Reference monetization exists but target adoption is TBD → log a clarification question; do not treat it as
+  a target requirement.
+- Never require invented numeric NFR targets.
+
+### Step 9 — Single-UC depth (Single UC scope only)
+
+Synthesize the UC into the sections of `UC_readiness_review_template_v3.md`, then score it.
+
+**1. UI Object Inventory & Mapping (Section 4)** — one atomic component per row, mapped design ↔ UC:
+
+| # | Component Name | Type | In UC? | In Design? | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
 | 1 | Hamburger Button (☰) | Button (Icon) | ✅ | ✅ | |
-| ... | | | | | |
 
-<!-- ✏️ CHANGED: Added mandatory checks per component -->
-**Mandatory checks for each component:**
-- Is there a display state definition (Enabled / Disabled / Hidden / Read-only)?
-- Is there an action rule for tap / click?
-- Is the label name consistent between Wireframe and UC document?
+Mandatory checks per component: display state (Enabled / Disabled / Hidden / Read-only), tap action rule,
+label consistency between design and UC. Then cross-check each row against the SRS global rules (legacy:
+CMR): an applicable rule the UC does not mention → ⚠️ Partial + confirmation question; a conflict → 🔴
+Conflict + High-priority question. Sub-categories: data display (list columns, paging, default sort, empty
+state), controls (filters / search: initial state, values, constraints), navigation and action components,
+everything else. Apply the granularity and coverage self-check of `first-audit-workflow.md` Phase 1 Step 2–3
+(no collapsed rows; image element count = mapped rows).
 
-<!-- ✏️ NEW SECTION: CMR Cross-Check -->
-**CMR Cross-Check — Common Rules Application Verification**
+**2. Object Attributes & Behavior (Section 5)** — system states by permission / data / state, interaction
+matrix (tap, long-press, swipe, drag), object behavior on related changes. At least one row per Section-4
+component.
 
-After completing the UI Inventory, cross-reference each component against CMR:
-
-- Any row where the UC doc does not mention an applicable CMR → mark as ⚠️ Partial, create a confirmation question.
-- Any row where there is a conflict between UC and CMR → mark as 🔴 Conflict, create a High-priority question.
-
-Sub-categories:
-- Data Display Structure (Grid/List/Table): Identify the list of data columns, pagination limit, default sorting logic, and empty state display.
-- Control System (Filters/Search Fields): Identify the initial state, available Dropdown values, and input data constraints of search fields.
-- Navigation and Action Components (Buttons/Controls): Define the position and role of all functional buttons on the interface.
-- All other components present on the interface.
-
-**2. Object Attributes & Behavior Definition**
-
-Determine the state and response of each UI object based on specific system conditions.
-
-- System States: Define the default state of the object (Enabled, Disabled, Hidden, Read-only) based on variables such as: account privileges (Permissions), input data conditions, or the current data state of the system.
-- Interaction Matrix: Specify the possible interaction actions (Click, Hover, Drag & Drop) and the corresponding system responses for each object.
-- Object Behavior: Define how the object reacts when there is a data change or a state change in related objects.
-
-<!-- ✏️ NEW SECTION: Edge Case Checklist -->
-**Edge Case Checklist — Automated Edge Case Verification**
-
-For each object in the matrix above, the following edge case groups MUST be checked. If the UC doc does not mention them → record as a gap, create a question:
-
-**Group A — Extreme Data States:**
-- Name/text field overflow → Does the UC doc have a truncate / wrap rule?
-- Numeric value = 0, negative, or very large (max int) → How is it displayed?
-- Empty list (0 items) vs. exactly 1 item vs. exactly max items (e.g., exactly 5 news items)
-- Null / undefined data from API → How does the UI handle it? Is there a placeholder?
-
-> ⚠️ **LƯU Ý PHẠM VI TEST:**
-> Mục này chỉ kiểm tra cách **client hiển thị** khi nhận dữ liệu null/undefined từ API (placeholder, empty state). KHÔNG kiểm tra tại sao API trả null.
-
-**Group B — Network & API States:**
-
-> ⚠️ **LƯU Ý PHẠM VI TEST:**
-> Các mục trong Group B chỉ kiểm tra **hành vi hiển thị/xử lý phía client** khi gặp lỗi từ API (loading, timeout, retry, error message). **KHÔNG** kiểm thử bản thân API (endpoint, status code, payload). Giả định API trả đúng spec, tập trung vào cách app phản hồi.
-
-- API responds slowly (> 5s but < 30s timeout) → Does skeleton/loading display correctly?
-- Partial API failure (1 of multiple API calls fails, the rest succeed) → Does the UI handle independently or block the entire screen?
-- Duplicate API calls (double tap, back then re-enter) → Is there debounce / prevent duplicate call? (see CMR-13)
-- Network loss mid-load (partially loaded) → Is already-loaded data preserved?
-
-**Group C — Abnormal User Interactions:**
-- Rapid consecutive taps on the same button → Is multiple navigation blocked?
-- Drag & Drop to an area outside the screen / outside the allowed zone → How is it handled?
-- Screen rotation to landscape → Does the layout break? (if app supports landscape)
-- Physical Back button (Android) when a modal/sidebar is open → Close modal or exit screen?
-
-**Group D — Permissions & Session:**
-- Session expires while on the screen → Redirect to login or show notification?
-- Reopen app after force-close → Which screen does it return to?
-- Different roles (e.g., Domestic Investor vs. Foreign vs. Institutional) → Is Quick Access the same? Is news filtered by role?
-
-**Group E — Internationalization (i18n):**
-- After changing language → Does all text on the current screen update immediately?
-- Languages with long characters (e.g., Japanese, Korean) → Does the layout break?
-- Where is the language stored (local storage / server)? Is it preserved after logout / re-login?
-
-**3. Functional Logic & Workflow Decomposition**
-
-Analyze in detail the business processes of each function available on the feature screen, such as: view list, filter, search, create, view detail, edit, delete, export, etc.
-
-- Workflows:
-- Main Flow (Happy Path): The correct execution flow that produces no errors or exceptions.
-- Alternative Flows: Alternative execution paths that still lead to a successful outcome.
-- Exception & Error Flows: Scenarios involving system errors or invalid data.
-
-> ⚠️ **LƯU Ý PHẠM VI TEST:**
-> Exception & Error Flows chỉ mô tả **cách client phản hồi** khi nhận lỗi từ API (thông báo hiển thị, retry button, giữ/mất state). KHÔNG phân tích tại sao server trả lỗi, KHÔNG đánh giá logic xử lý lỗi phía backend. Ví dụ đúng phạm vi: "App hiển thị toast 'Có lỗi xảy ra' và giữ nguyên dữ liệu đã nhập khi API trả 5xx."
-- Business Rules & Validations: Synthesize the business rules regarding format constraints, value ranges, and mandatory fields.
-- UI/UX Feedback: Specify system notifications (Toast messages), error codes, and loading states corresponding to each process.
-
-<!-- ✏️ CHANGED: Added structured example format -->
-**Example format:**
+**3. Functional Logic & Workflow Decomposition (Section 6)** — per function: Main Flow, Alternative Flows,
+Exception & Error Flows (client response only), Business Rules & Validations, UI/UX feedback:
 
 ```
-[Function Name — e.g., Display Home Page]
+[Function Name — e.g., Display Home]
 
 MAIN FLOW (Happy Path):
 Step 1 → Step 2 → ... → Expected Result
 
 ALTERNATIVE FLOWS:
 [Alt-1] Different condition → Alternative flow → Result
-[Alt-2] ...
 
 EXCEPTION & ERROR FLOWS:
 [Err-1] Error condition → Displayed message → System behavior
-[Err-2] ...
 
 BUSINESS RULES:
 BR-xxx: [Rule]
@@ -172,206 +234,145 @@ UI/UX FEEDBACK:
 - Error message: [content, position]
 ```
 
-<!-- ✏️ CHANGED: Added mandatory field attribute table -->
-**For each input field or dynamic display field, a table MUST be created:**
+For each input or dynamic display field, a table is mandatory; every empty cell the UC does not answer is a
+gap:
 
 | Field | Data Type | Required? | Min | Max | Format |
-| ---------- | --------- | --------- | --- | ------ | ------------------- |
+| :--- | :--- | :--- | :--- | :--- | :--- |
 | Full Name | Text | — | — | 1 line | Truncate if too long |
 | Post Date | Date | — | — | — | DD/MM/YYYY |
-| ... | | | | | |
 
-Any cell without information in the UC doc → record as a corresponding gap.
+**4. Functional Integration Analysis (Section 7)** — impact of one function's state / data change on others;
+data consistency across related components.
 
-**4. Functional Integration Analysis**
+**5. Acceptance Criteria (Section 8)** — Given / When / Then per group (UI, Function, Integration). Score the
+source's AC, but always provide the synthesized AC in the output.
 
-Analyze and evaluate the linkages and influences between the cataloged functions — acting as an integration check between functions.
+**Product Decision & diagram alignment (Section 10.3)** — summarize Steps 6–7 for this UC.
 
-- Impact Analysis: Determine whether a change in state or data within one function directly or indirectly affects other functions.
-- Data Consistency: Verify the synchronization of data across all related UI components after a function is executed.
-
-**5. Acceptance Criteria (AC) Synthesis**
-
-Establish the final set of measurement and evaluation standards regarding the completeness of the requirement.
-
-- Establishing Acceptance Criteria (AC): Categorize and detail the acceptance criteria for each group: Interface (UI), Function, and Integration.
-
-## Phase 2 — Audit
-
-### Knowledge Areas Checklist
-
-Score the **combined artefact set** against these knowledge areas.
-A tester needs all of these to design complete test cases.
-
-Mark each as:
-
-- ✅ **Clear** — explicitly stated and unambiguous (full marks)
-- ⚠️ **Partial** — present but vague, incomplete, or only inferred (half marks)
-- ❌ **Missing** — absent from all provided artefacts (zero marks)
+**Knowledge areas** — mark each ✅ Clear (full), ⚠️ Partial (half), ❌ Missing (0):
 
 | # | Knowledge Area | Max Pts | Critical? | What to look for |
-| -- | ----------------------------------------- | ------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 | Feature Identity (title, ID, context) | 5 | Yes | Is it clear what this feature is and where it fits in the system? |
-| 2 | Objective & Scope | 5 | Yes | Why does this feature exist? What is in/out of scope? |
-| 3 | Actors & User Roles | 10 | Yes | Who triggers the feature? What roles/permissions are involved? |
-| 4 | Preconditions & Postconditions | 10 | Yes | What must be true before? What is the system state after success? |
-| 5 | UI Object Inventory & Mapping | 15 | Yes | List all user interface components from the Design Mockup and map them to the Functional Specification document. |
-| 6 | Object Attributes & Behavior Definition | 20 | Yes | Determine the state and response of each UI object based on specific system conditions. |
-| 7 | Functional Logic & Workflow Decomposition | 20 | Yes | Analyze in detail the business processes of each function on the feature screen. Duplicate the block for each major sub-function (e.g., View List, Create Record). |
-| 8 | Functional Integration Analysis | 10 | Yes | Analyze and evaluate the linkages and influences between the cataloged functions. |
-| 9 | Acceptance Criteria | 10 | Yes | Measurable, verifiable pass/fail statements. |
-| 10 | Non-functional Requirements | 5 | No | Performance, security, compatibility, accessibility. |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | Feature Identity (title, ID, context) | 5 | Yes | Is it clear what this feature is and where it fits in the app? |
+| 2 | Objective & Scope | 5 | Yes | Why does it exist? What is in / out of scope (consistent with the Product Decisions)? |
+| 3 | Actors & User Roles | 10 | Yes | Who triggers it? Which roles / permissions? |
+| 4 | Preconditions & Postconditions | 10 | Yes | What must be true before? What is the state after success? |
+| 5 | UI Object Inventory & Mapping | 15 | Yes | All components from the design mapped to the UC UI Specification |
+| 6 | Object Attributes & Behavior Definition | 20 | Yes | State and response of each UI object under specific conditions |
+| 7 | Functional Logic & Workflow Decomposition | 20 | Yes | Business process of each function on the screen |
+| 8 | Functional Integration Analysis | 10 | Yes | Linkages and influences between functions |
+| 9 | Acceptance Criteria | 10 | Yes | Measurable pass / fail statements |
+| 10 | Non-functional Requirements | 5 | No | Performance, security, compatibility, accessibility — N/A when none is applicable or confirmed |
 
-**Total: 110 points → Normalise to 100 for the final score.**
+**Total 110 → normalized:** `Final Score = round((Raw Score / applicable max) × 100, 1)` (applicable max =
+110 unless area #10 is N/A, then 105). Critical areas #1–#9: any score of 0 → NOT READY. Area #10 scoring 0
+reduces the total only. An open P0 from Steps 6–7 also makes the UC NOT READY.
 
-**Normalization formula:** `Final Score = round((Raw Score / 110) × 100, 1)`
+### Step 10 — Cross-artefact conflicts and blocked artefacts
 
-> Example: Raw score 88 / 110 → Final Score = round((88 / 110) × 100, 1) = **80.0 / 100**
-> Example: Raw score 95 / 110 → Final Score = round((95 / 110) × 100, 1) = **86.4 / 100**
+**Conflicts** (automatic warnings): UC flow vs design; UC vs Product Decision; UC vs diagram; fields in the API
+doc absent from requirements (only where it affects client display / behavior); design elements with no
+rule; inconsistent labels or field names across documents.
 
-**Auto-fail rule:** If any Critical knowledge area scores 0, verdict = NOT READY regardless of total score.
+**Blocked artefact protocol:** if a referenced artefact (Figma frame, screenshot, diagram, decision file, API
+doc) is unavailable:
 
-<!-- ✏️ CHANGED: Corrected non-critical area reference (was #10–#12, now only #10) -->
-> **Critical areas** (rows marked "Yes"): Areas #1–#9. If ANY of these score 0, the verdict is automatically NOT READY regardless of total score.
-> **Non-critical areas** (rows marked "No"): Area #10. Scoring 0 here reduces the total but does not trigger auto-fail.
-
-### Verdict Thresholds
-
-| Score | Verdict | Meaning |
-| ------ | -------------------------------- | -------------------------------------------------------------------- |
-| 90–100 | ✅ **READY** | QA can begin test design immediately |
-| 70–89 | ⚡ **CONDITIONALLY READY** | QA can start on clear areas; flagged items must be resolved in parallel |
-| 0–69 | ❌ **NOT READY** | Too many gaps; do not begin test design |
-
-### Cross-Artefact Conflict Check
-
-After scoring, check for **conflicts between artefacts**:
-
-> ⚠️ **LƯU Ý PHẠM VI TEST:**
-> Khi kiểm tra xung đột liên quan đến API spec, chỉ flag những xung đột **ảnh hưởng đến hiển thị/hành vi phía client**. KHÔNG đánh giá tính đúng đắn của logic API hoặc thiết kế backend.
-
-- Does the UC doc describe a flow that contradicts the wireframe?
-- Does the API spec define fields not mentioned in requirements?
-- Are there UI elements in the design with no corresponding business rule?
-- Are labels/field names inconsistent across documents?
-
-List all conflicts found — they are automatic Warnings.
-
-### Blocked Artefact Protocol
-
-If a referenced artefact (wireframe, API spec, supporting doc) is **unavailable or inaccessible**:
-
-- Mark the dependent knowledge area(s) as `[BLOCKED: artefact name not accessible]`
-- Score those areas as 0
-- Since blocked artefacts almost always affect Critical knowledge areas (#1–#9), surface each blocked area as a 🔴 **Blocker** in the report under the "Blockers" section
-- Do NOT infer or assume content from unavailable artefacts
+- Mark the dependent dimension / knowledge area `[BLOCKED: {artefact} not accessible]` and score it 0.
+- Surface each blocked item as a 🔴 Blocker (Critical, P0 when it hides core behavior).
+- Do NOT infer content from the unavailable artefact.
 
 ## Phase 3 — Report
 
-The report is based on the **UC Readiness Review Template**. Open the template file, fill every section based on what was found (or not found) in the provided artefacts, then save the completed version as the report output.
+### Step 11 — Register gaps and questions
 
-**Status markers used throughout:**
+For each issue record: Gap ID (`AUD-{NNN}`, so it never collides with competitor `GAP-*`), category, exact
+source reference, observed issue and evidence, severity, priority, recommendation, owner, status (`Open`).
 
-- ✅ **Complete** — explicitly stated and unambiguous
-- ⚡ **Partial** — present but vague, incomplete, or only inferred (half marks)
-- ⚠️ **Missing** — absent from all provided artefacts (zero marks)
-- *(inferred)* — the reviewer inferred information rather than finding it explicitly; these are candidates for confirmation before test design begins
+| Severity | Use for | Question priority | Backlog priority |
+| :--- | :--- | :--- | :--- |
+| Critical | Blocks Dev/QA: missing core flow, scope conflict, REMOVE specified as active, TBD finalized, missing required User Flow / Activity coverage, blocked core artefact | P0 | High |
+| Major | Partial / ambiguous behavior, cross-artefact conflict, missing applicable state or rule | P1 | Medium |
+| Minor | Wording, formatting, traceability polish, non-blocking suggestion | P2 | Low |
 
-### 📊 Audit Summary
+- Do not overstate severity. Separate missing **evidence** (verification limit) from a missing
+  **requirement**.
+- Every gap that needs an answer gets a question row in the `📋 Unified Gap & Question Report`, with columns
+  exactly `| ID | Priority | Ref | Question | Why It Matters | Status |`. Write Priority as `High (P0)`,
+  `Medium (P1)` or `Low (P2)`; put the source excerpt (or `N/A (Missing)`) and the `AUD-*` ID in `Ref`.
+  No duplicates.
 
-> **Note:** Knowledge area numbers map to template sections as follows:
-> #1 → Section 0 · #2 → Section 1 · #3 → Section 2 · #4 → Section 3 · #5 → Section 4 · #6 → Section 5 · #7 → Section 6 · #8 → Section 7 · #9 → Section 8 · #10 → Section 9
+### Step 12 — Score and decide readiness
 
-| # | Knowledge Area | Max Pts | Score | Status |
-| --------- | ----------------------------------------- | --------- | ----- | ---------- |
-| 1 | Feature Identity | 5 | X/5 | ✅/⚡/⚠️ |
-| 2 | Objective & Scope | 5 | X/5 | ✅/⚡/⚠️ |
-| 3 | Actors & User Roles | 10 | X/10 | ✅/⚡/⚠️ |
-| 4 | Preconditions & Postconditions | 10 | X/10 | ✅/⚡/⚠️ |
-| 5 | UI Object Inventory & Mapping | 15 | X/15 | ✅/⚡/⚠️ |
-| 6 | Object Attributes & Behavior Definition | 20 | X/20 | ✅/⚡/⚠️ |
-| 7 | Functional Logic & Workflow Decomposition | 20 | X/20 | ✅/⚡/⚠️ |
-| 8 | Functional Integration Analysis | 10 | X/10 | ✅/⚡/⚠️ |
-| 9 | Acceptance Criteria | 10 | X/10 | ✅/⚡/⚠️ |
-| 10 | Non-functional Requirements | 5 | X/5 | ✅/⚡/⚠️ |
-| **Total** | | **110** | | **XX/110 → XX/100** |
+**Full SRS / module scoring** — mark each dimension ✅ Clear (full), ⚠️ Partial (half), ❌ Missing (0), or
+N/A (removed from the denominator):
 
-### 📋 Unified Gap & Question Report
+| # | Dimension | Max Pts | Critical? | N/A only when |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | Feature Coverage | 15 | Yes | Never |
+| 2 | Use Case Completeness | 15 | Yes | Never |
+| 3 | UI Specification & Figma Alignment | 15 | Yes | No UC in scope has UI |
+| 4 | Business Logic & Testability | 20 | Yes | Never |
+| 5 | Product Decision Alignment | 10 | Yes | The scope needed no decision pass (no checklist / reference conflict, no TBD) |
+| 6 | Diagram Coverage & Consistency | 10 | Yes | Never (User Flow + Activity are required) |
+| 7 | Traceability & Cross-UC Consistency | 10 | No | Never |
+| 8 | Optional requirements (Permissions / Ads / IAP / NFR / Dependencies) | 5 | No | None applicable or confirmed in target scope |
 
-Synthesize all gaps, missing info, warnings, conflicts, and open questions from all analyzed sections into a single comprehensive table for the BA to review. Ensure there is no duplicated content.
+`Final Score = round((Earned / Applicable max) × 100, 1)`. A source that is `Not Provided` but needed is not
+N/A — score the dimension on what can be verified and record the limit.
 
-| ID | Priority | Ref | Question | Why It Matters | Status |
-| ---------- | ----------------------- | --------------------------------------------------- | ---------------------------------- | ----------------------------------------------- | -------- |
-| *(e.g., Q1)* | *(High / Medium / Low)* | *(Exact excerpt from requirement. Skip if Missing)* | *(Main content to clarify or fix)* | *(Why this is an issue, impact on testability)* | *(Open)* |
+**Verdict** (SKILL.md → Readiness Policy): ≥ 90 Ready · 70–89 Conditionally Ready · < 70 Not Ready. Any open
+P0 / Critical gap, or any Critical dimension at 0, → **Not Ready** regardless of score. State "Ready for
+Dev/QA Handoff" only with no open P0.
 
-**Column definitions:**
+### Step 13 — Produce the versioned report
 
-- **ID**: Question identifier (e.g., Q1, Q2)
-- **Priority**:
-- **High**: Blockers — critical knowledge areas scoring 0, completely missing critical info.
-- **Medium**: Warnings, cross-artefact conflicts, partial/vague details.
-- **Low**: Suggestions for improvement, non-critical open questions.
-- **Ref**: Exact excerpt from the requirement that led to this question. If the issue is something completely missing, write "N/A (Missing)".
-- **Question**: Clearly state what needs to be answered, provided, or corrected by the BA. Must include the description of the issue as currently found.
-- **Why It Matters**: Explain the specific reason for raising this question (e.g., impact on test design, potential bugs, data inconsistency).
-- **Status**: Default to "Open".
+- Full SRS / module: fill `../template/mobile_srs_readiness_review_template.md` in full; keep the
+  source-referenced coverage matrix and owners.
+- Single UC: fill `../template/UC_readiness_review_template_v3.md`, then append the **Audit Summary** (the
+  knowledge-area score table), **📋 Unified Gap & Question Report**, **🟢 What's Good**, **🧪 Testability
+  Outlook** and **📌 Summary & Recommendation** sections as defined in `first-audit-workflow.md` Phase 3.
+  Testability focus areas for mobile also cover: global-rule compliance, real-time / push behavior,
+  partial API failure, edge cases (long text, special characters, broken layout).
+- Write in Vietnamese with English terminology; quote labels and messages in their original language with an
+  English translation in parentheses. Run the `ba-markdown-formatting` self-validation checklist.
+- Save with the name and folder from SKILL.md → Output Contract. Never overwrite; never edit the SRS.
 
-### 🟢 What's Good
+## Phase 4 — Sync Question Backlog (auto-chain, MANDATORY)
 
-Briefly acknowledge what is well-documented. Give the author credit for what is ✅ Complete.
+After the audited file is saved, automatically invoke `BA-audit-QnA` — without waiting for the user — to move
+every row of the `📋 Unified Gap & Question Report` into `{ID}_question-backlog.md` in the same folder (`ID` =
+`SRS`, `SRS-{MOD}` or the `UC-ID`).
 
-### 🧪 Testability Outlook
+- **Trigger:** the audited file is saved AND the table has ≥ 1 row.
+- **Skip:** only when the table is empty; tell the user no backlog is needed.
+- An existing backlog is never overwritten; `BA-audit-QnA` reconciles it.
 
-**What CAN be tested now:**
+Then delete temp / intermediate files and report to the user: verdict, score, blocker count, open questions
+by priority, report path and backlog path. Do not start test design.
 
-- [Test areas with enough information to start]
-
-**What CANNOT be tested yet (blocked by gaps):**
-
-- [Test areas blocked by ⚠️ Missing or ⚡ Partial sections]
-
-<!-- ✏️ CHANGED: Expanded suggested test focus areas with new categories -->
-**Suggested test focus areas** *(once gaps are resolved)*:
-
-- Happy path: [based on Section 5 — Object Attributes & Behavior Definition]
-- Alternative scenarios: [based on Section 5 — Object Attributes & Behavior Definition]
-- Boundary & validation tests: [based on Section 5 — Object Attributes & Behavior Definition]
-- Error & exception scenarios: [based on Section 5 — Object Attributes & Behavior Definition]
-- UI-specific checks: [based on Section 5 — Object Attributes & Behavior Definition, if design/wireframe was provided]
-- CMR compliance tests: Verify UC correctly applies CMR rules
-- Real-time behavior tests: Verify WebSocket / polling / push
-- Partial API failure tests: One API call fails, the rest succeed
-- Edge case tests: Long text, special characters, broken layout
-
-### 📌 Summary & Recommendation
-
-One paragraph: overall state of the artefact set, key actions required, and a clear recommendation — hold until fixed / fix specific items and proceed / proceed now.
-
----
-
-## Readiness Thresholds
-
-| Score | Verdict | Meaning |
-| ------ | -------------------------------- | -------------------------------------------------------------------- |
-| 90–100 | ✅ **READY** | QA can begin test design immediately |
-| 70–89 | ⚠️ **CONDITIONALLY READY** | QA can start on clear areas; flagged items must be fixed in parallel |
-| 0–69 | ❌ **NOT READY** | Too many gaps; do not begin test design |
-
-**Auto-fail:** Any Critical knowledge area scoring 0 → ❌ NOT READY regardless of total.
-
-<!-- ✏️ CHANGED: Expanded Common Gap Patterns table with new v2 patterns -->
 ## Common Gap Patterns
 
 | Gap Pattern | Recognizable Sign | Example Question |
-| ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| No preconditions stated | UC starts directly from step 1 | "What conditions must be true before [function] is triggered?" |
-| Vague actor | Only says "user" without role distinction | "In this UC, which specific role is 'user'? Does behavior differ between roles?" |
-| Missing validation rules | Has input fields but no constraints | "What data type does field [X] accept? Min/Max? Special characters? Specific error message?" |
-| Missing specific error messages | Only says "display error" | "What is the exact error message for [situation X]? Does it follow CMR-07 or have a custom message?" |
-| AC uses "should" / "can" | Criteria are not measurable | "Can criterion [X] be expressed as a specific pass/fail statement?" |
-| Wireframe has element not in UC | Detected via CMR cross-check | "Element [X] on wireframe corresponds to which rule in the UC doc?" |
-| UC does not reference CMR | No "(See CMR-xx)" annotations | "Does this UC apply [CMR-xx]? Is the behavior the same as described in CMR?" |
-| [NEW v2] Partial API failure not handled | Only has full-screen error handler | "When only [API-X] fails while [API-Y] succeeds, does the UI handle independently or block everything?" *(chỉ kiểm tra hành vi hiển thị phía client)* |
-| [NEW v2] Real-time has no fallback | Has real-time but no disconnection description | "When real-time connection is lost, does the UI notify the user? Is there a fallback polling mechanism?" |
-| [NEW v2] i18n missing persistence rule | Has language switch but doesn't say where it's stored | "Where is the selected language stored? Is it preserved after logout / reinstall?" |
-| [NEW v2] Double-tap / race condition | Has navigation but no debounce rule | "If the user taps [button X] twice rapidly, does the system navigate twice?" |
+| :--- | :--- | :--- |
+| No preconditions stated | UC starts directly at step 1 | "What must be true before [function] is triggered?" |
+| Vague actor | Only "user", no role distinction | "Which role is 'user' here? Does behavior differ by role?" |
+| Missing validation rules | Input fields with no constraints | "What does field [X] accept? Min / Max? Special characters? Exact error message?" |
+| Missing exact error messages | Only "display error" | "What is the exact message for [situation X]? Does it follow the global message catalog?" |
+| AC uses "should" / "can" | Criteria not measurable | "Can criterion [X] be a pass / fail statement?" |
+| Design element not in UC | Found in the UI cross-check | "Which UC rule governs element [X] on screen [NN]?" |
+| UC ignores a global rule | No reference to the SRS global BR | "Does this UC apply [BR-xxx]? Same behavior as the SRS?" |
+| UI Spec after the flows or missing | Flows reference screens not specified | "Where is the UI Specification for screen [X]?" |
+| REMOVE item still specified | FR / UC describes a `REMOVE` decision | "PD-[NNN] removes [X]; should FR-[…] be deleted or moved out of scope?" |
+| TBD written as final | Concrete value with no decision | "PD-[NNN] is TBD; who confirms [value], and until when is it an open question?" |
+| Reference behavior copied | Limits / copy from APK evidence with no decision | "Is [limit] from the reference app confirmed for the target, or TBD?" |
+| User Flow missing a journey | Journey in UCs not in any `UF-*` | "Which User Flow covers [journey]?" |
+| Activity missing a branch | Validation / failure path absent from `ACT-*` | "Should [failure branch] appear in ACT-[…]?" |
+| Partial API failure not handled | Only a full-screen error handler | "When only [call X] fails, does the UI handle it independently or block?" *(client behavior only)* |
+| Real-time has no fallback | Real-time / push with no disconnection rule | "When the connection drops, is the user told? Is there a fallback?" |
+| i18n persistence missing | Language switch with no storage rule | "Where is the language stored? Kept after logout / reinstall?" |
+| Double-tap / race condition | Navigation with no debounce rule | "If [button X] is tapped twice quickly, does the app navigate twice?" |
+
+**Not gaps:** a simple UC without a Sequence Diagram; no Ads / IAP section when monetization is not in target
+scope; a target behavior that deliberately differs from the reference app under a confirmed decision; one
+shared diagram covering several UCs with explicit references.

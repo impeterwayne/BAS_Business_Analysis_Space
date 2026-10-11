@@ -30,8 +30,8 @@ Communicate with the user in Vietnamese (see `ba-global-rules`).
 | `evidence-verifier` | Check finished competitor docs against captures and code | Alone, after writers |
 | `figma-analyst` | Read one flow of a Figma design (figma-mcp-android) into a design analysis | One at a time; one Figma Desktop |
 | `ba-researcher` | Domain rules, regulations, prior art, URL extraction | Yes |
-| `ba-brainstormer` | Options and trade-offs → feature brief | — |
-| `ba-spec-writer` | FSD, use cases, user stories, readiness reviews, test cases | Yes, one per deliverable |
+| `ba-brainstormer` | Product decisions from competitor / Figma / checklist evidence → decisions summary; options and trade-offs for a new idea → feature brief | — |
+| `ba-spec-writer` | SRS, use cases, diagrams, user stories, SRS / UC audits, test cases | Yes, one per deliverable |
 
 `invoke_subagent` takes an array, so N parallel spawns are one call:
 
@@ -49,9 +49,9 @@ invoke_subagent(Subagents=[
 | "phân tích app đối thủ X", "benchmark", "trích xuất checklist tính năng", `/ba-competitor`, `/ba-checklist` | 0 Competitor discovery | the competitor pipeline below |
 | a figma.com link, "viết SRS/PRD từ design", `/ba-figma` | 0 Design discovery | the Figma pipeline below |
 | "research X", a URL to extract, a tangled problem | 1 Research | `ba-researcher` |
-| "I want a feature that…", unclear scope, trade-offs | 2 Ideation | `ba-brainstormer` |
-| "write the FSD / use case / user stories / a template" | 3 Specification | `ba-spec-writer` |
-| "review UC", "is this ready for QA", "generate test cases" | 4 Handoff | `ba-spec-writer` |
+| "I want a feature that…", unclear scope, trade-offs, "app đối thủ khác Figma", "giữ hay bỏ tính năng này", "đã đủ để viết SRS chưa" | 2 Product decisions / ideation | `ba-brainstormer` |
+| "write the SRS / use case / user stories / a template" (or the legacy FSD) | 3 Specification | `ba-spec-writer` |
+| "review UC", "audit the SRS", "is this ready for Dev/QA", "generate test cases" | 4 Audit & handoff | `ba-spec-writer` |
 
 If a request carries two intents, name both and do them in order. If it fits none, ask.
 
@@ -61,7 +61,9 @@ If a request carries two intents, name both and do them in order. If it fits non
   source path, environments).
 - Competitor task: confirm app, flows in scope and which account to use. Never let a subagent create a real
   account or enter real personal data.
-- Spec work: confirm the Phase 2 decision exists (a `feature-brief` or an explicit user decision).
+- Spec work: confirm the Phase 2 decision exists — a Product Decision Summary under `docs/BA/decisions/` with
+  verdict READY FOR SRS, a `feature-brief`, or an explicit user decision. On NOT READY FOR SRS, send the blocking
+  `PD-*` items back to `ba-brainstormer` instead of dispatching the spec writer.
 
 ## The competitor pipeline
 
@@ -97,7 +99,7 @@ Follow `/ba-figma` (`.agents/workflows/ba-figma.md`). In short:
 | :--- | :--- | :--- | :--- |
 | 1. Analyse | `figma-analyst`, one flow per dispatch, one at a time | `docs/BA/figma/<feature>/` analysis + `screens/` | You read it: images exist, states swept, questions present |
 | 2. Confirm | you, with the user | — | User confirms or strikes `FR-DSN-*` / `BR-CAND-*` |
-| 3. Specify | `ba-spec-writer` (`specs analyze` or `user-stories`) | FSD, use cases, stories | Only confirmed candidates promoted |
+| 3. Specify | `ba-spec-writer` (`specs analyze` or `user-stories`) | SRS use cases (UI spec from the analysis), stories | Only confirmed candidates promoted |
 
 - **Figma Desktop is a single-holder resource**, like the device: the bridge serves the one file open in it.
 - The design is evidence, not a decision. Never let a spec writer promote a candidate the user has not confirmed.

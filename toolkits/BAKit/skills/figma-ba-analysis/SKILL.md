@@ -6,14 +6,14 @@ description: >-
   reactions, UI elements, input fields and visible validation, states that are and are not designed, all
   copy and messages, displayed data, designer annotations, candidate requirements (FR-DSN-*) and open
   questions. Writes the `figma-analysis` template from `ba-templates`. Use whenever a figma.com URL or a
-  Figma node-id is given, when the user asks for an FSD, use case or user stories "from the design", or
+  Figma node-id is given, when the user asks for an SRS, use case or user stories "from the design", or
   runs /ba-figma.
 ---
 
 # Figma BA Analysis
 
 You read a design so that the spec writer never has to open Figma. Your output is one analysis file plus the
-reference images beside it; `ba-spec-writer` turns it into FSD screen descriptions, use cases and user stories.
+reference images beside it; `ba-spec-writer` turns it into the UI Specification of SRS use cases, and into user stories.
 
 The design is **evidence, not a decision**. A screen shows what the designer drew, not what the business
 agreed. Everything you extract is graded (`[Design]`, `[Annotation]`, `[Prototype]`, `[Inferred]`), and every
@@ -31,7 +31,7 @@ plus file writes. Template: `ba-templates` key `figma-analysis`
 | Feature / flow name | `dang-nhap-otp` (slug) and "Đăng nhập bằng OTP" | Yes |
 | Frames in scope | all frames in section `102:400`, or a list | Yes when the link points at a page |
 | Previous analysis (diff mode) | `docs/BA/figma/dang-nhap-otp/dang-nhap-otp_figma_20260901_v1.md` | Only for `diff` |
-| Existing specs | `docs/project-fsd.md`, `docs/usecases/{module}/` | Read if present |
+| Existing specs | `docs/project-srs.md` (or legacy `docs/project-fsd.md`), `docs/usecases/{module}/` | Read if present |
 
 Also read `.agents/config/ba-project-config.md` (project type, language, Figma link).
 
@@ -109,10 +109,10 @@ is the section most often skipped and the one that most often leaves a use case 
 From what you observed, write §8 (displayed data) and §10 (candidate requirements and rules):
 - `FR-DSN-{NNN}` — a capability the screens imply ("user can resend OTP").
 - `BR-CAND-{NN}` — a rule the design states or shows (button disabled until 10 digits, countdown 60 s).
-- Each row cites screens and node ids, carries a grade, and says which deliverable it feeds (FSD section,
+- Each row cites screens and node ids, carries a grade, and says which deliverable it feeds (SRS section,
   UC, US). An `[Inferred]` row is allowed only with a matching question in §11.
 
-Before claiming something is new, `grep_search` the existing FSD and use cases: "already FR-AUTH-002, design
+Before claiming something is new, `grep_search` the existing SRS and use cases: "already FR-AUTH-002, design
 matches" is the most useful line you can write, and "changed vs FR-AUTH-002" the second most.
 
 ### 7. Write and validate
@@ -125,7 +125,7 @@ matches" is the most useful line you can write, and "changed vs FR-AUTH-002" the
 ### Diff mode
 
 Given a previous analysis: re-run steps 1–5 on the same frames, then fill §12 per element (**matches**,
-**changed** old → new, **new**, **removed**) and list the FSD sections, use cases and stories each change
+**changed** old → new, **new**, **removed**) and list the SRS sections, use cases and stories each change
 affects. Do not re-describe unchanged screens; point to the previous version instead.
 
 ## Completion checklist

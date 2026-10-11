@@ -3,7 +3,8 @@
 BA agents, skills, rules, slash workflows and a template catalog for an **Antigravity** workspace, plus
 registration of two MCP servers: **mobilerun**, so the agent can drive a competitor app on a connected Android
 device, and **figma-mcp-android**, so it can read the design open in Figma Desktop — and turn what it sees into
-BA documents (PRD / SRS: FSD, use cases, user stories).
+BA documents: Product Decision Summaries, an SRS with use cases and diagrams, user stories, audits and test
+cases.
 
 Deliverables are written in Vietnamese; skill, rule and workflow files are in English.
 
@@ -13,7 +14,7 @@ Deliverables are written in Vietnamese; skill, rule and workflow files are in En
 | :--- | :--- | :--- |
 | `agents/` | `.agents/agents/` | `ba-lead` (orchestrator, main agent), `code-scout`, `competitor-analyst`, `evidence-verifier`, `figma-analyst`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer` |
 | `agents-md/` | `AGENTS.md` (marked block) | Delegation rule: the main session plans and dispatches subagents with `invoke_subagent` |
-| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `apk-feature-extractor` (checklist normalization), `competitor-app-analysis`, `mobilerun`, `figma-ba-analysis`, `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`, `mermaidjs-v11`, `problem-solving`, `sequential-thinking` |
+| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `apk-feature-extractor` (checklist normalization), `competitor-app-analysis`, `mobilerun`, `figma-ba-analysis`, `product-decision`, `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`, `mermaidjs-v11`, `problem-solving`, `sequential-thinking` |
 | `rules/` | `.agents/rules/` | Always-on: `ba-global-rules`, `ba-workflow`, `ba-naming-convention`, `ba-device-automation`, `ba-figma`, `ba-markdown-formatting` |
 | `workflows/` | `.agents/workflows/` | `/ba-competitor`, `/ba-checklist`, `/ba-figma`, `/ba-template`, `/ba-spec`, `/ba-review`, `/ba-testcases`, `/ba-device-check` |
 | `config/` | `.agents/config/` | `ba-project-config.md` — created once, never overwritten or removed; fill it in and commit it |
@@ -25,7 +26,9 @@ Deliverables are written in Vietnamese; skill, rule and workflow files are in En
 **Mobilerun MCP (workspace plugin)** and/or **Figma MCP (workspace plugin)** to register the servers for this
 worktree.
 
-**Without BA Space** (PowerShell):
+BA Space installs BAKit from this UI on Windows, macOS and Linux; use it on macOS/Linux.
+
+**Without BA Space** (PowerShell, Windows only; there is no macOS/Linux script):
 
 ```powershell
 # toolkit files into a workspace, and register mobilerun for that workspace
@@ -52,7 +55,7 @@ mobilerun is registered **per workspace**, as an Antigravity plugin, so it only 
 
 Antigravity discovers plugins under the workspace's `.agents/` and launches the MCP servers they declare. A bare
 `.agents/mcp_config.json` is not read; the only other MCP location is the global
-`%USERPROFILE%\.gemini\config\mcp_config.json`, which applies to every workspace. If an older BAKit put
+`~/.gemini/config/mcp_config.json` (`%USERPROFILE%\.gemini\config\mcp_config.json` on Windows), which applies to every workspace. If an older BAKit put
 `mobilerun` there, BA Space offers to remove it when you tick the plugin, and the PowerShell installer warns.
 
 ### Zero-Setup Mobilerun Runner (`npx`)
@@ -72,6 +75,11 @@ Same plugin mechanism as mobilerun, at `<worktree>/.agents/plugins/figma/`:
 mcp_config.json    { "mcpServers": { "figma-mcp-android": { "command": "cmd", "args": ["/c", "npx", "-y", "@impeterwayne/figma-mcp-android@latest"] } } }
 ```
 
+That is the Windows form (`npx` is a `.cmd` shim there, which a bare spawn cannot start), and it is what
+`mcp/figma.mcp.json` holds. On macOS/Linux the command is `npx` directly:
+`{ "command": "npx", "args": ["-y", "@impeterwayne/figma-mcp-android@latest"] }`. BA Space writes the right
+form for the platform it runs on.
+
 It is the server AndroidHarnessAGY uses: a read-only bridge to the document open in **Figma Desktop**, no Figma
 API token. Prerequisites: Node.js 18+ (`npx`), Figma Desktop, and the bridge plugin imported once
 (Plugins → Development → Import plugin from manifest) and **running in the file** you want analysed. The server
@@ -87,7 +95,7 @@ the installer leave the workspace alone and the global one is used; BA Space nev
 | :--- | :--- | :--- |
 | 1. Analyse (one flow at a time) | `figma-analyst` (skill `figma-ba-analysis`) | `docs/BA/figma/<feature>/<feature>_figma_<date>_v<N>.md` + `screens/*.png` |
 | 2. Verify + confirm | `ba-lead` with the user | `FR-DSN-*` / `BR-CAND-*` confirmed or struck, questions answered |
-| 3. Specify | `ba-spec-writer` (`specs analyze` or `user-stories`) | FSD screens / flows / rules / data, use cases, user stories |
+| 3. Specify | `ba-spec-writer` (`specs analyze` or `user-stories`) | SRS use cases with the UI Specification, flows, rules and diagrams; user stories |
 
 The analysis (template `figma-analysis` in `ba-templates`) is BA-oriented, not a dev spec: screen inventory with
 reference images, screen flow from prototype reactions, elements, input fields and visible validation, designed
@@ -120,7 +128,8 @@ the project config, whose Competitor Apps table carries the jadx path in its **D
 command itself stays short: `/ba-competitor <package> <flows> [--code-only]`. If no index exists yet, one scout builds it
 alone before the parallel scouts start.
 
-`apk_index.py` needs Python 3.8+ on PATH (standard library only). Its ideas come from
+`apk_index.py` needs Python 3.8+ on PATH (standard library only), run as `python3` on macOS/Linux and `python` on
+Windows. Its ideas come from
 [apk-reverse](https://github.com/newliver666/apk-reverse) (MIT): orient with an index, not the decompiled
 export. The orchestration pattern (AGENTS.md block, six-part dispatch, scout barrier, verifier) comes from
 AndroidHarnessAGY.
@@ -132,9 +141,14 @@ AndroidHarnessAGY.
    `/ba-competitor <app> <flows>` (copied from BA Space) — code index, plan, evidence and competitor docs under
    `docs/BA/competitor/<app-slug>/`. Start a new Antigravity conversation after installing so `AGENTS.md`
    is loaded.
-3. Ask `ba-lead` to brainstorm the top `GAP-*` items → feature brief in `docs/BA/briefs/`.
-4. `/ba-spec analyze <brief>` → FSD + use cases; `/ba-template user-stories …` for backlog items.
-5. `/ba-review <UC folder>` → readiness score + question backlog; `/ba-testcases generate <module>`.
+3. `/ba-checklist` → Feature Checklist. Ask `ba-lead` to settle the product decisions for a feature
+   (`product-decision`: reference vs Figma, each item KEEP / MODIFY / REMOVE / NEW / TBD) → Product Decision
+   Summary in `docs/BA/decisions/` with a READY FOR SRS verdict. A new idea with no reference goes through
+   `brainstorm-features` → feature brief in `docs/BA/briefs/` instead.
+4. `/ba-spec analyze <decisions file or brief>` → SRS (`docs/project-srs.md`) + use cases with embedded UI
+   specification + User Flow / Activity diagrams; `/ba-template user-stories …` for backlog items.
+5. `/ba-review srs` (or a UC file / folder) → audit verdict + question backlog; Ready for Dev/QA handoff only with
+   no blocking P0. `/ba-testcases generate <module>` is optional.
 
 With a design instead (or as well): open the file in Figma Desktop, run the figma-mcp-android plugin, then
 `/ba-figma <figma url> <feature-slug>` → confirm the candidates → `/ba-figma … then spec` (or
@@ -142,6 +156,9 @@ With a design instead (or as well): open the file in Figma Desktop, run the figm
 
 ## Provenance
 
+- `product-decision`, the SRS mode of `specs` (SRS / use case templates, hybrid diagram policy), the mobile SRS
+  audit in `BA-audit-SRS` and the source-of-truth rules in `ba-workflow` come from the 2026-10 baskill update of
+  the same kit, adapted the same way; its Product Decision Summary was given a template and a versioned file.
 - `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`,
   `mermaidjs-v11`, `problem-solving`, `sequential-thinking`, and the markdown formatting rule come from
   `D:\Quest\BA_Flow\.agents`. They were adapted for Antigravity: no Claude-Code-only tools
@@ -153,7 +170,7 @@ With a design instead (or as well): open the file in Figma Desktop, run the figm
   Compose / XML implementation spec to PRD / SRS input.
 - Templates in `ba-templates/templates/` were rewritten with bilingual headings from the BA_Flow `specs` /
   `test-cases` templates, plus new competitor-analysis templates.
-- Not included from BA_Flow: `ba-architect`, `ba-auditor`, `ba-challenger`, `Document-skills`,
-  `global-impact-analyzer`, `requirement-analysis`, `rules/business_rules.md`, `rules/collaboration_rules.md`
+- Not included from BA_Flow / baskill: `ba-architect`, `ba-auditor`, `ba-challenger`, `Document-skills`,
+  `global-impact-analyzer`, `use-case-writer`, `requirement-analysis`, `rules/business_rules.md`, `rules/collaboration_rules.md`
   (tied to one client project and its data), the `qc-*` skills (QC-team duplicates of the BA audits), and
   `docx` / `pdf` (Anthropic-licensed, not redistributable).

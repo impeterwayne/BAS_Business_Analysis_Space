@@ -32,7 +32,7 @@ end (SYNTHESIZE), and `evidence-verifier` checks the result. Run alone, do all p
 | App | `"MoMo"` or `com.mservice.momotransfer` | Yes |
 | Flows in scope | onboarding, login, transfer money, search | Yes (default: onboarding + primary navigation) |
 | Account | guest / test account provided by user | Yes — never create a real account yourself |
-| Our product reference | `docs/project-fsd.md`, a Figma link, or "none" | Only for the comparison step |
+| Our product reference | `docs/project-srs.md` (or legacy `docs/project-fsd.md`), a Figma link, or "none" | Only for the comparison step |
 | Decoded source | ReaKit `…/<package>/jadx_src` | No — without it the survey is black-box |
 
 Also read `.agents/config/ba-project-config.md` → **Competitor Apps** table; it may already hold the
@@ -114,7 +114,7 @@ When running without a device (`--code-only` or `--no-device`):
 3. **App profile** (`competitor-profile`): generated from `_meta.md`, `tech.md`, `packages.md`, and `screens.md`. Feature catalog `CF-NNN` covers all discovered feature modules.
 4. **Comparison / gap** (`comparison-gap`): compares competitor code capabilities directly against our reference. Every proposal is marked `[Code]` or `[Inferred]`.
 
-Candidates (`FR-CAND-NNN`) are proposals; they enter the FSD only after the user confirms (then run `specs analyze`).
+Candidates (`FR-CAND-NNN`) are proposals; they enter the SRS only after the user confirms them, usually through a `product-decision` summary (then run `specs analyze`).
 
 ### Phase 3 — Close
 

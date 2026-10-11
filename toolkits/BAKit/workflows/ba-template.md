@@ -1,5 +1,5 @@
 ---
-description: Write a BA document from the BAKit template catalog (FSD, use case, user stories, feature brief, test case, competitor docs, gap analysis)
+description: Write a BA document from the BAKit template catalog (SRS, legacy FSD, use case, product decision summary, user stories, feature brief, test case, competitor docs, gap analysis)
 ---
 
 Write one BA deliverable from a template.
@@ -12,7 +12,8 @@ If `<key>` is omitted or unknown, list the catalog keys from `.agents/skills/ba-
 **Steps**
 
 1. **Resolve the template** via the catalog in `ba-templates`. For keys owned by another skill, hand over to it:
-   - `fsd`, `use-case` → `specs`
+   - `srs`, `fsd`, `use-case` → `specs`
+   - `product-decision` → `product-decision`
    - `test-case`, `test-config`, `test-summary` → `test-cases`
    - `readiness-review` → `BA-audit-SRS`; `question-backlog` → `BA-audit-QnA`
    - `competitor-*`, `comparison-gap` → `competitor-app-analysis` (needs device evidence first)

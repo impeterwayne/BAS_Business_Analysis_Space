@@ -12,7 +12,7 @@ Turn ideas into fully formed designs and specs through collaborative Socratic di
 
 > **Scope:** Feature ideation, product design, UX decisions, requirement refinement, spec writing. For hard, tangled problems, run `problem-solving` / `sequential-thinking` first.
 
-**IMPORTANT:** Do NOT implement anything. Do NOT invoke implementation skills. The ONLY transition is to `specs analyze` (FSD + use cases).
+**IMPORTANT:** Do NOT implement anything. Do NOT invoke implementation skills. The ONLY transition is to `specs analyze` (SRS + use cases). When a competitor app, Figma design or Feature Checklist already exists for the feature, use `product-decision` instead.
 
 ## When to Trigger
 
@@ -129,7 +129,7 @@ Fix issues inline. No need to re-review — just fix and move on.
 
 ### Phase 8: User Review Gate
 
-> "Spec written to `<path>`. Please review and let me know if you want changes before we write the FSD and use cases."
+> "Spec written to `<path>`. Please review and let me know if you want changes before we write the SRS and use cases."
 
 Wait for user response. If changes requested, make them and re-run self-review. Only proceed once approved.
 

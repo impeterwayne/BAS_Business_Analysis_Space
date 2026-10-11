@@ -1,5 +1,5 @@
-# UC Readiness Review
-**Functional / Black-box Test Readiness Template**
+# Rà soát mức sẵn sàng Use Case (UC Readiness Review)
+**Mẫu đánh giá sẵn sàng cho Functional / Black-box Test (Functional / Black-box Test Readiness Template)**
 
 ---
 
@@ -11,24 +11,28 @@
 > - ✅ **Complete** = section is fully populated and no longer ambiguous
 > - ⚡ **Partial** = contains content but requires further clarification
 > - ⚠️ **Missing** = absent — BLOCKER, cannot start test design
+>
+> **Language:** write the content in Vietnamese with English terminology (`ba-global-rules`); quote on-screen labels and messages verbatim in their original language with an English translation in parentheses. Keep the bilingual headings `Tiếng Việt (English)` as they are.
+>
+> **Used by:** Mobile Single UC audits (`mobile_first-audit-workflow.md` Step 9) and Web/Report UC audits (`first-audit-workflow.md`). A Full SRS / module audit uses `mobile_srs_readiness_review_template.md` instead.
 
 ---
 
-## Feature Brief
+## Tóm tắt tính năng (Feature Brief)
 
 *(Summarize the feature based on all read documents. Include: what the feature is, who uses it, how it works, key business rules, and known exceptions.)*
 
 ---
 
-## Readiness Verdict
+## Kết luận sẵn sàng (Readiness Verdict)
 
-| Overall Score | Verdict |
+| Điểm tổng (Overall Score) | Kết luận (Verdict) |
 | ------------- | ------- |
 | `XX / 100` | [✅ READY / ⚠️ CONDITIONALLY READY / ❌ NOT READY] |
 
 ---
 
-## 0. Document Metadata
+## 0. Thông tin tài liệu (Document Metadata)
 
 | UC-ID | Feature Name | Version | Status |
 |-------|-------------|---------|--------|
@@ -40,20 +44,20 @@
 
 ---
 
-## 1. Objective & Scope
+## 1. Mục tiêu & Phạm vi (Objective & Scope)
 
-### 1.1 Objective
+### 1.1 Mục tiêu (Objective)
 *(Describe WHY this feature exists. What business problem does it solve? Who benefits? Write 1–3 concise sentences.)*
 
-### 1.2 In Scope
+### 1.2 Trong phạm vi (In Scope)
 *(List every function / sub-use-case covered in this UC. Use one line per item or bullet points.)*
 
-### 1.3 Out of Scope
+### 1.3 Ngoài phạm vi (Out of Scope)
 *(Clearly list what is NOT covered in this UC. If nothing is excluded, write "None.")*
 
 ---
 
-## 2. Actors & Stakeholders
+## 2. Tác nhân & Stakeholder (Actors & Stakeholders)
 
 | Actor | Type | Role & Permissions |
 |-------|------|-------------------|
@@ -62,13 +66,13 @@
 
 ---
 
-## 3. Preconditions & Postconditions
+## 3. Tiền điều kiện & Hậu điều kiện (Preconditions & Postconditions)
 
-### 3.1 Preconditions
+### 3.1 Tiền điều kiện (Preconditions)
 *(List every condition that must be true before the flow begins. One condition per line.)*
 - *(e.g., The admin has successfully authenticated.)*
 
-### 3.2 Postconditions
+### 3.2 Hậu điều kiện (Postconditions)
 | After completing... | System state / Postcondition |
 |--------------------|------------------------------|
 | *(e.g., Add record)* | *(e.g., New record appears at the top of the list. Success message is displayed.)* |
@@ -76,7 +80,7 @@
 
 ---
 
-## 4. UI Object Inventory & Mapping
+## 4. Danh mục & ánh xạ thành phần UI (UI Object Inventory & Mapping)
 
 > **Instructions:** Extract and catalog **every atomic UI component** from the Design Mockup. **One component = one row.** Do NOT collapse multiple inputs/buttons/columns into a single row.
 >
@@ -94,7 +98,7 @@
 
 ---
 
-## 5. Object Attributes & Behavior Definition
+## 5. Thuộc tính & hành vi của thành phần (Object Attributes & Behavior Definition)
 
 > **Instructions:** Determine the state and response of each UI object based on specific system conditions.
 
@@ -106,11 +110,11 @@
 
 ---
 
-## 6. Functional Logic & Workflow Decomposition
+## 6. Logic chức năng & phân rã luồng (Functional Logic & Workflow Decomposition)
 
 > **Instructions:** Analyze in detail the business processes of each function available on the feature screen. Duplicate the block below for each major sub-function (e.g., 6.1 View List, 6.2 Create Record).
 
-### 6.1 Function Name: *(e.g., Create New Record)*
+### 6.1 Tên chức năng (Function Name): *(e.g., Create New Record)*
 
 **A. Workflows**
 | Step | Actor | Action | System Response (Happy Path) | Alternative Flows | Exception & Error Flows |
@@ -120,7 +124,7 @@
 
 **B. Business Rules & Validations**
 
-> If the source UC references an error code (e.g., `MSG_E001`) or a common business rule ID (e.g., `BR_xxx`), do NOT keep the bare code here — resolve it to the **exact original text** from `docs/BA/SRS-report/CMR/Bảng thông báo lỗi.docx` (for messages) or `docs/BA/SRS-report/CMR/Quy tắc nghiệp vụ chung.docx` (for rules), and write the full text in the cell. Keep the original code in parentheses for traceability.
+> If the source UC references an error code (e.g., `MSG_E001`) or a common business rule ID (e.g., `BR-012`, `BR_xxx`), do NOT keep the bare code here — resolve it to the **exact original text** from the project's common source: the global business rules / message catalog of `docs/project-srs.md` (legacy `docs/project-fsd.md`), or, in legacy Web/Report projects, `docs/BA/SRS-report/CMR/Bảng thông báo lỗi.docx` (messages) / `docs/BA/SRS-report/CMR/Quy tắc nghiệp vụ chung.docx` (rules). Write the full text in the cell and keep the original code in parentheses for traceability.
 
 | Field / Object | Required | Format / Constraint | Min / Max | Error Message *(exact text)* |
 |----------------|----------|---------------------|-----------|-------------------------------|
@@ -133,11 +137,11 @@
 
 * **Loading States:** *(e.g., Spinner on 'Save' button during submission.)*
 * **Toast Messages:** *(e.g., Success: "Record created successfully". Error: "Failed to connect to server".)*
-* **Error Codes:** *(e.g., `MSG_E020` → "Hệ thống đang bận, vui lòng thử lại sau" — exact text from `Bảng thông báo lỗi.docx`.)*
+* **Error Codes:** *(e.g., `MSG_E020` → "Hệ thống đang bận, vui lòng thử lại sau" (The system is busy, please try again later) — exact text from the message catalog.)*
 
 ---
 
-## 7. Functional Integration Analysis
+## 7. Phân tích tích hợp chức năng (Functional Integration Analysis)
 
 > **Instructions:** Analyze and evaluate the linkages and influences between the cataloged functions, acting as an integration check between functions.
 
@@ -149,7 +153,7 @@
 
 ---
 
-## 8. Acceptance Criteria
+## 8. Tiêu chí chấp nhận (Acceptance Criteria)
 
 > **Instructions:** Acceptance criteria must be written in a verifiable pass/fail format, using the Given / When / Then structure.
 
@@ -160,7 +164,7 @@
 
 ---
 
-## 9. Non-functional Requirements
+## 9. Yêu cầu phi chức năng (Non-functional Requirements)
 
 | Category | Requirement | Source / Reference |
 |----------|-------------|-------------------|
@@ -171,19 +175,30 @@
 
 ---
 
-## 10. Open Questions & Dependencies
+## 10. Câu hỏi mở & phụ thuộc (Open Questions & Dependencies)
 
-### 10.1 Open Questions
+### 10.1 Câu hỏi mở (Open Questions)
 | # | Question / Issue | Context | Owner | Status |
 |---|-----------------|---------|-------|--------|
 | Q1 | *(e.g., Is drag-and-drop reordering in scope?)* | *(e.g., Wireframe conflict.)* | *(e.g., PO)* | *(Open)* |
 
-### 10.2 Dependencies
+### 10.2 Phụ thuộc (Dependencies)
 *(List any UC, feature, API, or external system that this UC depends on.)*
+
+### 10.3 Căn chỉnh Product Decision & sơ đồ (Product Decision & Diagram Alignment)
+
+> **Instructions:** Mobile audits only — Web/Report audits write `N/A`. Summarize `mobile_first-audit-workflow.md` Steps 6–7 for this UC. Not scored separately in the 110-point table; every gap here also goes into the Unified Gap & Question Report, and an open P0 makes the verdict NOT READY.
+
+| Hạng mục (Item) | Nguồn (Source) | Trạng thái (Status) | Ghi chú (Notes) |
+|-----------------|----------------|---------------------|-----------------|
+| *(e.g., PD-003 MODIFY — OTP resend limit)* | *(e.g., `docs/BA/decisions/dang-nhap-otp_decisions_20261010_v2.md`)* | *(✅ Reflected / ⚡ Partial / ⚠️ Missing / 🔴 Conflict)* | *(e.g., UC still shows the reference limit of 3 resends.)* |
+| *(e.g., User Flow UF-AUTH-001)* | *(e.g., `docs/diagrams/auth/uf-auth-001.md`)* | *(✅ Covers UC / ⚠️ Journey missing)* | *(e.g., Entry from deep link not shown.)* |
+| *(e.g., Activity ACT-AUTH-002)* | *(e.g., `docs/diagrams/auth/act-auth-002.md`)* | *(✅ / ⚠️ Branch missing)* | *(e.g., OTP expired branch absent.)* |
+| *(e.g., Sequence)* | *(—)* | *(N/A — simple UC, not required)* | |
 
 ---
 
-## 11. Change Log
+## 11. Lịch sử thay đổi (Change Log)
 
 | Version | Date | Author | Summary of Changes |
 |---------|------|--------|--------------------|

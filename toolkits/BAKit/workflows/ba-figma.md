@@ -1,5 +1,5 @@
 ---
-description: Read a Figma design (figma-mcp-android) into a BA design analysis, then write PRD / SRS content (FSD, use cases, user stories) from it
+description: Read a Figma design (figma-mcp-android) into a BA design analysis, then write SRS content (use cases with UI specification, diagrams, user stories) from it
 ---
 
 Turn a Figma design into BA deliverables.
@@ -22,13 +22,13 @@ Paths below use `<dir>` = `docs/BA/figma/<feature-slug>/`.
      which frames. Convert node ids (`102-456` → `102:456`).
    - Feature slug (ASCII, kebab-case) and its real name with diacritics. Ask if missing.
    - Remind the user once: Figma Desktop must have the file open and the **figma-mcp-android plugin running**.
-   - Existing specs: list `docs/project-fsd.md`, `docs/usecases/`, and earlier analyses under `<dir>` (a rerun
+   - Existing specs: list `docs/project-srs.md` (or legacy `docs/project-fsd.md`), `docs/usecases/`, and earlier analyses under `<dir>` (a rerun
      writes the next `v[N]`; `diff` needs the previous one).
 
 2. **Analyse — one `figma-analyst` dispatch per flow.** The bridge serves one Figma Desktop session, so do not
    run two analysts at once. The brief carries the six sections (TASK, EXPECTED OUTCOME, MUST DO, MUST NOT DO,
    CONTEXT, SKILLS) and names: the link and node ids, the frames in scope, the feature slug and name, `<dir>`
-   with the absolute workspace root (forward slashes) for `save_screenshots`, the existing FSD / use case paths
+   with the absolute workspace root (forward slashes) for `save_screenshots`, the existing SRS / use case paths
    to check against, and `diff` with the previous analysis when given.
    If the analyst returns a proposed split instead of a full analysis, show it to the user and dispatch the
    next part only after they agree.
@@ -46,10 +46,13 @@ Paths below use `<dir>` = `docs/BA/figma/<feature-slug>/`.
    candidates the user has not struck.
 
 5. **Write the deliverable (only on `then …` or the user's go-ahead) — one `ba-spec-writer` dispatch.**
-   - `then spec` → `specs analyze` with the analysis as input: FSD §1 requirements, §2 Screen Descriptions
-     (one per screen, citing the reference image), §3 Screen Flows (from analysis §3), §5 Data Models (from §8),
-     §6 Business Rules (from confirmed `BR-CAND-*`), and one use case per user goal, whose alternative and
-     exception flows come from the analysis §6 states and §5 validation.
+   - `then spec` → `specs analyze` with the analysis as input: SRS §6 functional requirements, §4 Business
+     Rules (from confirmed `BR-CAND-*`), the §5 User Flow (from analysis §3), and one use case per user goal.
+     Each use case carries a UI Specification subsection per screen it serves (citing the node link and
+     reference image), and its alternative and exception flows come from the analysis §6 states and §5
+     validation. When the design conflicts with competitor evidence or a checklist, run `product-decision`
+     (`ba-brainstormer`) first. In legacy FSD mode the same content goes into Screen Descriptions, Screen
+     Flows and Data Models.
    - `then stories` → `ba-templates` `user-stories`, one story per confirmed `FR-DSN-*`, Given/When/Then from
      §4 actions and §5 / §6.
    - Confirmed candidates become `FR-{MOD}-{NNN}` / `BR-{NNN}`; keep `FR-DSN-*` in the `Nguồn (Source)` column.
@@ -57,4 +60,4 @@ Paths below use `<dir>` = `docs/BA/figma/<feature-slug>/`.
    - Open questions from §11 go into each use case's Open Questions section.
 
 6. **Report**: deliverables written, version bumps, what was left out and why, and the next step
-   (`/ba-review <UC folder>` for readiness). Do not auto-advance.
+   (`/ba-review` on the SRS or the UC folder). Do not auto-advance.

@@ -42,7 +42,7 @@ Read the user's input after the command:
 - TC template: `.agents/skills/ba-templates/templates/test-case.md`
 - Summary template: `references/templates/test-summary-template.md`
 - Input UCs: `docs/usecases/{module}/*.md`
-- Input FSD: `docs/project-fsd.md`
+- Input SRS: `docs/project-srs.md` (or legacy `docs/project-fsd.md`)
 - Output TCs: `docs/testcases/{module}/tc-{module}-{nnn}-{slug}.md`
 - Output summary: `docs/testcases/test-summary.md`
 - Output config: `docs/testcases/test-config.md` (created once on first generate, manually maintained after)

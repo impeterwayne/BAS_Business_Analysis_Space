@@ -12,8 +12,8 @@ Supports two execution branches:
 Examples:
 - `/ba-competitor com.mservice.momotransfer chuyen-tien` (Auto-detects device: uses `mobilerun` if device is connected, falls back to code-only if no device)
 - `/ba-competitor com.mservice.momotransfer chuyen-tien --code-only` (Forces static code-only analysis without touching any device or `mobilerun`)
-- `/ba-competitor MoMo onboarding login compare docs/project-fsd.md --no-device`
-- `/ba-competitor com.mservice.momotransfer chuyen-tien --code D:/RE/workspaces/com.mservice.momotransfer/jadx_src`
+- `/ba-competitor MoMo onboarding login compare docs/project-srs.md --no-device`
+- `/ba-competitor com.mservice.momotransfer chuyen-tien --code <workspaces>/com.mservice.momotransfer/jadx_src`
 
 (`--code` is optional: the jadx root normally comes from the config; write it with forward slashes, no quotes).
 
@@ -34,7 +34,7 @@ Paths below use `<dir>` = `docs/BA/competitor/<app-slug>/`.
    - **Branch Selection**:
      - If `--code-only` or `--no-device` is passed → **Branch 2 (Static / Code-Only)**. Requires decoded source.
      - Otherwise, check for device readiness (`ping_device` or `adb devices`). If connected and awake → **Branch 1 (Hybrid with `mobilerun`)**. If no device is connected, notify the user and seamlessly fall back to **Branch 2 (Static / Code-Only)**.
-   - **Write every path you pass to a subagent with forward slashes** (`D:/RE/…/jadx_src`).
+   - **Write every path you pass to a subagent with forward slashes** (`<workspaces>/…/jadx_src`).
 
 ---
 

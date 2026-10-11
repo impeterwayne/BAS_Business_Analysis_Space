@@ -6,7 +6,7 @@ Health-check the device pipeline before `/ba-competitor`.
 
 **Steps**
 
-1. Call `ping_device`. If the `mobilerun` tools are not available at all, tell the user the MCP server is not registered: open BA Space → Agent Toolkit → BAKit → "Mobilerun MCP (Antigravity)", or run `toolkits/BAKit/scripts/install-bakit.ps1 -RegisterMcp`, then restart the Antigravity agent.
+1. Call `ping_device`. If the `mobilerun` tools are not available at all, tell the user the MCP server is not registered: open BA Space → Agent Toolkit → BAKit → "Mobilerun MCP (Antigravity)", or (Windows only) run `toolkits/BAKit/scripts/install-bakit.ps1 -RegisterMcp`, then restart the Antigravity agent. On macOS/Linux there is no install script: BA Space installs BAKit and registers the server from its UI on every platform.
 2. Call `get_device_status` and report: serial, screen size, power state (`awake`?), foreground app, battery.
 3. If `ping_device` fails, call `doctor` and summarise its findings. Common fixes:
    - `device_unreachable` → `adb devices`; set `MOBILERUN_DEVICE` in the MCP config when several devices are attached.

@@ -167,11 +167,11 @@ Goal: Perform an Action or Navigate
 ## 5. Troubleshooting & Health Checks
 
 - **Check ADB Connection**:
-  ```powershell
+  ```bash
   adb devices -l
   ```
 - **Verify Portal Accessibility Service**:
-  ```powershell
+  ```bash
   adb shell settings get secure enabled_accessibility_services
   ```
   Should contain `com.mobilerun.portal/com.mobilerun.portal.service.MobilerunAccessibilityService`.

@@ -30,7 +30,7 @@ You change nothing: you report defects and who owns them.
 
 - **Confirm a path before opening it.** `list_dir` the parent first; open only files it lists. `view_file` on a
   missing file is a hard error, not an empty result.
-- **Paths with forward slashes** in every tool argument (`D:/RE/app/jadx_src/...`), never backslashes.
+- **Paths with forward slashes** in every tool argument (`<workspaces>/<package>/jadx_src/...`), never backslashes.
 - **After a tool error, make a different real tool call** (`list_dir`, a narrower `grep_search`, `run_command`)
   or stop and report the error in your results block. Never write a tool call out as text such as
   `call:default_api:list_dir{...}`: it is not executed and the run fails.

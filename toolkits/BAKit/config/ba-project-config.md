@@ -65,11 +65,13 @@ Used by `competitor-app-analysis` / `/ba-competitor`. One row per app to benchma
 | Extracted / audited requirements, question backlogs | `docs/BA/SRS-report/[UC-folder]/` |
 | Research notes | `docs/BA/research/` |
 | Feature briefs | `docs/BA/briefs/` |
+| Product Decision Summaries | `docs/BA/decisions/` |
 | User stories | `docs/BA/stories/` |
 | Competitor analysis | `docs/BA/competitor/[app-slug]/` |
 | Figma design analysis | `docs/BA/figma/[feature-slug]/` |
-| FSD | `docs/project-fsd.md` |
+| SRS | `docs/project-srs.md` (legacy FSD: `docs/project-fsd.md`) |
 | Use cases | `docs/usecases/[module]/` |
+| Diagram sources | `docs/diagrams/[module]/` |
 | Test cases | `docs/testcases/[module]/` |
 
 ## 7. Pipeline Settings
