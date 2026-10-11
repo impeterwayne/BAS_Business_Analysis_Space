@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
@@ -51,7 +53,7 @@ class ScrcpyBridge:
         max_fps: int | None = None,
         extra_args: list[str] | None = None,
     ) -> int:
-        """Launches interactive desktop screen mirroring using bundled scrcpy.exe."""
+        """Launches interactive desktop screen mirroring using the bundled scrcpy executable."""
         scrcpy_exe = self.scrcpy_dir / ("scrcpy.exe" if os.name == "nt" else "scrcpy")
         if not scrcpy_exe.exists():
             scrcpy_exe_path = shutil.which("scrcpy")

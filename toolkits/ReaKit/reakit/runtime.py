@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import os
 import shlex
 import subprocess
 from pathlib import Path
 from reakit.config import ConfigManager
+from reakit.env import find_adb
 from reakit.utils import (
     extract_package_name,
     get_safe_relative_parts,
@@ -16,29 +19,45 @@ from reakit.utils import (
 class RuntimeExtractor:
     def __init__(self, config_mgr: ConfigManager | None = None):
         self.config_mgr = config_mgr or ConfigManager()
+        self.adb = "adb"  # replaced by the find_adb() result in extract_package
+
+    def _adb_missing(self, exc: OSError):
+        log_error(
+            f"Could not run adb ({self.adb}): {exc}. Install Android platform-tools, or set ADB_PATH / ANDROID_HOME, "
+            "then run 'rea env'."
+        )
 
     def _run_cmd(self, cmd: list[str] | str) -> tuple[str, str, int]:
         """Runs a subprocess command and returns (stdout, stderr, returncode)."""
-        if isinstance(cmd, list):
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        else:
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        try:
+            if isinstance(cmd, list):
+                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            else:
+                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        except OSError as exc:  # FileNotFoundError / PermissionError: adb missing or not executable
+            self._adb_missing(exc)
+            return "", str(exc), 127
         return res.stdout.strip(), res.stderr.strip(), res.returncode
 
     def _pull_file(self, package_name: str, remote_path: str, local_path: Path, access_mode: str) -> bool:
         """Pulls a single remote file using the determined privilege access mode."""
+        adb = self.adb
         if access_mode == "native_root":
-            pull_cmd = ["adb", "exec-out", "cat", remote_path]
+            pull_cmd = [adb, "exec-out", "cat", remote_path]
         elif access_mode == "su":
-            pull_cmd = ["adb", "exec-out", "su", "-c", f"cat {shlex.quote(remote_path)}"]
+            pull_cmd = [adb, "exec-out", "su", "-c", f"cat {shlex.quote(remote_path)}"]
         elif access_mode == "shell":
-            pull_cmd = ["adb", "exec-out", "cat", remote_path]
+            pull_cmd = [adb, "exec-out", "cat", remote_path]
         else:
-            pull_cmd = ["adb", "exec-out", "run-as", package_name, "cat", remote_path]
+            pull_cmd = [adb, "exec-out", "run-as", package_name, "cat", remote_path]
 
         ensure_dir(local_path.parent)
         with open(local_path, "wb") as f:
-            res = subprocess.run(pull_cmd, stdout=f, stderr=subprocess.PIPE)
+            try:
+                res = subprocess.run(pull_cmd, stdout=f, stderr=subprocess.PIPE)
+            except OSError as exc:
+                self._adb_missing(exc)
+                return False
             return res.returncode == 0
 
     def _extract_tree(
@@ -88,36 +107,45 @@ class RuntimeExtractor:
         log_info(f"External output directory: {external_out}")
 
         # Check adb connection
-        _, _, ret = self._run_cmd(["adb", "devices"])
+        adb_path = find_adb()
+        if not adb_path:
+            log_error(
+                "adb was not found (checked ADB_PATH, ANDROID_HOME, ANDROID_SDK_ROOT, the default Android SDK folder, "
+                "the bundled scrcpy copy and PATH). Install Android platform-tools or set ADB_PATH."
+            )
+            return False
+        self.adb = adb = str(adb_path)
+
+        _, _, ret = self._run_cmd([adb, "devices"])
         if ret != 0:
-            log_error("ADB not found or not working. Make sure ADB is running and in PATH.")
+            log_error(f"ADB not working ({adb}). Make sure the ADB server can start and a device is connected.")
             return False
 
         base_dir = f"/data/data/{pkg}"
 
         # Elevate ADB daemon
         log_info("Elevating ADB daemon to root...")
-        self._run_cmd(["adb", "root"])
+        self._run_cmd([adb, "root"])
 
         is_native_root = False
         is_su = False
 
         # 1. Check native root
-        stdout, stderr, ret = self._run_cmd(["adb", "shell", "find", base_dir, "-type", "f"])
+        stdout, stderr, ret = self._run_cmd([adb, "shell", "find", base_dir, "-type", "f"])
         if not stderr and ret == 0 and stdout:
             log_success("Native 'adb root' access confirmed.")
             is_native_root = True
         else:
             # 2. Check Magisk su
             su_cmd = f"su -c 'find {base_dir} -type f'"
-            stdout, stderr, ret = self._run_cmd(f'adb shell "{su_cmd}"')
+            stdout, stderr, ret = self._run_cmd([adb, "shell", su_cmd])
             if ret == 0 and stdout and "Permission denied" not in stderr:
                 log_success("Magisk 'su' access confirmed.")
                 is_su = True
             else:
                 # 3. Fallback to run-as
                 log_info("Root unavailable. Attempting 'run-as' fallback...")
-                stdout, stderr, ret = self._run_cmd(["adb", "shell", "run-as", pkg, "find", base_dir, "-type", "f"])
+                stdout, stderr, ret = self._run_cmd([adb, "shell", "run-as", pkg, "find", base_dir, "-type", "f"])
 
         if not stdout or "is not debuggable" in stderr or "Permission denied" in stderr:
             log_warn("Sandbox access blocked. Ensure app is installed, device is rooted, or app is debuggable.")
@@ -134,7 +162,7 @@ class RuntimeExtractor:
             f"/storage/emulated/0/Android/data/{pkg}",
         ]
         for ext_dir in external_base_dirs:
-            ext_stdout, ext_stderr, ext_ret = self._run_cmd(["adb", "shell", "find", ext_dir, "-type", "f"])
+            ext_stdout, ext_stderr, ext_ret = self._run_cmd([adb, "shell", "find", ext_dir, "-type", "f"])
             if ext_ret == 0 and ext_stdout and "No such file or directory" not in ext_stderr:
                 log_info(f"External runtime files detected under {ext_dir}")
                 self._extract_tree(pkg, "external", ext_dir, external_out, ext_stdout, "shell")

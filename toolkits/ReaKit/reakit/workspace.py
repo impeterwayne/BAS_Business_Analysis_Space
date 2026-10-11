@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from reakit.config import ConfigManager, find_targets_file

@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import os
 import sys
 import shutil
+import platform
 import subprocess
 from pathlib import Path
 from reakit.utils import Colors, log_info, log_success, log_warn, log_error
@@ -26,21 +29,111 @@ def find_scrcpy_dir() -> Path | None:
                 return item
     return None
 
+APKD_BUNDLED_BINARIES = ("apkd-darwin-arm64", "apkd-darwin-amd64", "apkd-linux-amd64")
+
+def _apkd_candidate_names() -> list[str]:
+    """Returns apkd binary names to look for, most specific to the current OS/arch first."""
+    if os.name == "nt":
+        return ["apkd.exe"]
+
+    machine = platform.machine().lower()
+    goarch = {"x86_64": "amd64", "amd64": "amd64", "arm64": "arm64", "aarch64": "arm64"}.get(machine, machine)
+    if sys.platform == "darwin":
+        goos = "darwin"
+    elif sys.platform.startswith("linux"):
+        goos = "linux"
+    else:
+        goos = sys.platform
+
+    names = [f"apkd-{goos}-{goarch}"]
+    if goos == "darwin" and goarch == "arm64":
+        # Apple Silicon can run the amd64 build under Rosetta; Intel Macs cannot run arm64
+        names.append("apkd-darwin-amd64")
+    names.append("apkd")
+    return names
+
+def _ensure_executable(path: Path):
+    """Adds the +x bit on POSIX; bundled binaries can lose it when copied or unpacked."""
+    if os.name == "nt":
+        return
+    try:
+        path.chmod(path.stat().st_mode | 0o755)
+    except OSError:
+        pass
+
 def find_apkd_bin() -> Path | None:
-    """Finds the apkd binary across bundled paths and PATH."""
-    apkd_name = "apkd.exe" if os.name == "nt" else "apkd"
-    candidates = [
-        CORE_DIR / "apkdgo" / "bin" / apkd_name,
-        CORE_DIR / "apkdgo" / "apkd" / apkd_name,
-        CORE_DIR / "apkdgo" / apkd_name,
+    """Finds the apkd binary for this OS/arch across bundled paths and PATH."""
+    search_dirs = [
+        CORE_DIR / "apkdgo" / "bin",
+        CORE_DIR / "apkdgo" / "apkd",
+        CORE_DIR / "apkdgo",
     ]
-    for cand in candidates:
-        if cand.is_file():
-            return cand
-    which_p = shutil.which(apkd_name)
+    for name in _apkd_candidate_names():
+        for d in search_dirs:
+            cand = d / name
+            if cand.is_file():
+                _ensure_executable(cand)
+                return cand
+    which_p = shutil.which("apkd.exe" if os.name == "nt" else "apkd")
     if which_p and Path(which_p).is_file():
         return Path(which_p)
     return None
+
+def find_adb() -> Path | None:
+    """Locates adb: ADB_PATH, the Android SDK, the per-OS default SDK, the bundled scrcpy copy, then PATH."""
+    adb_name = "adb.exe" if os.name == "nt" else "adb"
+
+    explicit = os.environ.get("ADB_PATH", "").strip().strip('"')
+    if explicit:
+        if Path(explicit).is_file():
+            return Path(explicit)
+        which_explicit = shutil.which(explicit)
+        if which_explicit:
+            return Path(which_explicit)
+
+    candidates = []
+    for var in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
+        sdk = os.environ.get(var, "").strip().strip('"')
+        if sdk:
+            candidates.append(Path(sdk) / "platform-tools" / adb_name)
+
+    home = Path.home()
+    if sys.platform == "darwin":
+        candidates.append(home / "Library" / "Android" / "sdk" / "platform-tools" / adb_name)
+    elif sys.platform.startswith("linux"):
+        candidates.append(home / "Android" / "Sdk" / "platform-tools" / adb_name)
+    elif os.name == "nt":
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        if local_appdata:
+            candidates.append(Path(local_appdata) / "Android" / "Sdk" / "platform-tools" / adb_name)
+
+    candidates.append(CORE_DIR / "scrcpy_cli" / "vendor" / "scrcpy" / adb_name)
+
+    for cand in candidates:
+        if cand.is_file():
+            return cand
+
+    which_adb = shutil.which("adb")
+    return Path(which_adb) if which_adb else None
+
+def inside_app_bundle(path: Path = BASE_DIR) -> bool:
+    """True when path lives inside a macOS .app bundle (signed, so it must not be written to)."""
+    return any(part.lower().endswith(".app") for part in Path(path).parts)
+
+def readonly_install_reason() -> str | None:
+    """Why REA_Kit's own folder must not be written to, or None when writing there is fine."""
+    if inside_app_bundle(BASE_DIR):
+        return f"REA_Kit runs from inside an app bundle ({BASE_DIR})"
+    if not os.access(BASE_DIR, os.W_OK):
+        return f"REA_Kit's folder is not writable ({BASE_DIR})"
+    return None
+
+def user_bin_dir() -> Path:
+    """The directory link_user_binaries() puts its symlinks in: ~/.local/bin if it exists, else ~/bin."""
+    bin_dir = Path.home() / ".local" / "bin"
+    if not bin_dir.exists():
+        bin_dir = Path.home() / "bin"
+    return bin_dir
 
 def get_bundled_paths() -> dict[str, Path]:
     """Returns a mapping of tool names to their bundled directory paths."""
@@ -114,7 +207,7 @@ def check_environment() -> dict:
         "name": "Python",
         "version": sys.version.split()[0],
         "path": sys.executable,
-        "status": "ok" if sys.version_info >= (3, 8) else "warning",
+        "status": "ok" if sys.version_info >= (3, 9) else "warning",
     }
 
     # 2. Java JDK
@@ -155,15 +248,18 @@ def check_environment() -> dict:
     # 4. ADB
     adb_ver = None
     adb_path = shutil.which("adb")
+    if not adb_path:
+        found_adb = find_adb()
+        adb_path = str(found_adb) if found_adb else None
     devices = []
     if adb_path:
         try:
-            res = subprocess.run(["adb", "version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            res = subprocess.run([adb_path, "version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             for line in res.stdout.splitlines():
                 if "Android Debug Bridge" in line or "Version" in line:
                     adb_ver = line.strip()
                     break
-            dev_res = subprocess.run(["adb", "devices", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            dev_res = subprocess.run([adb_path, "devices", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             for line in dev_res.stdout.splitlines()[1:]:
                 if line.strip():
                     devices.append(line.strip())
@@ -392,17 +488,18 @@ def install_scrcpy_cli() -> bool:
 
 def install_pip_package() -> bool:
     """Installs REA_Kit Python package in editable mode via pip."""
-    pip_path = shutil.which("pip") or sys.executable
     pyproject_file = BASE_DIR / "pyproject.toml"
     if not pyproject_file.exists():
         return False
 
+    readonly = readonly_install_reason()
+    if readonly:
+        log_warn(f"{readonly}; skipping the editable pip install. Run REA_Kit through 'python rea.py' instead.")
+        return True
+
     log_info("[*] Installing REA_Kit Python package in editable mode via pip...")
     try:
-        if pip_path == sys.executable:
-            cmd = [sys.executable, "-m", "pip", "install", "-e", str(BASE_DIR), "--no-deps", "--quiet"]
-        else:
-            cmd = [pip_path, "install", "-e", str(BASE_DIR), "--no-deps", "--quiet"]
+        cmd = [sys.executable, "-m", "pip", "install", "-e", str(BASE_DIR), "--no-deps", "--quiet"]
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if res.returncode == 0:
             log_success("REA_Kit CLI ('rea' and 'reakit') registered in Python environment.")
@@ -426,6 +523,7 @@ def fix_unix_permissions():
         CORE_DIR / "scrcpy_cli" / "vendor" / "scrcpy" / "scrcpy",
         CORE_DIR / "apkdgo" / "bin" / "apkd",
         CORE_DIR / "apkdgo" / "apkd" / "apkd",
+        *(CORE_DIR / "apkdgo" / name for name in APKD_BUNDLED_BINARIES),
         CORE_DIR / "apkdgo" / "build.sh",
     ]
     for p in bin_paths:
@@ -437,7 +535,7 @@ def fix_unix_permissions():
                 pass
 
 def build_apkd_linux() -> bool:
-    """Builds apkd binary for Linux/Unix if Go is available and binary is missing."""
+    """Builds apkd for the current POSIX platform (Linux/macOS) if Go is available and no binary is found."""
     if os.name == "nt":
         return True
     
@@ -448,13 +546,19 @@ def build_apkd_linux() -> bool:
     go_path = shutil.which("go")
     if not go_path:
         return False
+
+    readonly = readonly_install_reason()
+    if readonly:
+        log_warn(f"{readonly}; not building apkd into it.")
+        return False
     
     apkd_dir = CORE_DIR / "apkdgo"
     bin_dir = apkd_dir / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
     target_bin = bin_dir / "apkd"
     
-    log_info("[*] Building apkd for Linux via Go...")
+    platform_name = "macOS" if sys.platform == "darwin" else platform.system() or sys.platform
+    log_info(f"[*] Building apkd for {platform_name} via Go...")
     try:
         res = subprocess.run(
             [go_path, "build", "-o", "bin/apkd", "./apkd"],
@@ -465,7 +569,7 @@ def build_apkd_linux() -> bool:
         )
         if res.returncode == 0 and target_bin.exists():
             target_bin.chmod(target_bin.stat().st_mode | 0o755)
-            log_success("apkd Linux binary built successfully.")
+            log_success(f"apkd {platform_name} binary built successfully.")
             return True
         else:
             log_warn(f"Failed to build apkd: {res.stderr.strip()}")
@@ -479,11 +583,14 @@ def link_user_binaries():
     if os.name == "nt":
         return
     
-    bin_dir = Path.home() / ".local" / "bin"
-    if not bin_dir.exists():
-        bin_dir = Path.home() / "bin"
+    bin_dir = user_bin_dir()
     
     bin_dir.mkdir(parents=True, exist_ok=True)
+
+    apkd_src = CORE_DIR / "apkdgo" / "bin" / "apkd"
+    found_apkd = find_apkd_bin()
+    if found_apkd and found_apkd.resolve().is_relative_to(CORE_DIR.resolve()):
+        apkd_src = found_apkd
 
     links = {
         "rea": BASE_DIR / "rea.py",
@@ -491,7 +598,7 @@ def link_user_binaries():
         "scrcpy-cli": CORE_DIR / "scrcpy_cli" / "dist" / "index.js",
         "jadx": CORE_DIR / "jadx" / "bin" / "jadx",
         "jadx-gui": CORE_DIR / "jadx" / "bin" / "jadx-gui",
-        "apkd": CORE_DIR / "apkdgo" / "bin" / "apkd",
+        "apkd": apkd_src,
         "adb": CORE_DIR / "scrcpy_cli" / "vendor" / "scrcpy" / "adb",
         "scrcpy": CORE_DIR / "scrcpy_cli" / "vendor" / "scrcpy" / "scrcpy",
     }
@@ -499,6 +606,9 @@ def link_user_binaries():
         if src.exists():
             try:
                 src.chmod(src.stat().st_mode | 0o755)
+            except OSError:
+                pass  # read-only bundle: the file keeps the mode it shipped with
+            try:
                 target = bin_dir / name
                 if target.is_symlink() or target.is_file():
                     target.unlink()

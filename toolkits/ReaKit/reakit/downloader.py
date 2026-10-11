@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import os
 import subprocess
 from pathlib import Path
-from reakit.config import ConfigManager, CORE_DIR
+from reakit.config import ConfigManager
 from reakit.workspace import WorkspaceManager
+from reakit.env import find_apkd_bin
 from reakit.utils import extract_package_name, log_info, log_success, log_warn, log_error
 
 class Downloader:
@@ -12,16 +15,8 @@ class Downloader:
         self.apkd_path = Path(apkd_path) if apkd_path else self._find_apkd()
 
     def _find_apkd(self) -> Path:
-        apkd_name = "apkd.exe" if os.name == "nt" else "apkd"
-        candidates = [
-            CORE_DIR / "apkdgo" / "bin" / apkd_name,
-            CORE_DIR / "apkdgo" / "apkd" / apkd_name,
-            CORE_DIR / "apkdgo" / apkd_name,
-        ]
-        for cand in candidates:
-            if cand.is_file():
-                return cand
-        return Path(apkd_name)
+        """Resolves the apkd binary for this OS/arch, falling back to a bare name on PATH."""
+        return find_apkd_bin() or Path("apkd.exe" if os.name == "nt" else "apkd")
 
     def download_package(
         self,
@@ -88,7 +83,11 @@ class Downloader:
                     log_error(f"Download process failed for {pkg} (exit code {res.returncode})")
                 return False
         except FileNotFoundError:
-            log_error(f"apkd executable not found at '{self.apkd_path}'. Please check core/apkdgo/apkd.exe")
+            log_error(
+                f"apkd executable not found at '{self.apkd_path}'. Expected a bundled binary at "
+                "core/apkdgo/apkd.exe (Windows) or core/apkdgo/apkd-<os>-<arch> (macOS/Linux), "
+                "or install Go so 'rea install' can build it."
+            )
             return False
         except Exception as e:
             log_error(f"Unexpected error during download: {e}")

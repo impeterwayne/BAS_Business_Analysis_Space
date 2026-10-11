@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import sys
 import json
@@ -16,6 +18,7 @@ from reakit.env import (
     install_environment,
     setup_windows_user_path,
     inject_runtime_path,
+    user_bin_dir,
 )
 from reakit.native import (
     DEFAULT_GUI_PORT,
@@ -62,6 +65,31 @@ from reakit.httptoolkit import (
 )
 from reakit import httptoolkit as htk_mod
 import os
+
+def _print_posix_link_hint():
+    """Says where 'rea install' put its command symlinks on macOS/Linux, and how to get that folder on PATH.
+
+    Only prints; the user's shell startup files are never edited.
+    """
+    bin_dir = user_bin_dir()
+    log_info(f"Command symlinks ('rea', 'adb', 'scrcpy', 'jadx', 'apkd', ...) were placed in {bin_dir}.")
+    path_dirs = {os.path.realpath(os.path.expanduser(p)) for p in os.environ.get("PATH", "").split(os.pathsep) if p}
+    if os.path.realpath(bin_dir) in path_dirs:
+        log_info("That folder is already on PATH, so newly opened terminals will recognize these commands.")
+        return
+
+    home = Path.home()
+    try:
+        shown_dir = "$HOME/" + bin_dir.relative_to(home).as_posix()
+    except ValueError:
+        shown_dir = str(bin_dir)
+    export_line = f'export PATH="{shown_dir}:$PATH"'
+    shell = os.path.basename(os.environ.get("SHELL", ""))
+    rc_file = {"zsh": "~/.zprofile", "bash": "~/.bashrc"}.get(shell)
+    target = rc_file or "your shell's startup file"
+    log_warn(f"{bin_dir} is not on your PATH. Add this line to {target}, then open a new terminal:")
+    print(f"    {export_line}")
+
 
 def _add_target_args(parser: argparse.ArgumentParser, positional_help: str = "Target package name or alias"):
     """Adds the target/workspace/config flags shared by every native subcommand."""
@@ -420,7 +448,7 @@ def create_parser() -> argparse.ArgumentParser:
     mirror_p.add_argument("-s", "--serial", help="Target Android device serial")
     mirror_p.add_argument("-m", "--max-size", type=int, help="Limit video width and height")
     mirror_p.add_argument("--fps", type=int, help="Limit frame rate (e.g. 60)")
-    mirror_p.add_argument("extra_args", nargs=argparse.REMAINDER, help="Additional arguments for scrcpy.exe")
+    mirror_p.add_argument("extra_args", nargs=argparse.REMAINDER, help="Additional arguments passed to scrcpy")
 
     # 8. jadx-gui
     gui_p = subparsers.add_parser("jadx-gui", help="Launch interactive JADX GUI")
@@ -453,9 +481,9 @@ def create_parser() -> argparse.ArgumentParser:
     sp_p = subparsers.add_parser(
         "install",
         aliases=["setup", "setup-path"],
-        help="Install & configure REA_Kit environment, tools, and Windows PATH",
+        help="Install & configure REA_Kit environment, tools, and PATH",
     )
-    sp_p.add_argument("--permanent", action="store_true", default=True, help="Permanently configure Windows User PATH and Environment (default)")
+    sp_p.add_argument("--permanent", action="store_true", default=True, help="Persist the setup: User PATH and environment variables on Windows, command symlinks in ~/.local/bin (or ~/bin) on macOS/Linux (default)")
     sp_p.add_argument("--session", action="store_true", help="Configure PATH for current session only")
     sp_p.add_argument("--check", action="store_true", help="Check current environment & PATH status")
     sp_p.add_argument("--skip-pip", action="store_true", help="Skip editable Python package installation (pip install -e .)")
@@ -1058,7 +1086,8 @@ def main():
         dec = Decompiler(config_mgr)
         target = args.target_pos or args.link or args.target
         if target:
-            dec.decompile_package(target, threads=args.threads, heap_memory=args.heap)
+            if not dec.decompile_package(target, threads=args.threads, heap_memory=args.heap):
+                sys.exit(1)
         else:
             dec.decompile_targets(targets_file=args.targets, threads=args.threads, heap_memory=args.heap)
 
@@ -1254,7 +1283,10 @@ def main():
                 for p in added:
                     print(f"    * {p}")
                 if permanent:
-                    log_info("Newly opened terminals will immediately recognize 'rea', 'adb', 'scrcpy', 'jadx', and 'apkd'.")
+                    if os.name == "nt":
+                        log_info("Newly opened terminals will immediately recognize 'rea', 'adb', 'scrcpy', 'jadx', and 'apkd'.")
+                    else:
+                        _print_posix_link_hint()
             else:
                 log_info("All REA_Kit tool directories are already configured in User PATH.")
             print("")

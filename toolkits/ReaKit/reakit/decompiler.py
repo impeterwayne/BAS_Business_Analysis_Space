@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import shutil
 import zipfile
@@ -15,6 +17,21 @@ JADX_DEFAULT_JVM_OPTS = [
     "-Djdk.util.zip.disableZip64ExtraFieldValidation=true",
     "--enable-native-access=ALL-UNNAMED",
 ]
+
+# The JVM options of the POSIX jadx-gui script, for when the GUI is launched straight from the jar.
+JADX_GUI_DEFAULT_JVM_OPTS = [
+    "-Xms128M",
+    "-XX:MaxRAMPercentage=70.0",
+    "-Dawt.useSystemAAFontSettings=lcd",
+    "-Dswing.aatext=true",
+    "-Djava.util.Arrays.useLegacyMergeSort=true",
+    "-Djdk.util.zip.disableZip64ExtraFieldValidation=true",
+    "-XX:+IgnoreUnrecognizedVMOptions",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--enable-native-access=ALL-UNNAMED",
+]
+
+JADX_BIN_DIR = CORE_DIR / "jadx" / "bin"
 
 
 def _short_path(path: Path) -> str:
@@ -51,13 +68,41 @@ def _count_sources(out_path: Path) -> int:
     return count
 
 
+def _find_java(env: dict) -> str | None:
+    """The java executable: JAVA_HOME/bin first, then PATH (java.exe on Windows, java elsewhere)."""
+    java_name = "java.exe" if os.name == "nt" else "java"
+    java_home = env.get("JAVA_HOME", "").strip('"')
+    java = Path(java_home) / "bin" / java_name if java_home else None
+    return str(java) if java and java.exists() else shutil.which("java")
+
+
+def _bundled_jadx_jar() -> Path | None:
+    """The newest bundled jadx-*-all.jar, which holds both the CLI and the GUI."""
+    jars = sorted((CORE_DIR / "jadx" / "lib").glob("jadx-*-all.jar"))
+    return jars[-1] if jars else None
+
+
+def _exec_failed(cmd: list[str], exc: OSError) -> int:
+    """Logs why a launcher could not be started and returns a failing exit code."""
+    if isinstance(exc, PermissionError):
+        reason = "permission denied (the file has no +x bit, or sits in a read-only bundle)"
+    elif isinstance(exc, FileNotFoundError):
+        reason = "not found (install Java or set JAVA_HOME)"
+    else:
+        reason = str(exc)
+    log_error(f"Could not start {cmd[0]}: {reason}. Run 'rea env' to check the environment.")
+    return 1
+
+
 def _java_safe_path(path: Path, cwd: Path) -> str | None:
     """A spelling of path that survives java.exe on Windows, or None.
 
     java.exe decodes its arguments with the ANSI code page, so C:\\Users\\Nguyễn\\... arrives as Nguy?n and the
     file is not found. Any ASCII spelling works: the absolute path, the path relative to the working directory
-    (the non-ASCII part is often the shared parent), or the 8.3 short name.
+    (the non-ASCII part is often the shared parent), or the 8.3 short name. Elsewhere java takes the path as is.
     """
+    if os.name != "nt":
+        return str(path)
     forms = [str(path)]
     try:
         forms.append(os.path.relpath(path, cwd))
@@ -74,26 +119,26 @@ class Decompiler:
 
     def _find_jadx(self) -> Path:
         jadx_name = "jadx.bat" if os.name == "nt" else "jadx"
-        bundled = CORE_DIR / "jadx" / "bin" / jadx_name
+        bundled = JADX_BIN_DIR / jadx_name
         if bundled.exists():
             return bundled
         return Path(jadx_name)
 
     def _java_launcher(self, env: dict) -> tuple[str, Path] | None:
-        """java.exe and the bundled jadx jar, when jadx.bat should be bypassed (Windows, bundled jadx).
+        """java and the bundled jadx jar, whenever the bundled jadx script can be bypassed (every OS).
 
-        Going straight to java lets every path be passed in an ASCII form, and keeps cmd.exe from expanding
-        %NAME% inside a quoted folder name. Without Java this returns None and jadx.bat reports it.
+        On Windows, going straight to java lets every path be passed in an ASCII form, and keeps cmd.exe from
+        expanding %NAME% inside a quoted folder name. On macOS/Linux it avoids executing bin/jadx, which fails
+        when the script has lost its +x bit or sits in a read-only app bundle. Without Java this returns None
+        and the jadx script reports it.
         """
-        if os.name != "nt" or self.jadx_path.parent != CORE_DIR / "jadx" / "bin":
+        if self.jadx_path.parent != JADX_BIN_DIR:
             return None
-        jars = sorted((CORE_DIR / "jadx" / "lib").glob("jadx-*-all.jar"))
-        java_home = env.get("JAVA_HOME", "").strip('"')
-        java = Path(java_home) / "bin" / "java.exe" if java_home else None
-        java = str(java) if java and java.exists() else shutil.which("java")
-        if not jars or not java:
+        jar = _bundled_jadx_jar()
+        java = _find_java(env)
+        if not jar or not java:
             return None
-        return java, jars[-1]
+        return java, jar
 
     def _run_jadx(
         self,
@@ -107,7 +152,10 @@ class Decompiler:
         launcher = self._java_launcher(env)
         if launcher is None:
             cmd = self._build_jadx_cmd([str(self.jadx_path)], str(output_dir), cpu_count, input_files, extra_flags)
-            return subprocess.run(cmd, env=env).returncode
+            try:
+                return subprocess.run(cmd, env=env).returncode
+            except OSError as exc:
+                return _exec_failed(cmd, exc)
 
         java, jar = launcher
         paths = [jar, output_dir, *map(Path, input_files)]
@@ -123,7 +171,10 @@ class Decompiler:
         prefix = [java, *JADX_DEFAULT_JVM_OPTS, *env.get("JAVA_OPTS", "").split(), *env.get("JADX_OPTS", "").split(),
                   "-cp", safe[0], "jadx.cli.JadxCLI"]
         cmd = self._build_jadx_cmd(prefix, safe[1], cpu_count, safe[2:], extra_flags)
-        return subprocess.run(cmd, env=env, cwd=cwd).returncode
+        try:
+            return subprocess.run(cmd, env=env, cwd=cwd).returncode
+        except OSError as exc:
+            return _exec_failed(cmd, exc)
 
     def _build_jadx_cmd(
         self,
@@ -289,14 +340,29 @@ class Decompiler:
         log_info(f"Completed decompilations: {success_count}/{len(lines)} successful.")
         return success_count
 
+    def _gui_java_launcher(self, gui_path: Path) -> list[str] | None:
+        """The java + bundled jar command for JADX GUI on macOS/Linux, so bin/jadx-gui is never executed.
+
+        Windows keeps launching jadx-gui.bat, as before. Returns None when Java or the jar is missing.
+        """
+        if os.name == "nt" or gui_path.parent != JADX_BIN_DIR:
+            return None
+        env = os.environ
+        jar = _bundled_jadx_jar()
+        java = _find_java(env)
+        if not jar or not java:
+            return None
+        return [java, *JADX_GUI_DEFAULT_JVM_OPTS, *env.get("JAVA_OPTS", "").split(),
+                *env.get("JADX_GUI_OPTS", "").split(), "-cp", str(jar), "jadx.gui.JadxGUI"]
+
     def launch_gui(self, target: str | None = None):
         """Launches JADX GUI, optionally loading target APK."""
         gui_name = "jadx-gui.bat" if os.name == "nt" else "jadx-gui"
-        gui_path = CORE_DIR / "jadx" / "bin" / gui_name
+        gui_path = JADX_BIN_DIR / gui_name
         if not gui_path.exists():
             gui_path = Path(gui_name)
 
-        cmd = [str(gui_path)]
+        cmd = self._gui_java_launcher(gui_path) or [str(gui_path)]
         if target:
             pkg = self.config_mgr.resolve_package_name(target)
             if pkg:
@@ -306,7 +372,10 @@ class Decompiler:
                     cmd.append(str(apks[0]))
 
         log_info(f"Launching JADX GUI: {' '.join(cmd)}")
-        subprocess.Popen(cmd)
+        try:
+            subprocess.Popen(cmd)
+        except OSError as exc:
+            _exec_failed(cmd, exc)
 
     def run_apktool(self, args: list[str]) -> int:
         """Runs bundled apktool with specified arguments."""
@@ -316,5 +385,8 @@ class Decompiler:
             return 1
         cmd = ["java", "-jar", str(apktool_jar.resolve())] + args
         log_info(f"Running: {' '.join(cmd)}")
-        res = subprocess.run(cmd)
+        try:
+            res = subprocess.run(cmd)
+        except OSError as exc:
+            return _exec_failed(cmd, exc)
         return res.returncode

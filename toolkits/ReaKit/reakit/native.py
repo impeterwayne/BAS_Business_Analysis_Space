@@ -13,11 +13,15 @@ This module covers the native half of an Android target:
   the same server also backs the MCP bridge used by AI clients.
 """
 
+from __future__ import annotations
+
+import glob
 import hashlib
 import json
 import os
 import re
 import shutil
+import stat
 import struct
 import subprocess
 import sys
@@ -890,8 +894,112 @@ def show_info(so_path: Path) -> int:
 # Ghidra installation discovery
 # ---------------------------------------------------------------------------
 
-GHIDRA_MCP_REPO = CORE_DIR / "ghidra_mcp"
-ENDPOINT_SPEC_PATH = GHIDRA_MCP_REPO / "tests" / "endpoints.json"
+def _user_data_dir() -> Path:
+    """Per-user, always-writable home for fetched/built tools (Ghidra, GhidraMCP build).
+
+    $REA_HOME wins; otherwise the platform convention: macOS
+    ~/Library/Application Support/ReaKit, Windows %LOCALAPPDATA%\\ReaKit, and
+    elsewhere $XDG_DATA_HOME/reakit or ~/.local/share/reakit.
+    """
+    override = os.environ.get("REA_HOME")
+    if override:
+        return Path(override).expanduser()
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "ReaKit"
+    if sys.platform.startswith("win"):
+        local = os.environ.get("LOCALAPPDATA")
+        return (Path(local) if local else Path.home() / "AppData" / "Local") / "ReaKit"
+    xdg = os.environ.get("XDG_DATA_HOME")
+    return (Path(xdg).expanduser() if xdg else Path.home() / ".local" / "share") / "reakit"
+
+
+def _inside_app_bundle(path: Path) -> bool:
+    """True when path sits inside a macOS ``*.app`` bundle (read-only / code-signed)."""
+    return any(p.name.lower().endswith(".app") for p in (path, *path.parents))
+
+
+def _is_writable_dir(path: Path) -> bool:
+    """True when path - or, if it does not exist yet, its nearest existing parent - is writable."""
+    probe = Path(path)
+    while not probe.exists():
+        if probe.parent == probe:
+            return False
+        probe = probe.parent
+    return probe.is_dir() and os.access(probe, os.W_OK | os.X_OK)
+
+
+def _tool_dir(name: str) -> Path:
+    """Where a fetched/built tool lives.
+
+    core/<name> for a writable checkout (existing dev setups keep using it);
+    the per-user data dir when core/ is read-only or inside a ``.app`` bundle,
+    so nothing is ever written into a signed app.
+    """
+    core = CORE_DIR / name
+    if (
+        not _inside_app_bundle(CORE_DIR)
+        and _is_writable_dir(CORE_DIR)
+        and (not core.exists() or _is_writable_dir(core))
+    ):
+        return core
+    return _user_data_dir() / name
+
+
+# GhidraMCP ships as a source checkout in core/ghidra_mcp, and Maven builds it in
+# place (target/). GHIDRA_MCP_REPO is the writable build location: the checkout
+# itself in a dev tree, or a per-user copy of it when core/ is read-only.
+BUNDLED_GHIDRA_MCP_REPO = CORE_DIR / "ghidra_mcp"
+GHIDRA_MCP_REPO = _tool_dir("ghidra_mcp")
+
+
+def _ghidra_mcp_sources() -> list[Path]:
+    """GhidraMCP checkouts to read from: the writable build copy first, then the bundled one."""
+    sources = [GHIDRA_MCP_REPO]
+    if BUNDLED_GHIDRA_MCP_REPO != GHIDRA_MCP_REPO:
+        sources.append(BUNDLED_GHIDRA_MCP_REPO)
+    return sources
+
+
+ENDPOINT_SPEC_PATH = next(
+    (
+        src / "tests" / "endpoints.json"
+        for src in _ghidra_mcp_sources()
+        if (src / "tests" / "endpoints.json").is_file()
+    ),
+    BUNDLED_GHIDRA_MCP_REPO / "tests" / "endpoints.json",
+)
+
+
+def _prepare_ghidra_mcp_repo() -> bool:
+    """Ensures GHIDRA_MCP_REPO exists, seeding it from the bundled (read-only) checkout."""
+    if GHIDRA_MCP_REPO.exists():
+        return True
+    if GHIDRA_MCP_REPO == BUNDLED_GHIDRA_MCP_REPO or not BUNDLED_GHIDRA_MCP_REPO.exists():
+        return False
+    log_info(f"Copying GhidraMCP sources to a writable location: {GHIDRA_MCP_REPO}")
+    try:
+        ensure_dir(GHIDRA_MCP_REPO.parent)
+        shutil.copytree(
+            BUNDLED_GHIDRA_MCP_REPO,
+            GHIDRA_MCP_REPO,
+            symlinks=True,
+            ignore=shutil.ignore_patterns(".git", "target", "__pycache__", "*.pyc"),
+        )
+        # Files copied out of a bundle keep their read-only modes; Maven and
+        # tools.setup need to write next to them.
+        os.chmod(GHIDRA_MCP_REPO, os.stat(GHIDRA_MCP_REPO).st_mode | stat.S_IWUSR | stat.S_IXUSR)
+        for root, dirs, files in os.walk(GHIDRA_MCP_REPO):
+            for name in dirs + files:
+                p = os.path.join(root, name)
+                if not os.path.islink(p):
+                    os.chmod(p, os.stat(p).st_mode | stat.S_IWUSR)
+    except OSError as exc:  # shutil.Error is an OSError
+        log_error(f"Could not copy GhidraMCP sources to {GHIDRA_MCP_REPO}: {exc}")
+        shutil.rmtree(GHIDRA_MCP_REPO, ignore_errors=True)
+        return False
+    return True
+
+
 HEADLESS_MAIN_CLASS = "com.xebyte.headless.GhidraMCPHeadlessServer"
 
 STATE_DIR = Path.home() / ".reakit"
@@ -915,8 +1023,74 @@ def find_analyze_headless(ghidra_home: Path | str | None) -> Path | None:
         for rel in (Path("support") / name, Path(name)):
             candidate = home / rel
             if candidate.exists():
+                if os.name != "nt" and not os.access(candidate, os.X_OK):
+                    _ensure_ghidra_executables(home)
                 return candidate
     return None
+
+
+# Launchers that must carry the exec bit on macOS/Linux (zipfile drops it).
+_GHIDRA_LAUNCHERS = ("ghidraRun", "support/analyzeHeadless", "support/launch.sh", "support/pyghidraRun")
+
+
+def _ensure_ghidra_executables(root: Path | str) -> None:
+    """Makes Ghidra's launch scripts and native binaries executable (POSIX only).
+
+    Covers a Ghidra home itself or a fetch dir holding ghidra_<ver>_PUBLIC.
+    """
+    if os.name == "nt":
+        return
+    root = Path(root)
+    exec_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    homes = [root]
+    try:
+        homes += [p for p in sorted(root.glob("ghidra_*")) if p.is_dir()]
+    except OSError:
+        pass
+    for home in homes:
+        targets = [home / rel for rel in _GHIDRA_LAUNCHERS]
+        try:
+            support = home / "support"
+            if support.is_dir():
+                targets += [p for p in support.iterdir() if p.suffix in ("", ".sh")]
+            # Native helpers: Ghidra/Features/Decompiler/os/mac_arm_64/decompile, GPL/*/os/*/...
+            for pattern in ("Ghidra/*/*/os/*/*", "GPL/*/os/*/*"):
+                targets += [p for p in home.glob(pattern) if not p.parent.name.startswith("win")]
+        except OSError:
+            pass
+        for path in targets:
+            try:
+                if not path.is_file() or path.is_symlink():
+                    continue
+                mode = path.stat().st_mode
+                if mode & exec_bits != exec_bits:
+                    os.chmod(path, mode | exec_bits)
+            except OSError:
+                continue
+
+
+def _extract_zip_preserving_modes(zf: zipfile.ZipFile, dest: Path | str) -> None:
+    """``extractall`` plus the Unix permission bits that zipfile silently drops."""
+    zf.extractall(dest)
+    if os.name == "nt":
+        return
+    root = Path(dest).resolve()
+    for info in zf.infolist():
+        mode = (info.external_attr >> 16) & 0o777
+        if not mode:
+            continue
+        target = (root / info.filename).resolve()
+        if target != root and root not in target.parents:
+            continue
+        if info.is_dir():
+            mode |= stat.S_IRWXU  # keep dirs traversable/writable so later cleanup works
+        else:
+            mode |= stat.S_IRUSR
+        try:
+            if target.exists() and not target.is_symlink():
+                os.chmod(target, mode)
+        except OSError:
+            continue
 
 
 def find_ghidra_home(config_mgr: ConfigManager | None = None) -> Path | None:
@@ -943,6 +1117,10 @@ def find_ghidra_home(config_mgr: ConfigManager | None = None) -> Path | None:
             candidates.append(Path(val))
 
     candidates.append(CORE_DIR / "ghidra")
+    # Where fetch_ghidra puts it when core/ is read-only (e.g. inside BA Space.app).
+    user_ghidra = _user_data_dir() / "ghidra"
+    if user_ghidra != CORE_DIR / "ghidra":
+        candidates.append(user_ghidra)
 
     on_path = shutil.which("analyzeHeadless.bat") or shutil.which("analyzeHeadless")
     if on_path:
@@ -959,6 +1137,16 @@ def find_ghidra_home(config_mgr: ConfigManager | None = None) -> Path | None:
                 candidates.extend(sorted((c for c in root.glob("ghidra*") if c.is_dir()), reverse=True))
         except OSError:
             continue
+
+    if sys.platform == "darwin":
+        # Manual installs in Applications and Homebrew's `ghidra` cask.
+        for pattern in (
+            "/Applications/ghidra_*_PUBLIC",
+            str(Path.home() / "Applications" / "ghidra_*_PUBLIC"),
+            "/opt/homebrew/Caskroom/ghidra/*/ghidra_*",
+            "/usr/local/Caskroom/ghidra/*/ghidra_*",
+        ):
+            candidates.extend(Path(p) for p in sorted(glob.glob(pattern), reverse=True) if os.path.isdir(p))
 
     for cand in candidates:
         if not cand:
@@ -992,13 +1180,15 @@ GHIDRA_RELEASES_API = "https://api.github.com/repos/NationalSecurityAgency/ghidr
 
 
 def fetch_ghidra(dest: Path | str | None = None, tag: str | None = None) -> Path | None:
-    """Downloads a Ghidra release binary into core/ghidra and unzips it.
+    """Downloads a Ghidra release binary and unzips it.
 
+    The default destination is core/ghidra when that is writable, otherwise the
+    per-user data dir (see :func:`_tool_dir`) - never inside a read-only .app.
     Ghidra is distributed as a large release ZIP (not a source tree you can
     submodule), so - like the bundled jadx/apktool/JDK - it is fetched on demand
     and gitignored. The GhidraMCP plugin, by contrast, is a git submodule.
     """
-    dest = Path(dest) if dest else (CORE_DIR / "ghidra")
+    dest = Path(dest) if dest else _tool_dir("ghidra")
     existing = find_ghidra_home(ConfigManager())
     if existing:
         log_info(f"Ghidra already present: {existing} (delete it to re-fetch)")
@@ -1045,18 +1235,26 @@ def fetch_ghidra(dest: Path | str | None = None, tag: str | None = None) -> Path
     log_info(f"Unzipping (this takes a minute) ...")
     try:
         with zipfile.ZipFile(archive) as zf:
-            zf.extractall(dest)
+            _extract_zip_preserving_modes(zf, dest)
+        _ensure_ghidra_executables(dest)
     except (zipfile.BadZipFile, OSError) as exc:
         log_error(f"Unzip failed: {exc}")
         return None
     finally:
         archive.unlink(missing_ok=True)
 
-    home = find_ghidra_home(ConfigManager())
+    home = next(
+        (
+            c.resolve()
+            for c in [dest, *sorted(dest.glob("ghidra_*"), reverse=True)]
+            if c.is_dir() and _is_ghidra_home(c)
+        ),
+        None,
+    ) or find_ghidra_home(ConfigManager())
     if home:
         log_success(f"Ghidra ready in {time.time()-started:.0f}s: {home}")
         return Path(home)
-    log_error("Unzipped, but no Ghidra install was detected under core/ghidra.")
+    log_error(f"Unzipped, but no Ghidra install was detected under {dest}.")
     return None
 
 
@@ -1081,9 +1279,68 @@ def java_major(java_exe: Path | str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+_MAC_JAVA_HOME_TOOL = Path("/usr/libexec/java_home")
+# /usr/bin/java on macOS is a stub: with no JDK installed, running it pops an
+# "install Java" dialog instead of failing.
+_MAC_JAVA_STUB = Path("/usr/bin/java")
+# Homebrew's openjdk formulae are keg-only, so they are not linked into PATH.
+_MAC_BREW_JDK_HOMES = (
+    Path("/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"),
+    Path("/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"),
+    Path("/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"),
+    Path("/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home"),
+)
+
+
+def _mac_java_home(version: str | None = None) -> tuple[Path | None, bool]:
+    """Asks macOS's /usr/libexec/java_home for a JDK; returns (home, exited_zero)."""
+    if not _MAC_JAVA_HOME_TOOL.is_file():
+        return None, False
+    args = [str(_MAC_JAVA_HOME_TOOL)] + (["-v", version] if version else [])
+    try:
+        res = subprocess.run(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None, False
+    if res.returncode != 0:
+        return None, False
+    lines = (res.stdout or "").strip().splitlines()
+    return (Path(lines[0].strip()) if lines else None), True
+
+
+def _is_mac_java_stub(java_exe: Path) -> bool:
+    if java_exe == _MAC_JAVA_STUB:
+        return True
+    try:
+        return java_exe.resolve() == _MAC_JAVA_STUB
+    except OSError:
+        return False
+
+
+def java_home_of(java_exe: Path | str) -> Path:
+    """JAVA_HOME for a java executable (bin/java -> its JDK home).
+
+    On POSIX the path is resolved first, so symlinks like /usr/bin/java or
+    Homebrew's bin/java point at the real JDK instead of yielding /usr.
+    """
+    exe = Path(java_exe)
+    if os.name != "nt":
+        try:
+            exe = exe.resolve()
+        except OSError:
+            pass
+    return exe.parent.parent
+
+
 def find_java(prefer_major: int = 21) -> tuple[Path | None, int | None]:
     """Finds a java executable on this machine, preferring the wanted major version."""
     exe_name = "java.exe" if os.name == "nt" else "java"
+    is_mac = sys.platform == "darwin"
     candidates: list[Path] = []
 
     for var in ("REA_JAVA", "GHIDRA_JAVA_HOME", "JAVA_HOME"):
@@ -1091,6 +1348,16 @@ def find_java(prefer_major: int = 21) -> tuple[Path | None, int | None]:
         if val:
             candidate = Path(val)
             candidates.append(candidate if candidate.name == exe_name else candidate / "bin" / exe_name)
+
+    # macOS: java_home knows every registered JDK; then Homebrew's keg-only JDKs.
+    mac_java_home_ok = False
+    if is_mac:
+        for version in (str(prefer_major), None):
+            home, ok = _mac_java_home(version)
+            mac_java_home_ok = mac_java_home_ok or ok
+            if home:
+                candidates.append(home / "bin" / exe_name)
+        candidates.extend(home / "bin" / exe_name for home in _MAC_BREW_JDK_HOMES)
 
     on_path = shutil.which("java")
     if on_path:
@@ -1116,6 +1383,8 @@ def find_java(prefer_major: int = 21) -> tuple[Path | None, int | None]:
             Path.home() / ".jdks",
             Path.home() / ".sdkman" / "candidates" / "java",
         ]
+        if is_mac:
+            roots.append(Path.home() / "Library" / "Java" / "JavaVirtualMachines")
     for root in roots:
         try:
             if not root.is_dir():
@@ -1131,6 +1400,9 @@ def find_java(prefer_major: int = 21) -> tuple[Path | None, int | None]:
     for cand in candidates:
         key = str(cand).lower()
         if key in seen or not cand.exists():
+            continue
+        # Never probe (or return) the macOS stub unless a real JDK is registered.
+        if is_mac and not mac_java_home_ok and _is_mac_java_stub(cand):
             continue
         seen.add(key)
         found.append((cand, java_major(cand)))
@@ -1299,7 +1571,7 @@ class GhidraProject:
         env = os.environ.copy()
         java_exe, _ = find_java(prefer_major=21)
         if java_exe:
-            env["JAVA_HOME"] = str(java_exe.parent.parent)
+            env["JAVA_HOME"] = str(java_home_of(java_exe))
         if heap:
             env["MAXMEM"] = heap
 
@@ -1381,7 +1653,7 @@ class GhidraProject:
         env = os.environ.copy()
         java_exe, _ = find_java(prefer_major=21)
         if java_exe:
-            env["JAVA_HOME"] = str(java_exe.parent.parent)
+            env["JAVA_HOME"] = str(java_home_of(java_exe))
 
         log_info(f"Launching Ghidra GUI: {' '.join(cmd)}")
         log_dim(
@@ -1416,10 +1688,18 @@ def ghidra_user_extensions_dir(ghidra_home: Path | str | None) -> Path | None:
     """Returns the per-user Ghidra Extensions dir the GUI auto-loads on startup.
 
     Windows:  %APPDATA%/ghidra/ghidra_<version>_PUBLIC/Extensions
+    macOS:    ~/Library/ghidra/ghidra_<version>_PUBLIC/Extensions if that settings dir exists
     Others:   ~/.ghidra/.ghidra_<version>_PUBLIC/Extensions
     Matches an existing versioned dir when one is present.
     """
     version = ghidra_version(ghidra_home) or ""
+    if sys.platform == "darwin" and version:
+        # Newer Ghidra keeps user settings in ~/Library/ghidra on macOS. Only use
+        # it when Ghidra has already created it; otherwise fall back to the
+        # legacy ~/.ghidra layout below. UNVERIFIED for Ghidra 12 on macOS.
+        mac_settings = Path.home() / "Library" / "ghidra" / f"ghidra_{version}_PUBLIC"
+        if mac_settings.is_dir():
+            return mac_settings / "Extensions"
     if os.name == "nt":
         base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "ghidra"
         prefix = "ghidra_"
@@ -1444,8 +1724,9 @@ def find_ghidra_mcp_extension_zip(ghidra_home: Path | str | None) -> Path | None
     search: list[Path] = []
     if ghidra_home:
         search += sorted(Path(ghidra_home).glob("Extensions/Ghidra/GhidraMCP*.zip"), reverse=True)
-    search += sorted((GHIDRA_MCP_REPO / "dist").glob("*GhidraMCP*.zip"), reverse=True)
-    search += sorted((GHIDRA_MCP_REPO / "target").glob("*GhidraMCP*.zip"), reverse=True)
+    for src in _ghidra_mcp_sources():
+        search += sorted((src / "dist").glob("*GhidraMCP*.zip"), reverse=True)
+        search += sorted((src / "target").glob("*GhidraMCP*.zip"), reverse=True)
     for z in search:
         if z.is_file():
             return z
@@ -1495,7 +1776,7 @@ def install_gui_extension(ghidra_home: Path | str | None, force: bool = False) -
     log_info(f"Installing GUI extension: {zip_path.name} -> {ext_dir}")
     try:
         with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(ext_dir)
+            _extract_zip_preserving_modes(zf, ext_dir)
     except (zipfile.BadZipFile, OSError) as exc:
         log_error(f"Failed to extract extension: {exc}")
         return None
@@ -1528,9 +1809,10 @@ def find_ghidra_mcp_jar(ghidra_home: Path | str | None = None) -> Path | None:
         ]
         return max(real, key=lambda p: p.stat().st_mtime) if real else None
 
-    built = newest(list((GHIDRA_MCP_REPO / "target").glob("GhidraMCP*.jar")))
-    if built:
-        return built.resolve()
+    for src in _ghidra_mcp_sources():
+        built = newest(list((src / "target").glob("GhidraMCP*.jar")))
+        if built:
+            return built.resolve()
 
     if ghidra_home:
         home = Path(ghidra_home)
@@ -1549,8 +1831,12 @@ def build_ghidra_mcp(
     deploy: bool = True,
     skip_prereqs: bool = False,
 ) -> Path | None:
-    """Builds GhidraMCP from core/ghidra_mcp using its own tools.setup workflow."""
-    if not GHIDRA_MCP_REPO.exists():
+    """Builds GhidraMCP from core/ghidra_mcp using its own tools.setup workflow.
+
+    When core/ is read-only (inside BA Space.app) the checkout is first copied to
+    the per-user data dir, so Maven never writes into the bundle.
+    """
+    if not _prepare_ghidra_mcp_repo():
         log_error(f"GhidraMCP checkout not found at {GHIDRA_MCP_REPO}")
         log_info("Clone it: git clone https://github.com/bethington/ghidra-mcp core/ghidra_mcp")
         return None
@@ -1568,8 +1854,10 @@ def build_ghidra_mcp(
 
     def run_setup(args: list[str]) -> int:
         env = os.environ.copy()
-        env["JAVA_HOME"] = str(java_exe.parent.parent)
-        env["PATH"] = str(java_exe.parent) + os.pathsep + env.get("PATH", "")
+        java_home = java_home_of(java_exe)
+        env["JAVA_HOME"] = str(java_home)
+        java_bin = java_exe.parent if os.name == "nt" else java_home / "bin"
+        env["PATH"] = str(java_bin) + os.pathsep + env.get("PATH", "")
         log_dim(f"$ python -m tools.setup {' '.join(args)}")
         return subprocess.run(
             [sys.executable, "-m", "tools.setup", *args],
@@ -1613,7 +1901,17 @@ def build_ghidra_mcp(
 
 def install_mcp_bridge_package() -> bool:
     """pip-installs the ghidra-mcp Python bridge from the local checkout."""
-    if not (GHIDRA_MCP_REPO / "pyproject.toml").is_file():
+    if not any((src / "pyproject.toml").is_file() for src in _ghidra_mcp_sources()):
+        log_error(f"Bridge package not found in {GHIDRA_MCP_REPO}")
+        return False
+    prefix = Path(sys.prefix)
+    if not _is_writable_dir(prefix) or _inside_app_bundle(prefix.resolve()):
+        # Bundled (signed) or system interpreter: never pip-install into it.
+        log_warn(f"Skipping MCP bridge install: {sys.prefix} is not writable (bundled or system Python).")
+        log_info(f"Install it into your own Python instead: pip install --user {GHIDRA_MCP_REPO}")
+        return True
+    # pip builds in-tree, so install from the writable copy, never from the bundle.
+    if not _prepare_ghidra_mcp_repo() or not (GHIDRA_MCP_REPO / "pyproject.toml").is_file():
         log_error(f"Bridge package not found in {GHIDRA_MCP_REPO}")
         return False
     bridge_dir = GHIDRA_MCP_REPO
@@ -2189,7 +2487,7 @@ def print_ghidra_setup_help():
 {Colors.BOLD}Native analysis setup (one time):{Colors.RESET}
 
   1. Ghidra 12.x (JDK 21) - a downloaded binary, gitignored, NOT bundled in the repo:
-       {Colors.CYAN}rea native fetch-ghidra{Colors.RESET}     download the release into {CORE_DIR / 'ghidra'}
+       {Colors.CYAN}rea native fetch-ghidra{Colors.RESET}     download the release into {_tool_dir('ghidra')}
      ...or set {Colors.CYAN}GHIDRA_HOME{Colors.RESET} / add {Colors.CYAN}"ghidraHome": "<dir>"{Colors.RESET} to workspace_config.json
      to point at an existing install.
 
@@ -2240,8 +2538,9 @@ def doctor(config_mgr: ConfigManager, ghidra_home: Path | str | None = None, por
         log_error("No java executable found.")
         ok = False
 
-    if GHIDRA_MCP_REPO.exists():
-        log_success(f"GhidraMCP checkout: {GHIDRA_MCP_REPO}")
+    checkout = next((src for src in _ghidra_mcp_sources() if src.exists()), None)
+    if checkout:
+        log_success(f"GhidraMCP checkout: {checkout}")
     else:
         log_warn(f"GhidraMCP checkout missing: {GHIDRA_MCP_REPO}")
 

@@ -22,6 +22,8 @@ readable without Pro. Free tier also caps calls per session (500 outlines, 100 b
 and truncates bodies at 100k characters; those limits come from the app, not from here.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -868,8 +870,16 @@ def save_events(config_mgr: ConfigManager, target: str, result: dict, label: str
 # ---------------------------------------------------------------------------
 
 
+def _find_adb_fallback() -> str | None:
+    """reakit.env.find_adb() as a string - the SDK / bundled locations a bare PATH lookup misses."""
+    from reakit.env import find_adb  # lazy: keeps this module importable on its own
+
+    found = find_adb()
+    return str(found) if found else None
+
+
 def _adb_base(serial: str | None = None) -> list[str]:
-    adb = os.environ.get("ADB_PATH") or shutil.which("adb") or "adb"
+    adb = os.environ.get("ADB_PATH") or shutil.which("adb") or _find_adb_fallback() or "adb"
     return [adb, "-s", serial] if serial else [adb]
 
 
@@ -884,7 +894,7 @@ def _adb(args: list[str], serial: str | None = None, capture: bool = True):
             timeout=60,
         )
     except FileNotFoundError:
-        log_error("adb not found in PATH. Run 'rea env' to check the environment.")
+        log_error("adb not found (checked ADB_PATH, PATH and the Android SDK). Run 'rea env' to check the environment.")
         return None
     except subprocess.SubprocessError as exc:
         log_error(f"adb failed: {exc}")
@@ -1174,7 +1184,7 @@ def doctor(config_mgr: ConfigManager) -> int:
         except HtkError as exc:
             log_warn(f"Event log unavailable: {exc}")
 
-    adb = os.environ.get("ADB_PATH") or shutil.which("adb")
+    adb = os.environ.get("ADB_PATH") or shutil.which("adb") or _find_adb_fallback()
     if adb:
         log_success(f"adb: {adb} (needed for 'rea http android')")
     else:
