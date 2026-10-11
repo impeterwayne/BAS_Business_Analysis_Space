@@ -296,10 +296,33 @@ const TAB_SIDEBAR_COLLAPSED_KEY = 'codingspace.tabSidebarCollapsed';
 // ── Window Controls ────────────────────────────────────
 // platform-darwin hides the custom buttons (native traffic lights are shown) and makes room for them.
 document.body.classList.add(`platform-${window.api.platform}`);
+const isMac = window.api.platform === 'darwin';
+const FILE_MANAGER_LABEL = isMac ? 'Finder' : 'Explorer';
 const EXTERNAL_TERMINAL_LABEL = window.api.platform === 'win32' ? 'Windows Terminal' : 'External Terminal';
 const externalWtToggle = document.querySelector('label.workspace-toggle[title*="Windows Terminal"]');
 if (externalWtToggle && window.api.platform !== 'win32') {
   externalWtToggle.setAttribute('title', 'Open worktrees in an external terminal window');
+}
+// macOS: swap Windows-only wording and path examples in the static markup.
+if (isMac) {
+  dom.dashBtnRevealPath?.setAttribute('title', 'Reveal in Finder');
+  dom.btnTerminalScreenNew?.setAttribute('title', 'New Terminal (⌘N)');
+  if (dom.btnExplorer) {
+    dom.btnExplorer.setAttribute('title', 'Open in Finder');
+    dom.btnExplorer.setAttribute('aria-label', 'Open in Finder');
+    const explorerLabel = dom.btnExplorer.querySelector('.workspace-tool-text');
+    if (explorerLabel) explorerLabel.textContent = 'Finder';
+  }
+  const macPlaceholders: Array<[Element | null, string]> = [
+    [dom.settingsAntigravityPath, 'e.g. /Applications/Antigravity IDE.app'],
+    [dom.settingsAntigravityAgentPath, 'e.g. /Applications/Antigravity.app'],
+    [dom.settingsVsCodePath, 'e.g. code or /Applications/Visual Studio Code.app'],
+    [dom.settingsClaudeDesktopPath, 'e.g. /Applications/Claude.app'],
+    [dom.settingsFigmaPath, 'e.g. /Applications/Figma.app'],
+    [dom.settingsObsidianPath, 'e.g. /Applications/Obsidian.app'],
+    [dom.settingsScrcpyPath, 'e.g. scrcpy or /opt/homebrew/bin/scrcpy'],
+  ];
+  for (const [input, placeholder] of macPlaceholders) input?.setAttribute('placeholder', placeholder);
 }
 
 dom.btnMinimize.addEventListener('click', () => window.api.minimize());
@@ -1012,13 +1035,15 @@ async function createTerminal(cwd, name, { worktreePath = '', iconKey = 'termina
   // Create xterm instance with Windows Terminal theme
   const term = new Terminal({
     theme: WT_THEME,
-    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', monospace",
+    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'SF Mono', Menlo, Monaco, monospace",
     fontSize: 14,
     lineHeight: 1.2,
     cursorBlink: true,
     cursorStyle: 'bar',
     cursorWidth: 2,
     allowProposedApi: true,
+    macOptionIsMeta: isMac,
+    macOptionClickForcesSelection: isMac,
     scrollback: 10000,
     tabStopWidth: 4,
   });
@@ -1119,13 +1144,15 @@ async function createDirectToolTerminal(cwd, name, options: { command?: string; 
 
   const term = new Terminal({
     theme: WT_THEME,
-    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', monospace",
+    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'SF Mono', Menlo, Monaco, monospace",
     fontSize: 14,
     lineHeight: 1.2,
     cursorBlink: true,
     cursorStyle: 'bar',
     cursorWidth: 2,
     allowProposedApi: true,
+    macOptionIsMeta: isMac,
+    macOptionClickForcesSelection: isMac,
     scrollback: 10000,
     tabStopWidth: 4,
   });
@@ -1351,13 +1378,15 @@ function promotePrewarmedTerminal(toolKey) {
 
   const term = new Terminal({
     theme: WT_THEME,
-    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', monospace",
+    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'SF Mono', Menlo, Monaco, monospace",
     fontSize: 14,
     lineHeight: 1.2,
     cursorBlink: true,
     cursorStyle: 'bar',
     cursorWidth: 2,
     allowProposedApi: true,
+    macOptionIsMeta: isMac,
+    macOptionClickForcesSelection: isMac,
     scrollback: 10000,
     tabStopWidth: 4,
   });
@@ -2207,7 +2236,7 @@ if (dom.btnObsidian) {
   });
 }
 
-bindWorktreeQuickAction(dom.btnExplorer, (wtPath) => window.api.openInExplorer(wtPath), 'Opening Explorer...');
+bindWorktreeQuickAction(dom.btnExplorer, (wtPath) => window.api.openInExplorer(wtPath), `Opening ${FILE_MANAGER_LABEL}...`);
 
 // ═══════════════════════════════════════════════════════
 // DASHBOARD PROJECT & BA ASSET VIEWER
@@ -3361,7 +3390,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                     ${icons.download}
                     <span>Install</span>
                   </button>
-                  <button type="button" class="dash-icon-btn" data-action="comp-reveal-apk" data-path="${esc(comp.apkPath)}" title="Reveal in File Explorer">
+                  <button type="button" class="dash-icon-btn" data-action="comp-reveal-apk" data-path="${esc(comp.apkPath)}" title="Reveal in ${isMac ? 'Finder' : 'File Explorer'}">
                     ${icons.folder}
                   </button>
                   <button type="button" class="dash-icon-btn danger" data-action="comp-unlink-apk" data-comp-id="${esc(comp.id)}" data-comp-name="${esc(comp.name)}" title="Unlink APK from ${esc(comp.name)}">
@@ -3408,7 +3437,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                       ${icons.check || ''}
                       <span>Checklist</span>
                     </button>
-                    <button type="button" class="dash-comp-btn-action source" data-action="comp-open-jadx-src" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-jadx-path="${esc(comp.jadxSourcePath || '')}" title="Open decompiled source folder in Explorer">
+                    <button type="button" class="dash-comp-btn-action source" data-action="comp-open-jadx-src" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-jadx-path="${esc(comp.jadxSourcePath || '')}" title="Open decompiled source folder in ${FILE_MANAGER_LABEL}">
                       ${icons.folder}
                       <span>Source</span>
                     </button>
@@ -5921,7 +5950,7 @@ const BAKIT_COMPONENTS = [
     name: 'BA Skills & Templates (specs, competitor & Figma analysis, audits, test cases)',
     folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: 'ba-templates catalog, apk-code-index (jadx), apk-feature-extractor (checklist), competitor-app-analysis, mobilerun, figma-ba-analysis, specs, BA-audit-SRS/QnA, test-cases, brainstorm, mermaid.',
+    description: 'ba-templates catalog, apk-code-index (jadx), apk-feature-extractor (checklist), competitor-app-analysis, mobilerun, figma-ba-analysis, specs, BA-audit-SRS/QnA, test-cases, brainstorm, product-decision, mermaid.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
       '.agents/skills/apk-code-index/',
@@ -5934,6 +5963,7 @@ const BAKIT_COMPONENTS = [
       '.agents/skills/BA-audit-SRS/',
       '.agents/skills/BA-audit-QnA/',
       '.agents/skills/brainstorm-features/',
+      '.agents/skills/product-decision/',
       '.agents/skills/document-extraction/',
       '.agents/skills/mermaidjs-v11/',
       '.agents/skills/problem-solving/',

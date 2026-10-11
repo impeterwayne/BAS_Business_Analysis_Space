@@ -179,7 +179,7 @@ export class DeviceService {
     let rawOutput = '';
 
     try {
-      rawOutput = execSync(`"${adb}" devices -l`, {
+      rawOutput = execFileSync(adb, ['devices', '-l'], {
         encoding: 'utf-8',
         timeout: 6000,
         windowsHide: true,
@@ -187,7 +187,7 @@ export class DeviceService {
     } catch (err: any) {
       // Fallback try simple adb devices or return empty
       try {
-        rawOutput = execSync(`adb devices -l`, {
+        rawOutput = execFileSync('adb', ['devices', '-l'], {
           encoding: 'utf-8',
           timeout: 6000,
           windowsHide: true,
@@ -586,11 +586,10 @@ export class DeviceService {
       return this.installXapk(targetSerial, apkPath);
     }
 
-    const serialArg = targetSerial ? `-s "${targetSerial}" ` : '';
-    const cmd = `"${adb}" ${serialArg}install -r "${apkPath}"`;
+    const serialArgs = targetSerial ? ['-s', targetSerial] : [];
 
     return new Promise((resolve) => {
-      exec(cmd, { timeout: 120000 }, (err, stdout, stderr) => {
+      execFile(adb, [...serialArgs, 'install', '-r', apkPath], { timeout: 120000 }, (err, stdout, stderr) => {
         const out = (stdout || '').trim();
         const errOut = (stderr || '').trim();
         if (err || out.toLowerCase().includes('failure') || errOut.toLowerCase().includes('failure')) {
@@ -611,7 +610,7 @@ export class DeviceService {
   public async installXapk(serial: string | undefined, xapkPath: string): Promise<{ success: boolean; output?: string; error?: string }> {
     const targetSerial = serial || this.activeSerial;
     const adb = this.getAdbPath();
-    const serialArg = targetSerial ? `-s "${targetSerial}" ` : '';
+    const serialArgs = targetSerial ? ['-s', targetSerial] : [];
 
     if (!xapkPath || !fs.existsSync(xapkPath)) {
       return { success: false, error: `XAPK file not found: ${xapkPath}` };
@@ -646,8 +645,8 @@ export class DeviceService {
       // 4. Query device CPU architecture to avoid conflicting ABI splits
       let deviceAbis: string[] = [];
       try {
-        const primaryAbi = execSync(`"${adb}" ${serialArg}shell getprop ro.product.cpu.abi`, { encoding: 'utf-8', timeout: 5000 }).trim();
-        const abiList = execSync(`"${adb}" ${serialArg}shell getprop ro.product.cpu.abilist`, { encoding: 'utf-8', timeout: 5000 }).trim();
+        const primaryAbi = execFileSync(adb, [...serialArgs, 'shell', 'getprop', 'ro.product.cpu.abi'], { encoding: 'utf-8', timeout: 5000 }).trim();
+        const abiList = execFileSync(adb, [...serialArgs, 'shell', 'getprop', 'ro.product.cpu.abilist'], { encoding: 'utf-8', timeout: 5000 }).trim();
         deviceAbis = [...new Set([primaryAbi, ...abiList.split(',')].map(a => a.trim().toLowerCase()).filter(Boolean))];
       } catch (_) {}
 
@@ -661,7 +660,7 @@ export class DeviceService {
       let installResult: { success: boolean; output?: string; error?: string };
       if (apksToInstall.length === 1) {
         installResult = await new Promise((resolve) => {
-          exec(`"${adb}" ${serialArg}install -r "${apksToInstall[0]}"`, { timeout: 180000 }, (err, stdout, stderr) => {
+          execFile(adb, [...serialArgs, 'install', '-r', apksToInstall[0]], { timeout: 180000 }, (err, stdout, stderr) => {
             const out = (stdout || '').trim();
             const errOut = (stderr || '').trim();
             if (err || out.toLowerCase().includes('failure') || errOut.toLowerCase().includes('failure')) {
@@ -673,9 +672,8 @@ export class DeviceService {
         });
       } else {
         // Multi-APK split installation (adb install-multiple -r -d -t ...)
-        const quotedApks = apksToInstall.map((a) => `"${a}"`).join(' ');
         installResult = await new Promise((resolve) => {
-          exec(`"${adb}" ${serialArg}install-multiple -r -d -t ${quotedApks}`, { timeout: 240000 }, (err, stdout, stderr) => {
+          execFile(adb, [...serialArgs, 'install-multiple', '-r', '-d', '-t', ...apksToInstall], { timeout: 240000 }, (err, stdout, stderr) => {
             const out = (stdout || '').trim();
             const errOut = (stderr || '').trim();
             if (err || out.toLowerCase().includes('failure') || errOut.toLowerCase().includes('failure')) {
@@ -698,13 +696,13 @@ export class DeviceService {
         if (packageName) {
           const deviceObbDir = `/sdcard/Android/obb/${packageName}`;
           try {
-            execSync(`"${adb}" ${serialArg}shell mkdir -p "${deviceObbDir}"`, { timeout: 10000 });
+            execFileSync(adb, [...serialArgs, 'shell', 'mkdir', '-p', deviceObbDir], { timeout: 10000 });
           } catch (_) {}
 
           for (const obbPath of allObbFiles) {
             const obbFileName = path.basename(obbPath);
             try {
-              execSync(`"${adb}" ${serialArg}push "${obbPath}" "${deviceObbDir}/${obbFileName}"`, { timeout: 300000 });
+              execFileSync(adb, [...serialArgs, 'push', obbPath, `${deviceObbDir}/${obbFileName}`], { timeout: 300000 });
               obbInstalledCount++;
             } catch (err: any) {
               console.warn(`[DeviceService] Failed to push OBB: ${obbFileName}`, err?.message);

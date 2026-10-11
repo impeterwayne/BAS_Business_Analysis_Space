@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import { app } from 'electron';
 import { getManagedMobilerunPython } from './mobilerunSetup';
-import { venvExecutable } from '../platform';
+import { venvExecutable, findOnPath } from '../platform';
 
 // mobilerun is registered per workspace as an Antigravity plugin: .agents/plugins/mobilerun/ with a
 // plugin.json marker and an mcp_config.json. Antigravity discovers plugins under the workspace's .agents/,
@@ -12,6 +12,11 @@ import { venvExecutable } from '../platform';
 export const MOBILERUN_SERVER_NAME = 'mobilerun';
 export const MOBILERUN_PACKAGE = '@impeterwayne/mobilerun-mcp@latest';
 const MOBILERUN_PLUGIN_DIR = path.join('.agents', 'plugins', 'mobilerun');
+
+// macOS/Linux: absolute npx, since an MCP host started from Finder/Dock may not have Homebrew or nvm on PATH.
+function posixNpxCommand(): string {
+  return findOnPath('npx') || 'npx';
+}
 
 export interface MobilerunMcpStatus {
   registered: boolean;
@@ -87,7 +92,7 @@ export function registerMobilerunMcp(worktreePath: string, _customPath?: string)
     const config = readMcpConfig(configPath);
     config.mcpServers[MOBILERUN_SERVER_NAME] = {
       ...(config.mcpServers[MOBILERUN_SERVER_NAME] || {}),
-      command: 'npx',
+      command: process.platform === 'win32' ? 'npx' : posixNpxCommand(),
       args: ['-y', MOBILERUN_PACKAGE],
     };
     writeMcpConfig(configPath, config);
@@ -187,7 +192,7 @@ export function registerFigmaMcp(worktreePath: string) {
     // npx is a .cmd shim on Windows, which a bare spawn cannot start.
     const launch = process.platform === 'win32'
       ? { command: 'cmd', args: ['/c', 'npx', '-y', FIGMA_PACKAGE] }
-      : { command: 'npx', args: ['-y', FIGMA_PACKAGE] };
+      : { command: posixNpxCommand(), args: ['-y', FIGMA_PACKAGE] };
     const config = readMcpConfig(configPath);
     config.mcpServers[FIGMA_SERVER_NAME] = { ...(config.mcpServers[FIGMA_SERVER_NAME] || {}), ...launch };
     writeMcpConfig(configPath, config);

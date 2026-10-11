@@ -414,7 +414,7 @@ export async function openCompetitorModal({
                 </div>
               </div>
               <div class="comp-modal-artifact-actions">
-                <button type="button" class="btn-secondary btn-small" id="comp-modal-btn-open-src" title="Open decompiled source folder in Explorer">
+                <button type="button" class="btn-secondary btn-small" id="comp-modal-btn-open-src" title="Open decompiled source folder in ${window.api.platform === 'darwin' ? 'Finder' : 'Explorer'}">
                   ${icons.folder || ''}
                   <span>Source</span>
                 </button>

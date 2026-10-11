@@ -139,10 +139,33 @@ interface ActiveSession {
   latestFrame: Buffer | null;
 }
 
+// Version of the scrcpy-server we vendor; the server refuses to start when the client version passed differs.
+const VENDORED_SCRCPY_SERVER_VERSION = '4.1';
+
 export class DeviceStreamService {
   private sessions = new Map<string, ActiveSession>();
+  private serverVersions = new Map<string, string>();
 
   constructor(private deviceService: DeviceService) {}
+
+  // A package-manager server (<prefix>/share/scrcpy/scrcpy-server, e.g. Homebrew) matches the version of the
+  // scrcpy binary next to it (<prefix>/bin/scrcpy), not the one we vendor. Cached per server path.
+  private async scrcpyServerVersion(serverPath: string): Promise<string> {
+    const cached = this.serverVersions.get(serverPath);
+    if (cached) return cached;
+    let version = VENDORED_SCRCPY_SERVER_VERSION;
+    if (serverPath.replace(/\\/g, '/').includes('/share/scrcpy/')) {
+      const scrcpyBin = path.resolve(path.dirname(serverPath), '..', '..', 'bin', 'scrcpy');
+      version = await new Promise<string>((resolve) => {
+        execFile(scrcpyBin, ['--version'], { timeout: 3000, windowsHide: true }, (_err, stdout) => {
+          const match = String(stdout || '').match(/scrcpy\s+(\d+\.\d+(?:\.\d+)?)/);
+          resolve(match ? match[1] : VENDORED_SCRCPY_SERVER_VERSION);
+        });
+      });
+    }
+    this.serverVersions.set(serverPath, version);
+    return version;
+  }
 
   private getFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {
@@ -182,7 +205,6 @@ export class DeviceStreamService {
       path.resolve(process.cwd(), 'vendor/scrcpy/scrcpy-server'),
       path.resolve(__dirname, '../../vendor/scrcpy/scrcpy-server'),
       path.resolve(__dirname, '../../../vendor/scrcpy/scrcpy-server'),
-      'D:\\Quest\\ReaKit\\core\\scrcpy_cli\\vendor\\scrcpy\\scrcpy-server',
       '/opt/homebrew/share/scrcpy/scrcpy-server',
       '/usr/local/share/scrcpy/scrcpy-server',
       '/usr/share/scrcpy/scrcpy-server',
@@ -271,6 +293,7 @@ export class DeviceStreamService {
 
     const adb = this.deviceService.getAdbPath();
     const ffmpegPath = this.findFfmpeg();
+    const serverVersion = await this.scrcpyServerVersion(serverJar);
 
     const scrcpyPort = await this.getFreePort();
     const httpPort = await this.getFreePort();
@@ -315,7 +338,7 @@ export class DeviceStreamService {
         'app_process',
         '/',
         'com.genymobile.scrcpy.Server',
-        '4.1',
+        serverVersion,
         `scid=${scid.toString(16).padStart(8, '0')}`,
         'log_level=info',
       ];

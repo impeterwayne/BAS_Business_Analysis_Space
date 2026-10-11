@@ -80,10 +80,41 @@ export function androidSdkDirs(): string[] {
   return dirs.filter(Boolean) as string[];
 }
 
-// Package-manager bin dirs that a GUI-launched app may not have on PATH (Homebrew, /usr/local, snap, ~/.local/bin).
+// Compares dotted version strings ("v20.11.1") numerically, part by part.
+function compareVersions(a: string, b: string): number {
+  const pa = a.replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = b.replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff) return diff;
+  }
+  return 0;
+}
+
+// bin dir of the newest node nvm has installed (~/.nvm/versions/node/<version>/bin).
+function newestNvmBinDir(): string | null {
+  const root = path.join(home, '.nvm', 'versions', 'node');
+  try {
+    const versions = fs.readdirSync(root).filter((v) => /^v?\d/.test(v)).sort(compareVersions);
+    return versions.length ? path.join(root, versions[versions.length - 1], 'bin') : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Package-manager bin dirs that a GUI-launched app may not have on PATH (Homebrew, /usr/local, snap, ~/.local/bin,
+// plus node/version-manager shims when they exist).
 export function unixBinDirs(): string[] {
   if (isWin) return [];
-  return ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/snap/bin', path.join(home, '.local', 'bin')];
+  const optional = [
+    path.join(home, '.volta', 'bin'),
+    path.join(home, '.bun', 'bin'),
+    path.join(home, 'Library', 'pnpm'),
+    path.join(home, '.local', 'share', 'mise', 'shims'),
+    path.join(home, '.asdf', 'shims'),
+    newestNvmBinDir(),
+  ].filter((dir): dir is string => !!dir && fs.existsSync(dir));
+  return ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/snap/bin', path.join(home, '.local', 'bin'), ...optional];
 }
 
 // Runs a .bat/.cmd through cmd.exe. Node's default quoting breaks once the script path and an argument both
@@ -116,12 +147,14 @@ export function fixUnixPath(): void {
   if (isWin) return;
   const shellPath = process.env.SHELL || (isMac ? '/bin/zsh' : '/bin/bash');
   const marker = '__BA_SPACE_PATH__';
+  // fish keeps $PATH as a list, so "$PATH" would print it space-separated.
+  const pathExpr = path.basename(shellPath) === 'fish' ? '(string join : $PATH)' : '"$PATH"';
   let resolved = '';
   try {
-    const output = execFileSync(shellPath, ['-ilc', `printf '${marker}%s${marker}' "$PATH"`], {
+    const output = execFileSync(shellPath, ['-ilc', `printf '${marker}%s${marker}' ${pathExpr}`], {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000,
+      timeout: 10000,
     });
     const match = output.match(new RegExp(`${marker}(.*)${marker}`));
     resolved = match ? match[1] : '';

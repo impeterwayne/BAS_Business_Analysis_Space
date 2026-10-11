@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { exec } = require('child_process');
 const { extractPlayStorePackageName, inferAppNameFromPackage, extractAppInfoFromHtml, getDomainFavicon } = require('../../domain/project');
 
@@ -16,13 +17,23 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
   ipcMain.handle('settings:get', () => workspaceService.getSettings());
   ipcMain.handle('settings:update', (_, nextSettings) => workspaceService.updateSettings(nextSettings));
   ipcMain.handle('select-executable', async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      properties: ['openFile'],
-      filters: [
+    // macOS apps are .app bundles in /Applications; Linux executables have no extension to filter on.
+    let filters;
+    if (process.platform === 'darwin') {
+      filters = [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }];
+    } else if (process.platform === 'linux') {
+      filters = [{ name: 'All Files', extensions: ['*'] }];
+    } else {
+      filters = [
         { name: 'Executables', extensions: ['exe', 'cmd', 'bat', 'sh', 'lnk'] },
         { name: 'All Files', extensions: ['*'] }
-      ],
+      ];
+    }
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters,
       title: 'Select Executable Path',
+      ...(process.platform === 'darwin' ? { defaultPath: '/Applications' } : {}),
     });
     if (result.canceled || !result.filePaths.length) return null;
     return result.filePaths[0];
@@ -32,7 +43,7 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory'],
       title: title || 'Select Folder',
-      defaultPath: 'D:\\',
+      defaultPath: process.platform === 'win32' ? 'D:\\' : os.homedir(),
     });
     if (result.canceled || !result.filePaths.length) return null;
     return result.filePaths[0];

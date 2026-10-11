@@ -58,6 +58,17 @@ async function download(url, file, sha256) {
   if (actual !== sha256) throw new Error(`${path.basename(file)}: SHA-256 ${actual}, expected ${sha256}`);
 }
 
+// chmod -R u+w without following symlinks. Temurin ships legal/ files read-only (0444), which electron-builder
+// then fails to copy over or remove.
+async function makeUserWritable(target) {
+  const stat = await fs.lstat(target);
+  if (stat.isSymbolicLink()) return;
+  if (!(stat.mode & 0o200)) await fs.chmod(target, (stat.mode & 0o7777) | 0o200);
+  if (stat.isDirectory()) {
+    for (const name of await fs.readdir(target)) await makeUserWritable(path.join(target, name));
+  }
+}
+
 // Unpacks archive and moves its single top-level folder to dest.
 async function extract(archive, dest) {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'ba-runtime-'));
@@ -66,6 +77,7 @@ async function extract(archive, dest) {
     const [top] = await fs.readdir(tmp);
     await fs.rm(dest, { recursive: true, force: true });
     await fs.cp(path.join(tmp, top), dest, { recursive: true, verbatimSymlinks: true });
+    if (process.platform !== 'win32') await makeUserWritable(dest);
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }
@@ -105,4 +117,10 @@ async function fetchTarget(key) {
 
 const requested = process.argv.slice(2);
 const keys = requested.length ? requested : HOST_TARGETS[process.platform] || [];
+// Windows tar drops the exec bits and symlinks the macOS/Linux runtimes need, so those only fetch on their own OS.
+const posixKeys = keys.filter((key) => key.startsWith('mac-') || key.startsWith('linux-'));
+if (process.platform === 'win32' && posixKeys.length) {
+  console.error(`Refusing to fetch ${posixKeys.join(', ')} on Windows: Windows tar loses exec bits and symlinks. Run this on macOS/Linux.`);
+  process.exit(1);
+}
 for (const key of keys) await fetchTarget(key);

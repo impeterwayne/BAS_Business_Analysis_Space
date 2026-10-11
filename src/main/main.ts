@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { execSync, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
@@ -294,9 +294,63 @@ function createWindow() {
   return mainWindow;
 }
 
+// macOS application menu. Electron's default one puts Close (Cmd+W) in the Window menu, which closes the only
+// window and, through window-all-closed, quits and kills every terminal. This one has no close role.
+function installMacAppMenu() {
+  const viewSubmenu = [
+    ...(app.isPackaged ? [] : [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }]),
+    { role: 'resetZoom' },
+    { role: 'zoomIn' },
+    { role: 'zoomOut' },
+    { type: 'separator' },
+    { role: 'togglefullscreen' },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'pasteAndMatchStyle' },
+        { role: 'delete' },
+        { role: 'selectAll' },
+      ],
+    },
+    { label: 'View', submenu: viewSubmenu },
+    {
+      role: 'window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' },
+      ],
+    },
+  ]));
+}
+
 // ── App lifecycle ──────────────────────────────────────
 app.whenReady().then(() => {
   workspaceConfigStore.loadConfig();
+  if (isMac) installMacAppMenu();
   createWindow();
   registerWorkspaceIpc({
     ipcMain,
@@ -607,8 +661,12 @@ app.whenReady().then(() => {
   function clearReadOnlyAttributes(targetPath) {
     if (!fs.existsSync(targetPath)) return;
     try {
-      const stat = fs.statSync(targetPath);
-      fs.chmodSync(targetPath, 0o666);
+      // POSIX: lstat so symlinks are not followed out of the tree; directories need rwx (0o700) for their
+      // entries to be listed and removed, files only need the user write bit.
+      const stat = isWin ? fs.statSync(targetPath) : fs.lstatSync(targetPath);
+      if (!isWin && stat.isSymbolicLink()) return;
+      const mode = isWin ? 0o666 : (stat.mode & 0o7777) | (stat.isDirectory() ? 0o700 : 0o200);
+      fs.chmodSync(targetPath, mode);
       if (stat.isDirectory()) {
         const items = fs.readdirSync(targetPath);
         for (const item of items) {
@@ -755,6 +813,17 @@ app.whenReady().then(() => {
 
   // ── PTY / Embedded Terminal ──────────────────────────
 
+  // Env for the embedded terminals. A Finder/Dock launch on macOS has no LANG, which leaves zsh, git and
+  // Python in the C locale (mangled UTF-8), so derive one from the app locale.
+  function terminalEnv() {
+    const env: NodeJS.ProcessEnv = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' };
+    if (!isWin && !env.LANG) {
+      const locale = app.getLocale().replace('-', '_');
+      env.LANG = /^[a-z]{2}_[A-Z]{2}$/.test(locale) ? `${locale}.UTF-8` : 'en_US.UTF-8';
+    }
+    return withBundledRuntimes(env);
+  }
+
   ipcMain.handle('pty:create', (_, { cwd, id }) => {
     try {
       const shellPath = getDefaultShell();
@@ -768,7 +837,7 @@ app.whenReady().then(() => {
         cols: 120,
         rows: 30,
         cwd: cwd || os.homedir(),
-        env: withBundledRuntimes({ ...process.env, TERM: 'xterm-256color' }),
+        env: terminalEnv(),
       });
 
       ptyProcesses.set(id, ptyProc);
@@ -801,7 +870,7 @@ app.whenReady().then(() => {
         cols: 120,
         rows: 30,
         cwd: cwd || os.homedir(),
-        env: withBundledRuntimes({ ...process.env, TERM: 'xterm-256color' }),
+        env: terminalEnv(),
       });
 
       ptyProcesses.set(id, ptyProc);
@@ -885,11 +954,20 @@ app.whenReady().then(() => {
       const script = shellCommand
         ? `cd ${shellQuotePosixArg(cwd)} && ${shellCommand}`
         : `cd ${shellQuotePosixArg(cwd)}`;
-      spawn('osascript', [
-        '-e', `tell application "Terminal" to do script ${appleScriptString(script)}`,
-        '-e', 'tell application "Terminal" to activate',
-      ], { detached: true, stdio: 'ignore' }).unref();
-      return;
+      // Wait for osascript so a refused Automation permission or a missing Terminal reaches the caller.
+      return new Promise<void>((resolve, reject) => {
+        const child = spawn('osascript', [
+          '-e', `tell application "Terminal" to do script ${appleScriptString(script)}`,
+          '-e', 'tell application "Terminal" to activate',
+        ], { stdio: ['ignore', 'ignore', 'pipe'] });
+        let stderr = '';
+        child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+        child.on('error', reject);
+        child.on('exit', (code, signal) => {
+          if (code === 0) resolve();
+          else reject(new Error(stderr.trim() || `osascript exited with ${signal || `code ${code}`}`));
+        });
+      });
     }
 
     const terminal = LINUX_TERMINALS.find((t) => findOnPath(t.command));
@@ -904,10 +982,10 @@ app.whenReady().then(() => {
     spawn(terminal.command, args, { cwd, detached: true, stdio: 'ignore' }).unref();
   }
 
-  ipcMain.handle('open-wt', (_, { cwd, launchCommand, launchArgs = [] }) => {
+  ipcMain.handle('open-wt', async (_, { cwd, launchCommand, launchArgs = [] }) => {
     try {
       const shellCommand = launchCommand ? resolveToolLaunch(launchCommand, launchArgs).shellCommand : '';
-      openExternalTerminal(cwd, shellCommand);
+      await openExternalTerminal(cwd, shellCommand);
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -916,9 +994,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle('open-external', (_, url) => openExternalUrl(url));
 
-  ipcMain.handle('open-in-explorer', (_, dirPath) => {
-    void shell.openPath(dirPath);
-    return { success: true };
+  ipcMain.handle('open-in-explorer', async (_, dirPath) => {
+    // A file is revealed (selected) in its folder; a directory is opened.
+    try {
+      if (fs.statSync(dirPath).isFile()) {
+        shell.showItemInFolder(dirPath);
+        return { success: true };
+      }
+    } catch (_) {
+      // Missing path: let openPath report it.
+    }
+    const error = await shell.openPath(dirPath);
+    return error ? { success: false, error } : { success: true };
   });
 
   // ── Launch tool actions ──────────────────────────────
@@ -1087,8 +1174,6 @@ app.whenReady().then(() => {
       reakitPath: detectPath('rea', [
         path.join(process.cwd(), 'toolkits', 'ReaKit'),
         path.join(process.resourcesPath || '', 'toolkits', 'ReaKit'),
-        'D:\\Quest\\BA_Space\\toolkits\\ReaKit',
-        'D:\\Quest\\ReaKit',
         path.join(process.cwd(), '..', 'ReaKit'),
         path.join(process.cwd(), 'ReaKit'),
       ]),
@@ -1571,14 +1656,12 @@ app.whenReady().then(() => {
 
   ipcMain.handle('add-worktree', async (_, { projectPath, sourceWorktreePath, branchName, wtPath, createBranch }) => {
     try {
-      let cmd;
-      if (createBranch) {
+      // No shell: branch names and paths go to git as plain argv entries.
+      const args = createBranch
         // git worktree add -b <new-branch> <path>
-        cmd = `git worktree add -b "${branchName}" "${wtPath}"`;
-      } else {
-        cmd = `git worktree add "${wtPath}" ${branchName}`;
-      }
-      const output = execSync(cmd, {
+        ? ['worktree', 'add', '-b', branchName, wtPath]
+        : ['worktree', 'add', wtPath, branchName];
+      const output = execFileSync('git', args, {
         cwd: sourceWorktreePath || projectPath,
         encoding: 'utf-8',
         timeout: 30000,
@@ -1612,7 +1695,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('create-branch', async (_, { projectPath, branchName }) => {
     try {
-      const output = execSync(`git branch "${branchName}"`, {
+      const output = execFileSync('git', ['branch', branchName], {
         cwd: projectPath,
         encoding: 'utf-8',
         timeout: 10000,
@@ -1653,12 +1736,12 @@ app.whenReady().then(() => {
 
       let output = '';
       try {
-        output += execSync(`git checkout "${targetBranch}"`, {
+        output += execFileSync('git', ['checkout', targetBranch], {
           cwd: projectPath,
           encoding: 'utf-8',
           timeout: 30000,
         });
-        output += execSync(`git merge "${sourceBranch}"`, {
+        output += execFileSync('git', ['merge', sourceBranch], {
           cwd: projectPath,
           encoding: 'utf-8',
           timeout: 30000,
@@ -1666,7 +1749,7 @@ app.whenReady().then(() => {
       } finally {
         if (currentBranch && currentBranch !== targetBranch) {
           try {
-            execSync(`git checkout "${currentBranch}"`, {
+            execFileSync('git', ['checkout', currentBranch], {
               cwd: projectPath,
               encoding: 'utf-8',
               timeout: 30000,

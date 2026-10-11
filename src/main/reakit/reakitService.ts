@@ -55,10 +55,8 @@ export function resolveReaExecutable(customPath?: string): ReaExecutableInfo {
   const candidateDirs = [
     path.join(app.getAppPath ? app.getAppPath() : process.cwd(), 'toolkits', 'ReaKit'),
     path.join(process.resourcesPath || '', 'toolkits', 'ReaKit'),
-    'D:\\Quest\\BA_Space\\toolkits\\ReaKit',
     path.join(app.getAppPath ? app.getAppPath() : process.cwd(), 'ReaKit'),
     path.join(process.resourcesPath || '', 'ReaKit'),
-    'D:\\Quest\\ReaKit',
     path.resolve(process.cwd(), '..', 'ReaKit'),
   ];
 
@@ -113,6 +111,8 @@ export function executeReaCommand(options: {
           ...process.env,
           PYTHONUNBUFFERED: '1',
           PYTHONIOENCODING: 'utf-8',
+          // Keeps Python from writing __pycache__ into the read-only/signed app bundle.
+          PYTHONDONTWRITEBYTECODE: '1',
         }),
         shell: false,
       });
