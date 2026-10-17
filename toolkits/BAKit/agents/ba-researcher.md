@@ -10,10 +10,13 @@ tools:
   - grep_search
   - read_url_content
   - search_web
+  - run_command
 skills:
   - problem-solving
   - sequential-thinking
   - document-extraction
+  - docx
+  - pdf
 ---
 
 <Category_Context name="ba-researcher">

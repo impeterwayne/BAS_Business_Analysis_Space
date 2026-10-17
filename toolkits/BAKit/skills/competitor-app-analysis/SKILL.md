@@ -21,9 +21,38 @@ Tools: the `mobilerun` MCP server (see the `mobilerun` skill for the full tool l
 Templates: `ba-templates` catalog keys `competitor-profile`, `competitor-screens`, `competitor-flow`,
 `comparison-gap`. Code side: the `apk-code-index` skill.
 
-In the `/ba-competitor` pipeline the work is split: `code-scout` agents write `code-index/` notes, `ba-lead`
-writes `exploration-plan.md`, `competitor-analyst` runs Phase 1 once per flow (WALK) and Phase 2 once at the
-end (SYNTHESIZE), and `evidence-verifier` checks the result. Run alone, do all phases yourself in order.
+In the competitor analysis pipeline (`ba-lead`), the work is split across two execution branches:
+- **Branch 1: Hybrid / Device-Verified (with `mobilerun`)** — Explores on a connected device, captures screenshots/UI trees, verifies code findings live.
+- **Branch 2: Static / Code-Only (without `mobilerun`)** — Explores decoded source code (`jadx_src`) without a device, extracting screens, validations, rules, and APIs into BA docs with `[Code]` and `[Inferred]` citations.
+
+## Orchestration Pipeline (when run by `ba-lead`)
+
+**Input**: `/ba-competitor <app name or package> [flows…] [--code <jadx_src path>] [--code-only | --no-device] [compare <our reference>]`
+(or `/competitor-app-analysis …`)
+
+1. **Resolve inputs & select execution branch.**
+   - App, package, flows (default: onboarding + primary navigation), account to use. Check `.agents/config/ba-project-config.md` → Competitor Apps for the package, flows, account and **Decoded source** path.
+   - jadx root: `--code` if it carries a path, else the config's Decoded source, else none. Confirm it exists with `list_dir` on its parent.
+   - **Branch Selection**:
+     - If `--code-only` or `--no-device` is passed → **Branch 2 (Static / Code-Only)**. Requires decoded source.
+     - Otherwise, check for device readiness (`ping_device` or `adb devices`). If connected and awake → **Branch 1 (Hybrid with `mobilerun`)**. If no device is connected, notify the user and seamlessly fall back to **Branch 2 (Static / Code-Only)**.
+   - **Write every path you pass to a subagent with forward slashes** (`<workspaces>/…/jadx_src`).
+
+### Branch 1: Hybrid / Device-Verified (with `mobilerun`)
+- **Wave A — code scouts (skip if there is no jadx root).**
+  - **A0, only when `<dir>code-index/_meta.md` is missing — one scout, alone:** dispatch a single `code-scout` to build the index (`apk-code-index` §1) and write `code-index/screen-map.md`. Wait for it.
+  - **A1 — in parallel, one `invoke_subagent` call, at most 3 scouts:** `code-scout` screen map + features (`code-index/screen-map.md`), and `code-scout` flow `<flow>` (`code-index/flow-<flow>.md` with the **Verify on device** checklist). Wait for every scout before Wave B.
+- **Wave B — write the exploration plan yourself.** Read every scout note, then write `<dir>exploration-plan.md` (Entry points, expected screens, verify on device checklist, expected walls).
+- **Wave C — device walks (one flow per dispatch, strictly one at a time).** Dispatch `competitor-analyst` in WALK mode for each flow using `mobilerun`.
+- **Wave D — synthesize.** Dispatch `competitor-analyst` in SYNTHESIZE mode: screen inventory from captures, app profile with tech stack, flow docs, comparison/gap report if `compare` was provided, and optional Feature Checklist (`{app-slug}_checklist_{YYYYMMDD}_v1.md`) via `apk-feature-extractor`.
+- **Wave E — verify.** Dispatch `evidence-verifier` alone with document list, captures, code index, and plan. Checks `[Observed]`, `[Code]`, and `[Inferred]` claims.
+
+### Branch 2: Static / Code-Only (without `mobilerun`)
+- **Wave A — deep code scouts (requires decoded source `jadx_src`).**
+  - **A0 (Index)**: Build index (`apk_index.py build`) if `code-index/_meta.md` does not exist yet.
+  - **A1 — in parallel, one `invoke_subagent` call with 2–3 scouts:** `code-scout` screen map + layouts (`code-index/screen-map.md` analyzing activities, fragments, nav graphs, Compose routes, and `res/layout/*.xml`), and `code-scout` flow `<flow>` deep-code (`code-index/flow-<flow>.md` detailing step-by-step logic, input fields, validation rules, `res/values/strings.xml`, error handlers, and API endpoints). Wait for every scout before synthesis.
+- **Wave B — static deliverable synthesis (no device, no `mobilerun`).** Dispatch `competitor-analyst` in SYNTHESIZE mode with `mode="code-only"`: Screen Inventory (`{app-slug}_screens_{YYYYMMDD}_v1.md`), Flow Analysis (`{app-slug}_flow-{flow}_{YYYYMMDD}_v1.md`), App Profile (`{app-slug}_profile_{YYYYMMDD}_v1.md`), Comparison / Gap (`{topic}_comparison_{YYYYMMDD}_v1.md`), and optional Feature Checklist (`{app-slug}_checklist_{YYYYMMDD}_v1.md`).
+- **Wave C — verify.** Dispatch `evidence-verifier` alone: verifies all `[Code]` citations (`path:line`) under `jadx_src/`, enforces grade honesty (NO `[Observed]` claims in code-only mode), and checks that no secrets are leaked.
 
 ## Inputs (ask for anything missing before touching the device)
 

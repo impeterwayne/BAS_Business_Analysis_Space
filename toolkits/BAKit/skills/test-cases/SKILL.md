@@ -32,7 +32,7 @@ If invoked without an operation, list the operations below and ask the user to p
 ## Routing
 
 Read the user's input after the command:
-- Starts with `generate` → Load `references/generate-workflow.md`, pass remaining args as scope
+- Starts with `generate` → Load `references/generate-workflow.md`, pass remaining args as scope. Prefer use cases whose latest readiness review (`BA-audit-SRS`) is `READY` or `CONDITIONALLY READY`; if the review is missing or `NOT READY`, tell the user and ask whether to continue.
 - `update` → Load `references/update-workflow.md`
 - Starts with `export` → Load `references/export-workflow.md`, pass format (csv/json) as arg
 - empty/unclear → ask the user to choose an operation

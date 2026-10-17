@@ -1,22 +1,21 @@
 # BAKit — Antigravity BA Toolkit
 
-BA agents, skills, rules, slash workflows and a template catalog for an **Antigravity** workspace, plus
+BA agents, skills, rules and a template catalog for an **Antigravity** workspace, plus
 registration of two MCP servers: **mobilerun**, so the agent can drive a competitor app on a connected Android
 device, and **figma-mcp-android**, so it can read the design open in Figma Desktop — and turn what it sees into
 BA documents: Product Decision Summaries, an SRS with use cases and diagrams, user stories, audits and test
 cases.
 
-Deliverables are written in Vietnamese; skill, rule and workflow files are in English.
+Deliverables are written in Vietnamese; skill and rule files are in English.
 
 ## What gets deployed
 
 | Toolkit folder | Deployed to | Contents |
 | :--- | :--- | :--- |
-| `agents/` | `.agents/agents/` | `ba-lead` (orchestrator, main agent), `code-scout`, `competitor-analyst`, `evidence-verifier`, `figma-analyst`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer` |
+| `agents/` | `.agents/agents/` | `ba-lead` (orchestrator, main agent), `code-scout`, `competitor-analyst`, `evidence-verifier`, `ba-figma`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer` |
 | `agents-md/` | `AGENTS.md` (marked block) | Delegation rule: the main session plans and dispatches subagents with `invoke_subagent` |
-| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `apk-feature-extractor` (checklist normalization), `competitor-app-analysis`, `mobilerun`, `figma-ba-analysis`, `product-decision`, `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`, `mermaidjs-v11`, `problem-solving`, `sequential-thinking` |
+| `skills/` | `.agents/skills/` | `ba-templates` (template catalog), `apk-code-index` (jadx index + `apk_index.py`), `apk-feature-extractor` (checklist normalization), `competitor-app-analysis`, `mobilerun`, `figma-ba-analysis`, `product-decision`, `specs`, `use-case-writer`, `user-story-ac-writer`, `minipower` (18-DOC SDLC pack), `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `global-impact-analyzer`, `global-executor`, `ba-consistency-inspector`, `ba-shared-validation-rules`, `ba-architect`, `ba-auditor`, `ba-challenger`, `qc-ask-ba`, `qc-scenario-design`, `qc-tc-design`, `qc-tc-summary`, `qc-uc-review`, `brainstorm-features`, `document-extraction`, `docx`, `pdf`, `mermaidjs-v11`, `bpmn-generator`, `drawio-ai-kit`, `drawio-bpmn`, `drawio-aws`, `drawio-azure`, `drawio-gcp`, `drawio-databricks`, `problem-solving`, `sequential-thinking` |
 | `rules/` | `.agents/rules/` | Always-on: `ba-global-rules`, `ba-workflow`, `ba-naming-convention`, `ba-device-automation`, `ba-figma`, `ba-markdown-formatting` |
-| `workflows/` | `.agents/workflows/` | `/ba-competitor`, `/ba-checklist`, `/ba-figma`, `/ba-template`, `/ba-spec`, `/ba-review`, `/ba-testcases`, `/ba-device-check` |
 | `config/` | `.agents/config/` | `ba-project-config.md` — created once, never overwritten or removed; fill it in and commit it |
 | `mcp/` | `.agents/plugins/mobilerun/`, `.agents/plugins/figma/` (workspace plugins) | `mobilerun` and `figma-mcp-android` server entries (see below) |
 
@@ -93,7 +92,7 @@ the installer leave the workspace alone and the global one is used; BA Space nev
 
 | Step | Agent | Output |
 | :--- | :--- | :--- |
-| 1. Analyse (one flow at a time) | `figma-analyst` (skill `figma-ba-analysis`) | `docs/BA/figma/<feature>/<feature>_figma_<date>_v<N>.md` + `screens/*.png` |
+| 1. Analyse (one flow at a time) | `ba-figma` (skill `figma-ba-analysis`) | `docs/BA/figma/<feature>/<feature>_figma_<date>_v<N>.md` + `screens/*.png` |
 | 2. Verify + confirm | `ba-lead` with the user | `FR-DSN-*` / `BR-CAND-*` confirmed or struck, questions answered |
 | 3. Specify | `ba-spec-writer` (`specs analyze` or `user-stories`) | SRS use cases with the UI Specification, flows, rules and diagrams; user stories |
 
@@ -160,17 +159,16 @@ With a design instead (or as well): open the file in Figma Desktop, run the figm
   audit in `BA-audit-SRS` and the source-of-truth rules in `ba-workflow` come from the 2026-10 baskill update of
   the same kit, adapted the same way; its Product Decision Summary was given a template and a versioned file.
 - `specs`, `test-cases`, `BA-audit-SRS`, `BA-audit-QnA`, `brainstorm-features`, `document-extraction`,
-  `mermaidjs-v11`, `problem-solving`, `sequential-thinking`, and the markdown formatting rule come from
-  `D:\Quest\BA_Flow\.agents`. They were adapted for Antigravity: no Claude-Code-only tools
-  (`AskUserQuestion`, `$ARGUMENTS`), a project-type step instead of the missing `detect-project-type.sh`,
-  and template paths pointing at `ba-templates`.
+  `mermaidjs-v11`, `problem-solving`, `sequential-thinking`, `global-impact-analyzer`, `global-executor`,
+  `ba-consistency-inspector`, `ba-shared-validation-rules`, `ba-architect`, `ba-auditor`, `ba-challenger`,
+  `bpmn-generator`, `qc-ask-ba`, `qc-scenario-design`, `qc-tc-design`, `qc-tc-summary`, `qc-uc-review`,
+  `docx`, `pdf`, and the markdown formatting rule come from `D:\Quest\BA_Flow\.agents` / `baskill`.
+- `user-story-ac-writer` (INVEST + Gherkin AC), `use-case-writer` (Cockburn / Wiegers 13-field UC),
+  `minipower` (18-DOC SDLC pack), and `drawio-ai-kit` (`drawio-bpmn`, `drawio-aws`, `drawio-azure`, `drawio-gcp`,
+  `drawio-databricks` with bundled zero-dependency CLI) are ported from `baskill`.
 - `mobilerun` skill: device automation skill for the 94 mobilerun MCP tools (`@impeterwayne/mobilerun-mcp`).
-- `figma-ba-analysis`, `figma-analyst` and the `ba-figma` rule are adapted from AndroidHarnessAGY's
+- `figma-ba-analysis`, `ba-figma` and the `ba-figma` rule are adapted from AndroidHarnessAGY's
   `figma-design-analyzer` / `figma-analyzer` / `figma` rule (same MCP server and call budget), retargeted from a
   Compose / XML implementation spec to PRD / SRS input.
 - Templates in `ba-templates/templates/` were rewritten with bilingual headings from the BA_Flow `specs` /
   `test-cases` templates, plus new competitor-analysis templates.
-- Not included from BA_Flow / baskill: `ba-architect`, `ba-auditor`, `ba-challenger`, `Document-skills`,
-  `global-impact-analyzer`, `use-case-writer`, `requirement-analysis`, `rules/business_rules.md`, `rules/collaboration_rules.md`
-  (tied to one client project and its data), the `qc-*` skills (QC-team duplicates of the BA audits), and
-  `docx` / `pdf` (Anthropic-licensed, not redistributable).

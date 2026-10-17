@@ -4,7 +4,7 @@ trigger: always_on
 
 # BA Workflow
 
-How the BAKit agents, skills and slash-command workflows chain from an idea (or a competitor app) to a
+How the BAKit agents and skills chain from an idea (or a competitor app) to a
 QA handoff. Adapted from the BA_Flow 4-phase workflow, with competitor and design (Figma) discovery in front.
 
 The workflow is **evidence-led and decision-aware**: reference-app evidence, a Feature Checklist, the target
@@ -14,14 +14,14 @@ Behaviour seen in a reference app is never a target requirement until a decision
 
 ## Toolchain
 
-| Phase | Lead agent | Skills | Slash command |
-| :--- | :--- | :--- | :--- |
-| 0. Competitor discovery (optional) | `ba-lead` → `code-scout`, `competitor-analyst`, `evidence-verifier` | `apk-code-index`, `competitor-app-analysis`, `mobilerun`, `ba-templates`, `apk-feature-extractor` | `/ba-competitor`, `/ba-checklist` |
-| 0. Design discovery (optional) | `ba-lead` → `figma-analyst` | `figma-ba-analysis`, `ba-templates` (`figma-analysis`) | `/ba-figma` |
-| 1. Research & problem breakdown | `ba-researcher` | `problem-solving`, `sequential-thinking`, `document-extraction` | — |
-| 2. Product decisions & ideation (conditional) | `ba-brainstormer` | `product-decision`, `brainstorm-features`, `ba-templates` (`product-decision`, `feature-brief`) | — |
-| 3. SRS specification & modeling | `ba-spec-writer` | `specs`, `mermaidjs-v11`, `ba-templates` (`srs`, `use-case`) | `/ba-spec`, `/ba-template` |
-| 4. SRS audit & Dev/QA handoff | `ba-spec-writer` | `BA-audit-SRS`, `BA-audit-QnA`, `test-cases` (optional) | `/ba-review`, `/ba-testcases` |
+| Phase | Lead agent | Skills |
+| :--- | :--- | :--- |
+| 0. Competitor discovery (optional) | `ba-lead` → `code-scout`, `competitor-analyst`, `evidence-verifier` | `apk-code-index`, `competitor-app-analysis`, `mobilerun`, `ba-templates`, `apk-feature-extractor` |
+| 0. Design discovery (optional) | `ba-lead` → `ba-figma` | `figma-ba-analysis`, `ba-templates` (`figma-analysis`) |
+| 1. Research & problem breakdown | `ba-researcher` | `problem-solving`, `sequential-thinking`, `document-extraction` |
+| 2. Product decisions & ideation (conditional) | `ba-brainstormer` | `product-decision`, `brainstorm-features`, `ba-templates` (`product-decision`, `feature-brief`) |
+| 3. SRS specification & modeling | `ba-spec-writer` | `specs`, `use-case-writer`, `user-story-ac-writer`, `minipower`, `mermaidjs-v11`, `drawio-ai-kit`, `bpmn-generator`, `ba-templates` (`srs`, `use-case`) |
+| 4. SRS audit & Dev/QA handoff | `ba-spec-writer` | `BA-audit-SRS`, `BA-audit-QnA`, `global-impact-analyzer`, `global-executor`, `ba-consistency-inspector`, `test-cases`, `qc-*` suite |
 
 `ba-lead` routes a request to the right phase and keeps the decision trail between phases.
 
@@ -48,7 +48,7 @@ inventory, not a substitute for the flows. Never promote an `[Inferred]` item to
 ### Phase 0 — Design discovery
 
 Use when a Figma design exists for the feature (a figma.com link, "write the SRS from the design").
-`figma-analyst` reads the design through the `figma-mcp-android` MCP server (Figma Desktop plugin bridge) and
+`ba-figma` reads the design through the `figma-mcp-android` MCP server (Figma Desktop plugin bridge) and
 writes a design analysis under `docs/BA/figma/<feature>/`: screens with reference images, flow, fields and
 visible validation, designed and missing states, copy, data, annotations, `FR-DSN-*` / `BR-CAND-*` candidates
 and open questions. When the design already reflects an agreed scope, the user may take it straight to

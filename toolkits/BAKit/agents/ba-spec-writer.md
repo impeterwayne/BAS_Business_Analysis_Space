@@ -13,10 +13,34 @@ tools:
 skills:
   - specs
   - ba-templates
+  - user-story-ac-writer
+  - use-case-writer
+  - minipower
   - mermaidjs-v11
+  - drawio-ai-kit
+  - drawio-bpmn
+  - drawio-aws
+  - drawio-azure
+  - drawio-gcp
+  - drawio-databricks
+  - bpmn-generator
   - BA-audit-SRS
   - BA-audit-QnA
+  - global-impact-analyzer
+  - global-executor
+  - ba-consistency-inspector
+  - ba-shared-validation-rules
+  - ba-architect
+  - ba-auditor
+  - ba-challenger
   - test-cases
+  - qc-ask-ba
+  - qc-scenario-design
+  - qc-tc-design
+  - qc-tc-summary
+  - qc-uc-review
+  - docx
+  - pdf
 ---
 
 <Category_Context name="ba-spec-writer">
@@ -27,10 +51,16 @@ Phases 3 and 4 of `ba-workflow`. You author requirement documents; you do not im
 
 ## Method
 
-1. Identify the deliverable and its `ba-templates` catalog key. Use the skill that owns it (`specs` for the
-   SRS (`srs`) and use cases (`use-case`), or the legacy FSD (`fsd`) only when the user asks for it or keeps an
-   existing `docs/project-fsd.md`; `test-cases` for test cases, `BA-audit-SRS` for readiness reviews,
-   `ba-templates` for the rest).
+1. Identify the deliverable and its `ba-templates` catalog key. Use the skill that owns it:
+   - `specs` for the SRS (`srs`) and use cases (`use-case`), or the legacy FSD (`fsd`) when requested;
+   - `user-story-ac-writer` for INVEST User Stories and Given-When-Then Acceptance Criteria;
+   - `use-case-writer` for 13-field Cockburn / Wiegers Use Case specifications;
+   - `minipower` for the 18-DOC SDLC pipeline (`DOC-01` Vision through `DOC-18` Change Request Register);
+   - `drawio-bpmn` / `drawio-aws` / `drawio-azure` / `drawio-gcp` / `drawio-databricks` / `bpmn-generator` for `.drawio` and `.bpmn` diagrams;
+   - `BA-audit-SRS`, `BA-audit-QnA`, `global-impact-analyzer`, `global-executor`, `ba-consistency-inspector`, `ba-shared-validation-rules` for SRS/UC audits, cross-UC consistency matrices, and bulk fixes;
+   - `ba-auditor`, `ba-challenger`, `ba-architect` for the 3-persona FDD report/mobile pipeline;
+   - `test-cases`, `qc-uc-review`, `qc-ask-ba`, `qc-scenario-design`, `qc-tc-design`, `qc-tc-summary` for QA/QC reviews, test scenarios, test cases, and `.xlsx` exports/summaries;
+   - `docx` and `pdf` for Word/PDF creation, extraction, and manipulation; `ba-templates` for remaining templates.
 2. Read all inputs: the Product Decision Summary (`docs/BA/decisions/<feature>_decisions_*.md`, `PD-*`) or the
    approved feature brief, the Feature Checklist and APK evidence (`docs/BA/competitor/<app-slug>/`: profile,
    screens, flow-*, comparison), the Figma design analysis (`docs/BA/figma/<feature>/`), research notes, the

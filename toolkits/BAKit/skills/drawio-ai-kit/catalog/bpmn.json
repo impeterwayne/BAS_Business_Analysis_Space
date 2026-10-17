@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "pack": "bpmn",
+    "source": "BPMN 2.0 Tier-1 swimlane elements. Uses draw.io's PARAMETRIC mxgraph.bpmn shapes (event/gateway2/task2) with outline=/symbol=/gwType=/taskMarker= selectors — verified against draw.io's Sidebar-BPMN.js (dev branch). Canonical monochrome (white fill, neutral stroke); red accent for blocker end events (error/cancel/terminate). Plain Task and collapsed Sub-process are composed (rounded rect) in src/bpmn.mjs — no stencil.",
+    "generator": "manual"
+  },
+  "categoryColors": {
+    "BPMN": "#232F3E"
+  },
+  "groups": [],
+  "icons": [
+    {
+      "name": "bpmn_start_none",
+      "label": "Start Event",
+      "category": "BPMN", "color": "#232F3E", "w": 40, "h": 40,
+      "tags": "bpmn start event none trigger process",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=standard;symbol=general;"
+    },
+    {
+      "name": "bpmn_start_message",
+      "label": "Start Message Event",
+      "category": "BPMN", "color": "#232F3E", "w": 40, "h": 40,
+      "tags": "bpmn start event message envelope trigger",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=standard;symbol=message;"
+    },
+    {
+      "name": "bpmn_start_timer",
+      "label": "Start Timer Event",
+      "category": "BPMN", "color": "#232F3E", "w": 40, "h": 40,
+      "tags": "bpmn start event timer clock schedule trigger",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=standard;symbol=timer;"
+    },
+    {
+      "name": "bpmn_intermediate_message",
+      "label": "Intermediate Message Event",
+      "category": "BPMN", "color": "#232F3E", "w": 40, "h": 40,
+      "tags": "bpmn intermediate event message envelope",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=catching;symbol=message;"
+    },
+    {
+      "name": "bpmn_intermediate_timer",
+      "label": "Intermediate Timer Event",
+      "category": "BPMN", "color": "#232F3E", "w": 40, "h": 40,
+      "tags": "bpmn intermediate event timer clock",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=catching;symbol=timer;"
+    },
+    {
+      "name": "bpmn_intermediate_link",
+      "label": "Intermediate Link Event",
+      "category": "BPMN", "color": "#232F3E", "w": 40, "h": 40,
+      "tags": "bpmn intermediate event link arrow",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=catching;symbol=link;"
+    },
+    {
+      "name": "bpmn_end_none",
+      "label": "End Event",
+      "category": "BPMN", "color": "#232F3E", "w": 40, "h": 40,
+      "tags": "bpmn end event none terminate process",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=end;symbol=general;"
+    },
+    {
+      "name": "bpmn_end_terminate",
+      "label": "End Terminate Event",
+      "category": "BPMN", "color": "#D90000", "w": 40, "h": 40,
+      "tags": "bpmn end event terminate blocker red",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#D90000;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=end;symbol=terminate;"
+    },
+    {
+      "name": "bpmn_end_error",
+      "label": "End Error Event",
+      "category": "BPMN", "color": "#D90000", "w": 40, "h": 40,
+      "tags": "bpmn end event error blocker red",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#D90000;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=end;symbol=error;"
+    },
+    {
+      "name": "bpmn_end_cancel",
+      "label": "End Cancel Event",
+      "category": "BPMN", "color": "#D90000", "w": 40, "h": 40,
+      "tags": "bpmn end event cancel blocker red",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;aspect=fixed;fillColor=#FFFFFF;strokeColor=#D90000;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.event;outline=end;symbol=cancel;"
+    },
+    {
+      "name": "bpmn_gateway_exclusive",
+      "label": "Gateway XOR (exclusive)",
+      "category": "BPMN", "color": "#232F3E", "w": 50, "h": 50,
+      "tags": "bpmn gateway xor exclusive data decision",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=rhombusPerimeter;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.gateway2;outline=none;symbol=none;gwType=exclusive;"
+    },
+    {
+      "name": "bpmn_gateway_parallel",
+      "label": "Gateway AND (parallel)",
+      "category": "BPMN", "color": "#232F3E", "w": 50, "h": 50,
+      "tags": "bpmn gateway and parallel fork",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=rhombusPerimeter;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.gateway2;outline=none;symbol=none;gwType=parallel;"
+    },
+    {
+      "name": "bpmn_gateway_inclusive",
+      "label": "Gateway OR (inclusive)",
+      "category": "BPMN", "color": "#232F3E", "w": 50, "h": 50,
+      "tags": "bpmn gateway or inclusive decision",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=rhombusPerimeter;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.gateway2;outline=end;symbol=general;"
+    },
+    {
+      "name": "bpmn_gateway_event",
+      "label": "Gateway Event-based",
+      "category": "BPMN", "color": "#232F3E", "w": 50, "h": 50,
+      "tags": "bpmn gateway event based exclusive",
+      "style": "outlineConnect=0;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=rhombusPerimeter;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.gateway2;outline=standard;symbol=general;gwType=exclusive;"
+    },
+    {
+      "name": "bpmn_task_user",
+      "label": "User Task",
+      "category": "BPMN", "color": "#232F3E", "w": 110, "h": 60,
+      "tags": "bpmn task user human person",
+      "style": "outlineConnect=0;html=1;verticalAlign=middle;align=center;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.task2;rectStyle=rounded;size=10;whiteSpace=wrap;taskMarker=user;"
+    },
+    {
+      "name": "bpmn_task_service",
+      "label": "Service Task",
+      "category": "BPMN", "color": "#232F3E", "w": 110, "h": 60,
+      "tags": "bpmn task service automated gear",
+      "style": "outlineConnect=0;html=1;verticalAlign=middle;align=center;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.task2;rectStyle=rounded;size=10;whiteSpace=wrap;taskMarker=service;"
+    },
+    {
+      "name": "bpmn_task_manual",
+      "label": "Manual Task",
+      "category": "BPMN", "color": "#232F3E", "w": 110, "h": 60,
+      "tags": "bpmn task manual hand",
+      "style": "outlineConnect=0;html=1;verticalAlign=middle;align=center;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.task2;rectStyle=rounded;size=10;whiteSpace=wrap;taskMarker=manual;"
+    },
+    {
+      "name": "bpmn_task_script",
+      "label": "Script Task",
+      "category": "BPMN", "color": "#232F3E", "w": 110, "h": 60,
+      "tags": "bpmn task script code",
+      "style": "outlineConnect=0;html=1;verticalAlign=middle;align=center;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.task2;rectStyle=rounded;size=10;whiteSpace=wrap;taskMarker=script;"
+    },
+    {
+      "name": "bpmn_task_business_rule",
+      "label": "Business Rule Task",
+      "category": "BPMN", "color": "#232F3E", "w": 110, "h": 60,
+      "tags": "bpmn task business rule decision table",
+      "style": "outlineConnect=0;html=1;verticalAlign=middle;align=center;fillColor=#FFFFFF;strokeColor=#232F3E;fontColor=#232F3E;fontSize=11;shape=mxgraph.bpmn.task2;rectStyle=rounded;size=10;whiteSpace=wrap;taskMarker=businessRule;"
+    }
+  ]
+}

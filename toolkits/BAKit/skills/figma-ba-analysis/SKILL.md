@@ -23,6 +23,37 @@ Tools: the `figma-mcp-android` MCP server ([references/figma-mcp-tools.md](./ref
 plus file writes. Template: `ba-templates` key `figma-analysis`
 (`.agents/skills/ba-templates/templates/figma-design-analysis.md`) — keep every heading and column.
 
+## Orchestration Pipeline (when run by `ba-lead`)
+
+**Input**: `/ba-figma <figma url | node ids> [feature-slug] [then spec | then stories] [diff <previous analysis>]`
+(or `/figma-ba-analysis …`)
+Examples:
+- `/ba-figma https://www.figma.com/design/AbC123/App?node-id=102-456 dang-nhap-otp`
+- `/ba-figma https://www.figma.com/design/AbC123/App?node-id=102-400 thanh-toan then spec`
+- `/ba-figma https://www.figma.com/design/AbC123/App?node-id=102-400 thanh-toan diff docs/BA/figma/thanh-toan/thanh-toan_figma_20260901_v1.md`
+
+When invoked in the main session (`ba-lead`), you do not call Figma tools or write deliverables directly — you dispatch `ba-figma` and `ba-spec-writer` with `invoke_subagent`, and verify. When already running inside `ba-figma`, execute the Analyst Workflow below directly.
+
+1. **Resolve inputs (no Figma calls yet).**
+   - Link or node ids; if none, fall back to the Figma row of `.agents/config/ba-project-config.md` and ask which frames. Convert node ids (`102-456` → `102:456`).
+   - Feature slug (ASCII, kebab-case) and its real name with diacritics. Ask if missing.
+   - Remind the user once: Figma Desktop must have the file open and the **figma-mcp-android plugin running**.
+   - Existing specs: list `docs/project-srs.md` (or legacy `docs/project-fsd.md`), `docs/usecases/`, and earlier analyses under `docs/BA/figma/<feature-slug>/` (a rerun writes the next `v[N]`; `diff` needs the previous one).
+2. **Analyse — one `ba-figma` dispatch per flow.** The bridge serves one Figma Desktop session, so do not run two analysts at once. The brief carries the six sections (`TASK`, `EXPECTED OUTCOME`, `MUST DO`, `MUST NOT DO`, `CONTEXT`, `SKILLS`) and names: the link and node ids, the frames in scope, the feature slug and name, `docs/BA/figma/<feature-slug>/` with the absolute workspace root (forward slashes) for `save_screenshots`, the existing SRS / use case paths to check against, and `diff` with the previous analysis when given. If the analyst returns a proposed split instead of a full analysis, show it to the user and dispatch the next part only after they agree.
+3. **Verify the analysis.** Read the file with `view_file` and check:
+   - Every reference image in §2 exists (`list_dir docs/BA/figma/<feature-slug>/screens/`).
+   - §6 has a row for loading, empty, error, disabled and success per screen, with `not designed` where absent.
+   - §10 candidates carry sources and grades; §11 is not empty on a real flow.
+   - No colours / fonts / spacing tables crept in.
+   Route defects back to `ba-figma`, quoting them. At three failed attempts, bring it to the user.
+4. **Report and stop.** Files written, screens covered, the candidate requirements (`FR-DSN-*`, `BR-CAND-*`) and open questions. Ask the user to **confirm or strike the candidates** and answer what they can. Do not continue without that answer unless the command said `then spec` / `then stories`, and even then only promote candidates the user has not struck.
+5. **Write the deliverable (only on `then …` or the user's go-ahead) — one `ba-spec-writer` dispatch.**
+   - `then spec` → `specs analyze` with the analysis as input: SRS §6 functional requirements, §4 Business Rules (from confirmed `BR-CAND-*`), the §5 User Flow (from analysis §3), and one use case per user goal. Each use case carries a UI Specification subsection per screen it serves (citing the node link and reference image), and its alternative and exception flows come from the analysis §6 states and §5 validation. When the design conflicts with competitor evidence or a checklist, run `product-decision` (`ba-brainstormer`) first.
+   - `then stories` → `user-story-ac-writer` / `ba-templates` `user-stories`, one story per confirmed `FR-DSN-*`, Given/When/Then from §4 actions and §5 / §6.
+   - Confirmed candidates become `FR-{MOD}-{NNN}` / `BR-{NNN}`; keep `FR-DSN-*` in the `Nguồn (Source)` column. Unconfirmed ones stay out and are listed as open questions.
+   - Open questions from §11 go into each use case's Open Questions section.
+6. **Report**: deliverables written, version bumps, what was left out and why, and the next step (`BA-audit-SRS` on the SRS or the UC folder). Do not auto-advance.
+
 ## Inputs (ask for anything missing before calling Figma)
 
 | Input | Example | Required |
@@ -44,7 +75,7 @@ docs/BA/figma/{feature-slug}/
   screens/{NN}-{slug}-{state}.png             one per designed state worth showing
 ```
 
-## Workflow
+## Analyst Workflow (inside `ba-figma`)
 
 ### 1. Connect and locate
 

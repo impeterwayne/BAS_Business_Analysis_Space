@@ -182,7 +182,7 @@ function Register-FigmaMcp {
 if (-not $McpOnly) {
   $Target = (Resolve-Path $Target).Path
   $agentsDir = Join-Path $Target '.agents'
-  foreach ($folder in 'agents', 'skills', 'rules', 'workflows') {
+  foreach ($folder in 'agents', 'skills', 'rules') {
     Copy-KitFolder (Join-Path $KitRoot $folder) (Join-Path $agentsDir $folder)
   }
   $configDest = Join-Path $agentsDir 'config\ba-project-config.md'
@@ -195,7 +195,7 @@ if (-not $McpOnly) {
   }
 
   $patterns = @()
-  foreach ($folder in 'agents', 'skills', 'rules', 'workflows') {
+  foreach ($folder in 'agents', 'skills', 'rules') {
     foreach ($item in Get-ChildItem (Join-Path $KitRoot $folder)) {
       $suffix = if ($item.PSIsContainer) { '/' } else { '' }
       $patterns += ".agents/$folder/$($item.Name)$suffix"

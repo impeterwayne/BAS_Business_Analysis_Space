@@ -1,13 +1,14 @@
 ---
 name: apk-feature-extractor
-description: "Read APK-decoder evidence documents (profile, screen inventory, flow analysis) and normalize them into the company's Feature Checklist format. Use when decoded APK documentation is provided and the goal is to identify, group, and describe reference-app features before research, product decision, SRS writing, or technical estimation."
+description: "Read APK-decoder evidence documents (profile, screen inventory, flow analysis) and normalize them into the company's Feature Checklist format. Use when decoded APK documentation is provided, when the user runs /ba-checklist or /apk-feature-extractor, and the goal is to identify, group, and describe reference-app features before research, product decision, SRS writing, or technical estimation."
 version: 1.1.0
-argument-hint: "[decoded-apk-docs-path] [optional-output-path]"
+argument-hint: "[app-slug or decoded-apk-docs-path] [optional-output-path]"
 ---
 
 # APK Feature Extractor
 
-Convert APK-decoder evidence into a structured **Feature Checklist** that matches the company's working template.
+Convert APK-decoder evidence into a structured **Feature Checklist** (`docs/BA/competitor/<app-slug>/<app-slug>_checklist_<YYYYMMDD>_v1.md`) that matches the company's working template.
+
 
 This skill is an **evidence extraction and normalization skill**.
 It is not a research skill, not a product-decision skill, and not a technical estimation skill.

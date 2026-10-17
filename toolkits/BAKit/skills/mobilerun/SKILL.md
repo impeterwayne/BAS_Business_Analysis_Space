@@ -164,16 +164,15 @@ Goal: Perform an Action or Navigate
 
 ---
 
-## 5. Troubleshooting & Health Checks
+## 5. Troubleshooting & Device Health Check (`/ba-device-check`)
 
-- **Check ADB Connection**:
-  ```bash
-  adb devices -l
-  ```
-- **Verify Portal Accessibility Service**:
-  ```bash
-  adb shell settings get secure enabled_accessibility_services
-  ```
-  Should contain `com.mobilerun.portal/com.mobilerun.portal.service.MobilerunAccessibilityService`.
-- **Run Diagnostics via MCP**:
-  - Call `doctor()` or `get_device_status()` to inspect connection health and Portal readiness.
+When asked to health-check the device pipeline before competitor analysis (or `/ba-device-check`):
+
+1. **Ping device**: Call `ping_device`. If the `mobilerun` tools are not available at all, tell the user the MCP server is not registered: open BA Space → Agent Toolkit → BAKit → "Mobilerun MCP (workspace plugin)", or (Windows only) run `toolkits/BAKit/scripts/install-bakit.ps1 -RegisterMcp`, then restart the Antigravity agent.
+2. **Device status**: Call `get_device_status` and report: serial, screen size, power state (`awake`?), foreground app, battery.
+3. **Doctor diagnostics**: If `ping_device` fails, call `doctor` and summarise its findings. Common fixes:
+   - `device_unreachable` → `adb devices -l`; set `MOBILERUN_DEVICE` in the MCP config when several devices are attached.
+   - `unauthorized` → accept the USB-debugging prompt on the phone.
+   - Portal not enabled → Settings › Accessibility › Mobilerun Portal (`com.mobilerun.portal/com.mobilerun.portal.service.MobilerunAccessibilityService`), or `npx -y @impeterwayne/mobilerun-mcp@latest cli setup -d <serial>`.
+4. **Multi-device check**: Call `list_devices` when more than one device may be attached, and say which one the server targets.
+5. **Report**: Give a one-line verdict in Vietnamese (ready / not ready, and the fix if not ready). Do not open or operate any app during a health check.

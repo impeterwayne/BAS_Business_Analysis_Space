@@ -1,0 +1,28 @@
+drawio-ai-kit — NOTICE
+
+The MIT License (see LICENSE) applies to the SOURCE CODE of this project only:
+the layout engine, CLI, rules, validator, build scripts, and the
+catalog data structure.
+
+It does NOT relicense the bundled ICON / LOGO ASSETS, which remain the property
+of their respective owners:
+
+- AWS Architecture Icons (the `mxgraph.aws4.*` stencils) are © Amazon Web
+  Services, Inc. or its affiliates, made available under the AWS Architecture
+  Icons terms of use. They may be used to create architecture diagrams but
+  remain subject to AWS's trademark and usage guidelines.
+
+- Third-party project / product logos — including but not limited to Apache
+  Spark, Apache Kafka, Apache Airflow, Dagster, Trino, Starburst, OpenMetadata,
+  MongoDB, Redis, Keycloak, Prometheus, Grafana, OpenSearch, Terraform,
+  ArgoCD, Confluent, ksqlDB, and Confluent Schema Registry — are trademarks of
+  their respective owners and are included solely for identification of those
+  components in architecture diagrams.
+
+- The Confluent product icons (`confluent*`) are derived from
+  https://github.com/whatsupbros/confluent-drawio-icons, licensed under the
+  Apache License 2.0. The icon artwork remains a trademark of Confluent, Inc.
+
+Inclusion of these marks does not imply any affiliation with, sponsorship by,
+or endorsement by their owners. Before redistributing diagrams or icon bundles
+publicly, review each owner's brand / trademark guidelines.

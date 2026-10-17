@@ -44,7 +44,15 @@ workflows score and parse them section by section. Do not copy them elsewhere.
 ## Workflow: Write a Document From a Template
 
 1. **Resolve the template.** Map the user's request to a catalog key. If the request fits no key, or fits
-   more than one, list the candidate keys and ask. Do not invent a new structure silently.
+   more than one, list the candidate keys and ask. Do not invent a new structure silently. For keys owned by a specialized skill, hand over to that skill:
+   - `srs`, `fsd`, `use-case` → `specs` (or `use-case-writer`)
+   - `user-stories` → `user-story-ac-writer` (or this skill)
+   - `product-decision` → `product-decision`
+   - `test-case`, `test-config`, `test-summary` → `test-cases` (or `qc-tc-design` / `qc-tc-summary`)
+   - `readiness-review`, `srs-readiness-review` → `BA-audit-SRS` (or `qc-uc-review`); `question-backlog` → `BA-audit-QnA`
+   - `competitor-*`, `comparison-gap` → `competitor-app-analysis`
+   - `feature-checklist` → `apk-feature-extractor`
+   - `figma-analysis` → `figma-ba-analysis`
 2. **Collect inputs before writing.** Read every source the document needs: requirement files, SRS (or
    legacy FSD), Product Decision Summaries, use cases, competitor evidence under `docs/BA/competitor/`, and `.agents/config/ba-project-config.md`
    for project name, project type and language. If a mandatory input is missing, stop and ask.

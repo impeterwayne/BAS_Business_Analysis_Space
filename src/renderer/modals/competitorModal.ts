@@ -384,7 +384,7 @@ export async function openCompetitorModal({
             ${isDecoding ? `
               <div class="comp-modal-artifact-main">
                 <div class="comp-modal-artifact-badge decode decoding" title="Decompiling APK sources with ReaKit JADX">
-                  <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #a78bfa transparent #a78bfa #a78bfa;"></span>
+                  <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #38bdf8 transparent #38bdf8 #38bdf8;"></span>
                 </div>
                 <div class="comp-modal-artifact-info">
                   <div class="comp-modal-artifact-name-row">
@@ -780,18 +780,18 @@ export async function openCompetitorModal({
         detectedBadge.style.display = 'inline-block';
         if (res.inferred) {
           detectedBadge.textContent = 'Inferred from ID';
-          detectedBadge.style.background = 'rgba(255, 183, 77, 0.15)';
-          detectedBadge.style.color = '#ffb74d';
-          detectedBadge.style.border = '1px solid rgba(255, 183, 77, 0.3)';
+          detectedBadge.style.background = 'rgba(255, 255, 255, 0.08)';
+          detectedBadge.style.color = 'var(--text-secondary)';
+          detectedBadge.style.border = '1px solid rgba(255, 255, 255, 0.16)';
           detectStatus.textContent = 'Guessed from package ID';
-          detectStatus.style.color = '#ffb74d';
+          detectStatus.style.color = 'var(--text-secondary)';
         } else {
           detectedBadge.textContent = 'Detected from Store';
-          detectedBadge.style.background = 'rgba(61, 220, 132, 0.15)';
-          detectedBadge.style.color = '#3ddc84';
-          detectedBadge.style.border = '1px solid rgba(61, 220, 132, 0.3)';
+          detectedBadge.style.background = 'rgba(56, 189, 248, 0.14)';
+          detectedBadge.style.color = '#38bdf8';
+          detectedBadge.style.border = '1px solid rgba(56, 189, 248, 0.3)';
           detectStatus.textContent = 'App details detected';
-          detectStatus.style.color = '#3ddc84';
+          detectStatus.style.color = '#38bdf8';
         }
         if (force) {
           showToast(`Detected: ${res.appName || 'App details'}`, 'success');

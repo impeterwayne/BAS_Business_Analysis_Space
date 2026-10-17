@@ -13,9 +13,9 @@ inspected, and never write requirements from a Figma link you could not open.
 
 | Request | Entry point |
 | :--- | :--- |
-| Read a design into BA input (screens, fields, states, messages, flows) | `/ba-figma` → `figma-analyst` → skill `figma-ba-analysis` |
-| SRS / use cases / user stories from a design | `/ba-figma` first, then `/ba-spec analyze` or `/ba-template user-stories` with the analysis as input |
-| Compare a new design version with an earlier analysis | `/ba-figma <url> diff <previous analysis>` |
+| Read a design into BA input (screens, fields, states, messages, flows) | `ba-lead` → `ba-figma` → skill `figma-ba-analysis` |
+| SRS / use cases / user stories from a design | `figma-ba-analysis` first, then `specs analyze` (`use-case-writer`) or `user-story-ac-writer` (`ba-templates` `user-stories`) with the analysis as input |
+| Compare a new design version with an earlier analysis | `ba-figma` with skill `figma-ba-analysis` in `diff <previous analysis>` mode |
 
 The steps, the MCP call budget and the output shape live in the `figma-ba-analysis` skill and the
 `figma-analysis` template in `ba-templates`. They are not restated here.

@@ -3131,11 +3131,7 @@ function renderDashboardLegacyDocs(activeProject: any) {
 
 const COMPETITOR_THEMES = [
   { bg: 'linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(14, 165, 233, 0.06))', border: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8' },
-  { bg: 'linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(139, 92, 246, 0.06))', border: 'rgba(168, 85, 247, 0.35)', color: '#c084fc' },
-  { bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(5, 150, 105, 0.06))', border: 'rgba(16, 185, 129, 0.35)', color: '#34d399' },
-  { bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(217, 119, 6, 0.06))', border: 'rgba(245, 158, 11, 0.35)', color: '#fbbf24' },
-  { bg: 'linear-gradient(135deg, rgba(244, 63, 94, 0.16), rgba(225, 29, 72, 0.06))', border: 'rgba(244, 63, 94, 0.35)', color: '#fb7185' },
-  { bg: 'linear-gradient(135deg, rgba(20, 184, 166, 0.16), rgba(13, 148, 136, 0.06))', border: 'rgba(20, 184, 166, 0.35)', color: '#2dd4bf' },
+  { bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03))', border: 'rgba(255, 255, 255, 0.18)', color: 'var(--text-primary)' },
 ];
 
 function getCompetitorTheme(name: string) {
@@ -3217,7 +3213,7 @@ function updateCompetitorCardDecodeProgress(compId: string) {
       decodeRow.innerHTML = `
         <div class="dash-comp-artifact-main decode-progress-main">
           <div class="dash-comp-artifact-badge decode decoding" title="Decompiling APK sources with ReaKit JADX">
-            <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #a78bfa transparent #a78bfa #a78bfa;"></span>
+            <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #38bdf8 transparent #38bdf8 #38bdf8;"></span>
           </div>
           <div class="dash-comp-artifact-info">
             <div class="dash-comp-artifact-name-row">
@@ -3403,7 +3399,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 ${busyState === 'decompiling' ? `
                   <div class="dash-comp-artifact-main decode-progress-main">
                     <div class="dash-comp-artifact-badge decode decoding" title="Decompiling APK sources with ReaKit JADX">
-                      <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #a78bfa transparent #a78bfa #a78bfa;"></span>
+                      <span class="spinner" style="width:13px; height:13px; border-width:2px; border-color: #38bdf8 transparent #38bdf8 #38bdf8;"></span>
                     </div>
                     <div class="dash-comp-artifact-info">
                       <div class="dash-comp-artifact-name-row">
@@ -3515,7 +3511,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                     <span>Mobilerun</span>
                   </button>
                   <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? 'active' : ''}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="code-only" title="Code-Only Mode: Static decompiled code analysis without device (--code-only)">
-                    ${icons.code || ''}
+                    ${icons.decode || icons.code || ''}
                     <span>Code-Only</span>
                   </button>
                 </div>
@@ -5932,13 +5928,13 @@ const BAKIT_COMPONENTS = [
     name: 'BA Agent Roster',
     folderName: '.agents/agents',
     sourceFolder: 'agents',
-    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, figma-analyst, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
+    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, ba-figma, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
     gitExcludePatterns: [
       '.agents/agents/ba-lead.md',
       '.agents/agents/code-scout.md',
       '.agents/agents/competitor-analyst.md',
       '.agents/agents/evidence-verifier.md',
-      '.agents/agents/figma-analyst.md',
+      '.agents/agents/ba-figma.md',
       '.agents/agents/ba-researcher.md',
       '.agents/agents/ba-brainstormer.md',
       '.agents/agents/ba-spec-writer.md'
@@ -5947,10 +5943,10 @@ const BAKIT_COMPONENTS = [
   {
     id: 'bakit_skills',
     toolkit: 'bakit',
-    name: 'BA Skills & Templates (specs, competitor & Figma analysis, audits, test cases)',
+    name: 'BA Skills & Templates (specs, competitor & Figma analysis, audits, QC, diagrams, Minipower, Office)',
     folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: 'ba-templates catalog, apk-code-index (jadx), apk-feature-extractor (checklist), competitor-app-analysis, mobilerun, figma-ba-analysis, specs, BA-audit-SRS/QnA, test-cases, brainstorm, product-decision, mermaid.',
+    description: '40 skills: ba-templates, apk-code-index, apk-feature-extractor, competitor-app-analysis, mobilerun, figma-ba-analysis, specs, use-case-writer, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, product-decision, problem-solving, sequential-thinking.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
       '.agents/skills/apk-code-index/',
@@ -5959,13 +5955,37 @@ const BAKIT_COMPONENTS = [
       '.agents/skills/mobilerun/',
       '.agents/skills/figma-ba-analysis/',
       '.agents/skills/specs/',
+      '.agents/skills/use-case-writer/',
+      '.agents/skills/user-story-ac-writer/',
+      '.agents/skills/minipower/',
       '.agents/skills/test-cases/',
       '.agents/skills/BA-audit-SRS/',
       '.agents/skills/BA-audit-QnA/',
+      '.agents/skills/global-impact-analyzer/',
+      '.agents/skills/global-executor/',
+      '.agents/skills/ba-consistency-inspector/',
+      '.agents/skills/ba-shared-validation-rules/',
+      '.agents/skills/ba-architect/',
+      '.agents/skills/ba-auditor/',
+      '.agents/skills/ba-challenger/',
+      '.agents/skills/qc-ask-ba/',
+      '.agents/skills/qc-scenario-design/',
+      '.agents/skills/qc-tc-design/',
+      '.agents/skills/qc-tc-summary/',
+      '.agents/skills/qc-uc-review/',
       '.agents/skills/brainstorm-features/',
       '.agents/skills/product-decision/',
       '.agents/skills/document-extraction/',
+      '.agents/skills/docx/',
+      '.agents/skills/pdf/',
       '.agents/skills/mermaidjs-v11/',
+      '.agents/skills/bpmn-generator/',
+      '.agents/skills/drawio-ai-kit/',
+      '.agents/skills/drawio-bpmn/',
+      '.agents/skills/drawio-aws/',
+      '.agents/skills/drawio-azure/',
+      '.agents/skills/drawio-gcp/',
+      '.agents/skills/drawio-databricks/',
       '.agents/skills/problem-solving/',
       '.agents/skills/sequential-thinking/'
     ]
@@ -5973,24 +5993,21 @@ const BAKIT_COMPONENTS = [
   {
     id: 'bakit_rules_workflows',
     toolkit: 'bakit',
-    name: 'BA Rules, Slash Workflows & Project Config',
+    name: 'BA Rules & Project Config',
     isMulti: true,
     folders: [
       { name: '.agents/rules', source: 'rules', pattern: '.agents/rules/' },
-      { name: '.agents/workflows', source: 'workflows', pattern: '.agents/workflows/' },
       // The project config is filled in per project: never overwrite it, never delete it.
       { name: '.agents/config', source: 'config', pattern: '.agents/config/', preserveExisting: true, keepOnRemove: true }
     ],
-    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety, Figma routing) and /ba-competitor, /ba-checklist, /ba-figma, /ba-template, /ba-spec, /ba-review, /ba-testcases, /ba-device-check.',
+    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety, Figma routing, markdown formatting) and project config (.agents/config/ba-project-config.md).',
     gitExcludePatterns: [
       '.agents/rules/ba-global-rules.md',
       '.agents/rules/ba-workflow.md',
       '.agents/rules/ba-naming-convention.md',
       '.agents/rules/ba-device-automation.md',
       '.agents/rules/ba-markdown-formatting.md',
-      '.agents/rules/ba-figma.md',
-      '.agents/workflows/ba-*.md',
-      '.agents/workflows/apk-feature-extractor.md'
+      '.agents/rules/ba-figma.md'
     ]
   },
   {
@@ -6382,13 +6399,16 @@ if (dom.btnAgentToolkitApplyAll) {
     const listContainer = dom.agentToolkitListContainer;
     if (!listContainer) return;
     // Items that need Mobilerun setup open an install dialog, so Apply All leaves them to the user.
-    const checkboxes = Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:not(:checked):not(:disabled):not([data-needs-install])')) as HTMLInputElement[];
-    if (checkboxes.length === 0) {
+    const unchecked = Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:not(:checked):not(:disabled):not([data-needs-install])')) as HTMLInputElement[];
+    const targets = unchecked.length > 0
+      ? unchecked
+      : Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:checked:not(:disabled):not([data-needs-install])')) as HTMLInputElement[];
+    if (targets.length === 0) {
       showToast('All available toolkits are already active!', 'info');
       return;
     }
-    showToast(`Activating ${checkboxes.length} toolkits...`, 'info');
-    for (const cb of checkboxes) {
+    showToast(unchecked.length > 0 ? `Activating ${targets.length} toolkits...` : `Syncing ${targets.length} active toolkits...`, 'info');
+    for (const cb of targets) {
       cb.checked = true;
       cb.dispatchEvent(new Event('change'));
     }
