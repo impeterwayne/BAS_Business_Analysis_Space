@@ -36,6 +36,8 @@
 <!-- SECTION: web-frontend, fullstack-web, mobile -->
 ## 3. Luồng màn hình (Screen Flows)
 
+> Giữ mỗi sơ đồ đơn giản (tối đa 8–12 node, nhãn ngắn gọn); tách luồng lớn thành nhiều sơ đồ nhỏ theo từng sub-flow hoặc tách riêng Happy Path và Nhánh lỗi để dễ xem.
+
 ```mermaid
 flowchart TD
     A[Màn hình A] --> B[Màn hình B]

@@ -32,6 +32,7 @@ Before writing any Markdown file to disk, the agent MUST perform these checks:
 4. **Horizontal rule check:** Ensure no `---` line appears directly adjacent to a table (must have at least one blank line of separation).
 5. **Trailing whitespace:** Remove trailing spaces that could cause unintended line breaks.
 6. **Mermaid direction check:** Every `flowchart` / `graph` header is `TD` (or `TB`), and no diagram or `subgraph` sets `direction LR` / `direction RL` (see section 5).
+7. **Mermaid simplicity & split check:** No single `mermaid` block exceeds **10–12 nodes** or mixes a complex happy path with every alternative/error branch into one giant tangled chart. Split large flows into multiple smaller, focused diagrams (see section 5).
 
 ### 3. General Document Structure
 
@@ -45,18 +46,23 @@ Before writing any Markdown file to disk, the agent MUST perform these checks:
 - Preserve all original text, terminology, and data values exactly as provided.
 - If reformatting requires splitting a cell's content, ensure no information is lost.
 
-### 5. Mermaid Diagram Direction (vertical by default)
+### 5. Mermaid Diagram Direction & Simplicity (vertical, small, split for easy viewing)
 
-Documents are read top-down in a narrow pane (Obsidian, preview panels). Horizontal diagrams overflow
-the width, shrink the text to unreadable sizes, and force sideways scrolling. So diagrams flow **vertically**.
+Documents are read top-down in a narrow pane (Obsidian, preview panels). Horizontal or oversized diagrams overflow the width, shrink the text to unreadable sizes, and force zooming/scrolling. Keep every diagram **vertical, simple, and split into multiple small diagrams**:
 
 - **Flowcharts:** always `flowchart TD` (or `TB`). NEVER `flowchart LR` / `RL` / `graph LR`.
-- **Subgraphs:** do not add `direction LR` / `direction RL` inside a `subgraph`.
+- **Subgraphs:** do not add `direction LR` / `direction RL` inside a `subgraph`. Avoid deeply nested `subgraph`s.
 - **State, class and ER diagrams:** keep the default top-to-bottom layout; do not add `direction LR`.
-- **Wide fan-out:** when one node branches into many siblings and the diagram gets wide, split it into
-  stacked `subgraph`s or several smaller diagrams — do not switch to a horizontal direction.
-- **Exempt (horizontal by nature):** `sequenceDiagram`, `gantt`, `timeline`, `journey`. Their layout is fixed.
-- **Only exception:** the user explicitly asks for a horizontal diagram.
+- **Keep each diagram simple (≤ 10–12 nodes max):**
+  - Each `mermaid` block MUST contain at most **8–12 nodes** and at most **2–3 branches** from a decision node.
+  - Keep node labels short and scannable (**3–6 words max**, e.g. `S01[01 Đăng nhập]`, `D1{OTP hợp lệ?}` — never put full sentences or detailed rules inside node boxes).
+  - Avoid long cross-chart back-arrows that cross over other edges.
+- **Cut large flows into multiple smaller diagrams:**
+  - Whenever a flow has more than ~10 nodes, multiple sub-flows, or several alternative/exception branches, **split it into multiple separate `mermaid` blocks** under clear subheadings (e.g., **Diagram 1: Luồng chính / Happy Path**, **Diagram 2: Nhánh phụ / Xử lý lỗi OTP**, **Diagram 3: Nhánh quên mật khẩu**).
+  - Use a clean handoff node (e.g., `D1 -->|Lỗi| E_OTP[Xem sơ đồ 3.2: Xử lý lỗi OTP]`) to connect the main diagram to the sub-diagrams instead of cramming everything into one block.
+  - For `sequenceDiagram`, keep to **≤ 4 participants** and **≤ 10–12 message arrows** per block; split multi-phase interactions (e.g., Init/Auth vs Execution vs Callback) into separate sequence diagrams.
+- **Exempt from vertical rule (horizontal by nature):** `sequenceDiagram`, `gantt`, `timeline`, `journey`. Their layout is fixed, but the simplicity and splitting rules still apply.
+- **Only exception:** the user explicitly asks for a horizontal or single consolidated diagram.
 
 ## Error Examples
 
@@ -95,14 +101,16 @@ the width, shrink the text to unreadable sizes, and force sideways scrolling. So
 | 1 | Description | Label | • Line 1 • Line 2 • Line 3 |
 ```
 
-### BAD — Horizontal flowchart:
+### BAD — Horizontal or monolithic overloaded flowchart:
 ```
 flowchart LR
     A[Mở app] --> B[Đăng nhập] --> C[Trang chủ]
 ```
 
-### GOOD — Vertical flowchart:
+### GOOD — Vertical, simple flowcharts split by concern:
 ```
 flowchart TD
-    A[Mở app] --> B[Đăng nhập] --> C[Trang chủ]
+    S01[01 Đăng nhập] -->|Nhập SĐT hợp lệ| S02[02 Nhập OTP]
+    S02 -->|OTP đúng| S03[03 Trang chủ]
+    S02 -.->|OTP sai / hết hạn| SUB1[Xem sơ đồ nhánh lỗi OTP]
 ```

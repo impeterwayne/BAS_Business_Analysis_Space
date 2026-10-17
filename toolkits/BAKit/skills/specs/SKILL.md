@@ -105,13 +105,13 @@ Do not keep template copies inside this skill.
 | :--- | :--- |
 | Master SRS (living) | `docs/project-srs.md` |
 | Use cases (living) | `docs/usecases/{module}/uc-{module}-{nnn}-{slug}.md` |
-| Editable diagram sources (living) | `docs/diagrams/{module}/{diagram-id}.md` (one diagram per file) |
-| Screenshots / Figma images | The actual supplied paths only (`docs/BA/figma/{feature}/screens/…`, `docs/BA/competitor/{app-slug}/screens/…`); otherwise the Figma node link or `Design Pending` |
+| Editable diagram sources (living) | `docs/diagrams/{module}/{diagram-id}.md` (split complex flows into multiple simple `mermaid` blocks or separate diagram files) |
+| Screenshots / Figma images | The actual supplied paths only (`docs/BA/figma/{feature}/screens/…`, `docs/BA/competitor/{app-slug}/screens/…`), **embedded with Markdown image syntax** `![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)` (relative from the use case file) so the image displays a preview instead of just a shortened or plain backticked path; otherwise the Figma node link or `Design Pending` |
 
 - IDs: `FR-{MOD}-{NNN}`, `UC-{MOD}-{NNN}`, `BR-{NNN}`, `UF-{MOD}-{NNN}` (User Flow), `ACT-{MOD}-{NNN}`
   (Activity), conditional `SEQ-{MOD}-{NNN}` (Sequence). Keep IDs stable across updates.
 - A diagram file is named by its ID in lowercase, e.g. `docs/diagrams/img/uf-img-001.md`. It starts with the header table (title, diagram ID, type, module, created, last updated,
-  author/agent, version), then one fenced `mermaid` block, then a `Use case liên quan (Covered use cases)` list.
+  author/agent, version), then **one or more simple, focused `mermaid` blocks** under clear `###` subheadings (e.g., `### 1. Luồng chính (Happy Path)`, `### 2. Nhánh phụ / Xử lý lỗi (Sub-flow / Error Handling)`), then a `Use case liên quan (Covered use cases)` list.
 - Living documents are updated in place: bump the header version and add a Change Log row.
 - The master SRS links the use case and diagram files; it does not duplicate full use cases. When the user
   asks for a **single handoff document**, assemble one consolidated SRS that inlines the relevant use cases and
@@ -140,8 +140,8 @@ For target requirements, the order of authority is:
 Every use case follows `ba-templates/templates/use-case.md`:
 
 1. Overview: actor, trigger / entry point, preconditions, postconditions, related FRs and screens.
-2. **UI Specification inside the use case, before Main Flow**, with the authentic Figma frame link and/or
-   reference image for each screen; one use case may document several screens.
+2. **UI Specification inside the use case, before Main Flow**, with the authentic Figma frame link and
+   **embedded reference image preview** (`![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)`) for each screen — never just a shortened `screens/...` or plain backticked path without preview; one use case may document several screens.
 3. Main Flow as `User Action → System Response → Screen / State`.
 4. Alternative Flows; Exception / Error / Edge Cases.
 5. Business Rules, Navigation / Result, Acceptance Criteria, Related Diagrams, Open Questions (`P0/P1/P2`) and
@@ -149,15 +149,17 @@ Every use case follows `ba-templates/templates/use-case.md`:
 
 Group use cases by **user goal**, not one per screen. Update an existing use case when it covers the same goal.
 
-## Diagram Policy — Hybrid Coverage
+## Diagram Policy — Hybrid Coverage, Simple & Split for Easy Viewing
 
+- **Keep every diagram simple and split into multiple small diagrams:**
+  - Each `mermaid` block MUST stay small and readable: **at most 8–12 nodes**, **at most 2–3 branches** per decision node, and concise labels (**3–6 words**).
+  - **Never cram an entire module or all alternative/exception branches into one giant diagram.** Cut complex journeys or processes into **multiple smaller diagrams** (either multiple `###` sub-diagrams inside the diagram file—e.g. *1. Luồng chính (Happy Path)*, *2. Nhánh phụ / Xử lý lỗi (Alternative & Error Flow)*—or separate diagram files `uf-{mod}-001`, `uf-{mod}-002` / `act-{mod}-001`, `act-{mod}-002` per sub-flow), connected by simple handoff nodes.
 - **User Flow — REQUIRED:** covers the main in-scope journeys: entry points, user actions, screens, navigation
-  and exits, usually one per feature group. Every affected use case references the shared User Flow.
+  and exits. Split large feature groups into multiple simple User Flow diagrams by sub-journey so each diagram is easy to view.
 - **Activity Diagram — REQUIRED:** covers core business processes: validations, decisions, state changes,
-  success / failure, cancel and retry. A shared Activity Diagram may cover several simple related use cases;
-  independently complex logic gets its own. Do not create redundant diagrams.
+  success / failure, cancel and retry. Separate the happy path from complex exception/retry sub-flows into distinct small `mermaid` blocks when combined nodes exceed 10–12.
 - **Sequence Diagram — CONDITIONAL:** only for complex ordered interactions among app, backend, SDK or third
-  parties, or asynchronous processing, where it clarifies a genuine requirement. Do not invent participants or
+  parties, or asynchronous processing, where it clarifies a genuine requirement. Keep each block to **≤ 4 participants** and **≤ 10–12 messages**; split multi-phase interactions into separate sequence diagrams. Do not invent participants or
   architecture; if they are unknown and essential, raise an Open Question instead.
 - A User Flow and an Activity Diagram are **not interchangeable**, even though both use Mermaid `flowchart`.
 - Flowcharts are vertical: `flowchart TD`, never `LR` (`ba-markdown-formatting` §5).

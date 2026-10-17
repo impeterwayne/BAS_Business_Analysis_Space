@@ -32,21 +32,23 @@
 <!-- SECTION: web-frontend, fullstack-web, mobile -->
 ## 4. Đặc tả giao diện (UI Specification)
 
-> Lặp lại mục con dưới đây cho mỗi màn hình mục tiêu trong use case này. **UI Specification phải đứng trước Main Flow.** Không bịa link Figma frame, đường dẫn screenshot hay trạng thái màn hình.
+> Lặp lại mục con dưới đây cho mỗi màn hình mục tiêu trong use case này. **UI Specification phải đứng trước Main Flow.** Không bịa link Figma frame, đường dẫn screenshot hay trạng thái màn hình. Khi đã có ảnh màn hình export từ Figma (hoặc screenshot), **bắt buộc nhúng bằng cú pháp ảnh Markdown `![...](...)` với đường dẫn tương đối từ file use case** để hiển thị preview trực tiếp — không chỉ ghi đường dẫn rút gọn hay bọc trong dấu backtick `` `...` `` không có preview.
 
 ### 4.1 {Mã màn hình (Screen ID)} — {Tên màn hình (Screen name)}
 
 - **Mục đích (Purpose):** {Vai trò của màn hình trong use case này}
-- **Figma frame:** `{https://www.figma.com/design/…?node-id=…}` hoặc Design Pending
-- **Ảnh tham chiếu (Reference image):** `{../../BA/figma/{feature}/screens/{NN}-{slug}.png}` hoặc Design Pending
+- **Figma frame:** [{Tên frame / node-id}]({https://www.figma.com/design/…?node-id=…}) hoặc Design Pending
 - **Vào từ (Entry from):** {Hành động / màn hình trước}
+- **Ảnh tham chiếu (Reference image):** (hoặc ghi `Design Pending` nếu chưa có thiết kế)
+
+![{Mã màn hình} — {Tên màn hình}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)
 
 | UI ID | Thành phần (Component) | Hiển thị / Nội dung (Display / Content) | Tương tác & Phản hồi hệ thống (Interaction & System response) | Hiển thị / Trạng thái / Kiểm tra hợp lệ (Visibility / State / Validation) |
 | :--- | :--- | :--- | :--- | :--- |
 | UI-01 | {Button} | "{Nhãn gốc}" ({English}) | {Hành động → phản hồi} | {Enabled / disabled và điều kiện hiển thị} |
 | UI-02 | {Field} | {Placeholder / giá trị mặc định nếu đã duyệt} | {Hành vi nhập} | {Định dạng / giới hạn / lỗi nếu đã duyệt} |
 
-**Trạng thái giao diện (UI states):** {Default / Loading / Empty / Success / Error / Disabled / Permission — chỉ khi áp dụng và có nguồn}
+**Trạng thái giao diện (UI states):** {Default / Loading / Empty / Success / Error / Disabled / Permission — chỉ khi áp dụng và có nguồn; nếu trạng thái có ảnh export riêng thì nhúng `![{Mã màn hình} — {Trạng thái}](../../BA/figma/{feature}/screens/{NN}-{slug}-{state}.png)`}
 
 **Popup / Dialog / Bottom sheet:** {Trigger, nội dung, hành động và cách đóng — nếu áp dụng}
 
@@ -54,7 +56,7 @@
 
 ### 4.2 {Màn hình khác, nếu có (Another screen)}
 
-{Lặp lại UI Specification với evidence thiết kế thực tế.}
+{Lặp lại UI Specification với evidence thiết kế thực tế và ảnh tham chiếu nhúng bằng `![...](...)`.}
 <!-- END SECTION -->
 
 ## 5. Luồng chính (Main Flow)
@@ -106,7 +108,7 @@
 | Activity Diagram (bắt buộc) | [ACT-{MOD}-{NNN}](../../diagrams/{module}/act-{mod}-{nnn}.md) | {Quy trình cốt lõi — dùng chung hoặc riêng} |
 | Sequence Diagram (nếu phức tạp) | [SEQ-{MOD}-{NNN}](../../diagrams/{module}/seq-{mod}-{nnn}.md) hoặc N/A | {Tương tác nhiều thành phần đã xác minh} |
 
-> Một sơ đồ có thể dùng chung cho nhiều use case đơn giản liên quan — liên kết tới nó thay vì vẽ lại. Use case đơn giản không cần Activity Diagram riêng nếu sơ đồ dùng chung đã bao phủ đầy đủ.
+> Giữ mỗi sơ đồ đơn giản (**tối đa 8–12 node / block**, nhãn ngắn gọn); nếu luồng phức tạp hoặc có nhiều nhánh phụ / lỗi thì **tách thành nhiều sơ đồ nhỏ** (trong cùng file theo mục `###` hoặc tách nhiều mã `UF-*` / `ACT-*`) để dễ xem. Một sơ đồ đơn giản có thể dùng chung cho các use case nhỏ liên quan.
 
 ## 12. Câu hỏi mở (Open Questions)
 

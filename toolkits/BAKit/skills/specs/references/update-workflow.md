@@ -79,7 +79,7 @@ Instructions:
 1. Read .agents/skills/ba-templates/templates/srs.md and
    .agents/skills/ba-templates/templates/use-case.md.
 2. Preserve unaffected approved requirements and user edits.
-3. Update the affected UCs, embedded UI Specifications, flows, rules and navigation.
+3. Update the affected UCs, embedded UI Specifications (embedding exported screen images with Markdown image syntax `![...](../../BA/figma/{feature}/screens/...)` for inline preview), flows, rules and navigation.
 4. Update the related shared or dedicated User Flow / Activity Diagrams; Sequence Diagrams only if warranted.
 5. Keep FR / UC / BR / diagram references and the traceability matrix consistent.
 6. Never delete a UC or its history: mark it Deprecated / Out of Scope only when the removal is confirmed.

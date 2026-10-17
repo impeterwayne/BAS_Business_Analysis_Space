@@ -41,14 +41,14 @@ When invoked in the main session (`ba-lead`), you do not call Figma tools or wri
    - Existing specs: list `docs/project-srs.md` (or legacy `docs/project-fsd.md`), `docs/usecases/`, and earlier analyses under `docs/BA/figma/<feature-slug>/` (a rerun writes the next `v[N]`; `diff` needs the previous one).
 2. **Analyse — one `ba-figma` dispatch per flow.** The bridge serves one Figma Desktop session, so do not run two analysts at once. The brief carries the six sections (`TASK`, `EXPECTED OUTCOME`, `MUST DO`, `MUST NOT DO`, `CONTEXT`, `SKILLS`) and names: the link and node ids, the frames in scope, the feature slug and name, `docs/BA/figma/<feature-slug>/` with the absolute workspace root (forward slashes) for `save_screenshots`, the existing SRS / use case paths to check against, and `diff` with the previous analysis when given. If the analyst returns a proposed split instead of a full analysis, show it to the user and dispatch the next part only after they agree.
 3. **Verify the analysis.** Read the file with `view_file` and check:
-   - Every reference image in §2 exists (`list_dir docs/BA/figma/<feature-slug>/screens/`).
+   - Every reference image in §2 exists (`list_dir docs/BA/figma/<feature-slug>/screens/`) and is embedded with Markdown image syntax (`![...](screens/{NN}-{slug}.png)`) in §2, §4 and §6 so it displays a preview rather than a plain backticked path.
    - §6 has a row for loading, empty, error, disabled and success per screen, with `not designed` where absent.
    - §10 candidates carry sources and grades; §11 is not empty on a real flow.
    - No colours / fonts / spacing tables crept in.
    Route defects back to `ba-figma`, quoting them. At three failed attempts, bring it to the user.
 4. **Report and stop.** Files written, screens covered, the candidate requirements (`FR-DSN-*`, `BR-CAND-*`) and open questions. Ask the user to **confirm or strike the candidates** and answer what they can. Do not continue without that answer unless the command said `then spec` / `then stories`, and even then only promote candidates the user has not struck.
 5. **Write the deliverable (only on `then …` or the user's go-ahead) — one `ba-spec-writer` dispatch.**
-   - `then spec` → `specs analyze` with the analysis as input: SRS §6 functional requirements, §4 Business Rules (from confirmed `BR-CAND-*`), the §5 User Flow (from analysis §3), and one use case per user goal. Each use case carries a UI Specification subsection per screen it serves (citing the node link and reference image), and its alternative and exception flows come from the analysis §6 states and §5 validation. When the design conflicts with competitor evidence or a checklist, run `product-decision` (`ba-brainstormer`) first.
+   - `then spec` → `specs analyze` with the analysis as input: SRS §6 functional requirements, §4 Business Rules (from confirmed `BR-CAND-*`), the §5 User Flow (from analysis §3), and one use case per user goal. Each use case carries a UI Specification subsection per screen it serves — citing the node link and **embedding the exported reference image with Markdown image syntax** `![{Screen ID} — {Screen name}](../../BA/figma/<feature-slug>/screens/{NN}-{slug}.png)` (relative from `docs/usecases/<module>/`, never just a shortened `screens/...` or plain backticked path without preview) — and its alternative and exception flows come from the analysis §6 states and §5 validation. When the design conflicts with competitor evidence or a checklist, run `product-decision` (`ba-brainstormer`) first.
    - `then stories` → `user-story-ac-writer` / `ba-templates` `user-stories`, one story per confirmed `FR-DSN-*`, Given/When/Then from §4 actions and §5 / §6.
    - Confirmed candidates become `FR-{MOD}-{NNN}` / `BR-{NNN}`; keep `FR-DSN-*` in the `Nguồn (Source)` column. Unconfirmed ones stay out and are listed as open questions.
    - Open questions from §11 go into each use case's Open Questions section.
@@ -109,7 +109,7 @@ flow beats a shallow one of ten screens**, because the shallow one gets specifie
 `save_screenshots` for every frame in scope, `format: 'PNG'`, `scale: 2`, into
 `docs/BA/figma/{feature-slug}/screens/`. Use **absolute paths with forward slashes** in `outputPath` (resolve the
 workspace root first); the server does not run in the workspace. Confirm the files exist with `list_dir`
-before you cite them. A cited image that is not on disk is a defect.
+before you cite them. Embed every exported image using Markdown image syntax (`![{NN} — {Screen name}](screens/{NN}-{slug}.png)`) in §2, §4 and §6 so the image displays directly in preview instead of showing a plain/shortened code path. A cited image that is not on disk is a defect.
 
 ### 4. Extract, screen by screen
 
@@ -150,7 +150,7 @@ matches" is the most useful line you can write, and "changed vs FR-AUTH-002" the
 
 1. Write `docs/BA/figma/{feature-slug}/{feature-slug}_figma_{YYYYMMDD}_v{N}.md` from the template, in
    Vietnamese per `ba-global-rules`; never overwrite an existing `v{N}`.
-2. Draw §3 with `mermaidjs-v11` syntax: `[Prototype]` edges solid, `[Inferred]` edges dashed.
+2. Draw §3 with `mermaidjs-v11` syntax (`flowchart TD`): `[Prototype]` edges solid, `[Inferred]` edges dashed. Keep every diagram **simple (≤ 8–12 nodes, short labels)** and **cut §3 into multiple smaller diagrams** (`3.1 Luồng chính`, `3.2 Nhánh phụ / Xử lý lỗi`, …) whenever there are multiple sub-flows or branches so each diagram is easy to view.
 3. Validate Markdown per `ba-markdown-formatting`.
 
 ### Diff mode
@@ -162,7 +162,7 @@ affects. Do not re-describe unchanged screens; point to the previous version ins
 ## Completion checklist
 
 - [ ] `get_document` never called; every MCP call and every skipped branch logged in §1.
-- [ ] A reference PNG on disk for every frame in §2.
+- [ ] A reference PNG on disk for every frame in §2, embedded with `![...](screens/{NN}-{slug}.png)` in §2, §4 and §6 so it displays a preview (never a plain code path).
 - [ ] Every element, string and rule carries a node id that was observed, not constructed.
 - [ ] §5 lists only constraints the design shows; the rest are questions.
 - [ ] §6 covers loading, empty, error, disabled and success for every screen — `not designed` where absent.

@@ -54,11 +54,10 @@ flowchart TD
 
 **Comments:** Use `%% ` prefix for single-line comments.
 
-**Direction — vertical by default:** Use `flowchart TD` (or `TB`), never `LR` / `RL`, and do not set
-`direction LR` on subgraphs or state/class/ER diagrams. If a diagram gets too wide, split it into stacked
-subgraphs or smaller diagrams instead of going horizontal. `sequenceDiagram`, `gantt`, `timeline` and
-`journey` are exempt. Only go horizontal when the user explicitly asks. Full rule: `ba-markdown-formatting`
-(section 5).
+**Direction & Simplicity — vertical, simple, and split into multiple diagrams:**
+- Use `flowchart TD` (or `TB`), never `LR` / `RL`, and do not set `direction LR` on subgraphs or state/class/ER diagrams (`sequenceDiagram`, `gantt`, `timeline` and `journey` are exempt from the vertical rule).
+- **Keep every diagram simple:** max **8–12 nodes** per `mermaid` block, max **2–3 branches** per decision node, and short labels (**3–6 words**). Never cram an entire feature's happy path, alternative flows, and error states into one giant chart.
+- **Cut into multiple smaller diagrams:** When a flow has > 10–12 nodes or multiple branches/sub-flows, split it into several focused `mermaid` blocks under clear subheadings (e.g., *1. Main / Happy Path*, *2. Sub-flow / Error & Retry*) connected by simple reference nodes. Full rule: `ba-markdown-formatting` (section 5).
 
 ## CLI Usage
 

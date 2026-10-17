@@ -82,10 +82,10 @@ Outputs:
 
 Requirements:
 1. Do not copy reference behavior into target rules without a confirmed decision.
-2. Embed the UI Specification, with real Figma node links / reference images, in each UC BEFORE Main Flow.
+2. Embed the UI Specification, with real Figma node links and inline Markdown image previews (`![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)` — never a plain or shortened path without preview), in each UC BEFORE Main Flow.
 3. Include Main / Alternative / Exception Flows, Business Rules, Navigation / Result, Acceptance Criteria.
-4. User Flow for main journeys, Activity Diagram for core processes; shared diagrams for simple related UCs.
-5. Sequence Diagrams only for genuinely complex interactions with verified participants.
+4. User Flow for main journeys, Activity Diagram for core processes; keep each diagram simple (≤ 8–12 nodes, short labels) and cut complex flows into multiple smaller diagrams (Happy Path vs Sub-flows / Error branches) for easy viewing.
+5. Sequence Diagrams only for genuinely complex interactions with verified participants (≤ 4 participants, ≤ 10–12 messages per block).
 6. Trace every in-scope feature to FR/UC and every UC to its diagrams.
 7. Omit non-applicable Permissions / Ads-IAP / NFRs; never invent behavior, links or assets.
 8. Promote FR-CAND / FR-DSN / BR-CAND only when confirmed; keep the candidate ID in Nguồn (Source).
@@ -113,8 +113,8 @@ Create `docs/usecases/{module}/uc-{module}-{nnn}-{slug}.md` from the `use-case` 
 
 - Use the next free UC number in each module.
 - Document screen-specific components and states inside the use case.
-- Reference only real Figma node links and existing image paths (relative from the use case file, e.g.
-  `../../BA/figma/{feature}/screens/01-login.png`).
+- Reference only real Figma node links and existing image paths, **embedding every exported image using Markdown image syntax** (relative from the use case file, e.g.
+  `![01 — Login](../../BA/figma/{feature}/screens/01-login.png)`) so it displays a preview directly instead of just showing a shortened or plain code path.
 - Record a missing design as `Design Pending` with a matching Open Question.
 
 ### 8. Create Required Diagrams
@@ -124,6 +124,7 @@ Store editable Mermaid sources under `docs/diagrams/{module}/`:
 - `UF-{MOD}-{NNN}`: user actions, screens, navigation and exits for main journeys.
 - `ACT-{MOD}-{NNN}`: validation, decisions, success / failure and recovery for core processes.
 - `SEQ-{MOD}-{NNN}`: only where multi-component or asynchronous interactions warrant it.
+- **Keep diagrams simple and cut into multiple smaller diagrams:** each `mermaid` block must have **at most 8–12 nodes** and concise labels (3–6 words). Whenever a journey or process has > 10–12 nodes or multiple branches, split it into multiple focused `mermaid` blocks under `###` subheadings (e.g., *1. Luồng chính (Happy Path)*, *2. Nhánh phụ / Xử lý lỗi*) or separate diagram files (`uf-{mod}-001`, `uf-{mod}-002`) so every diagram is easy to view.
 
 Every affected use case links its User Flow and Activity Diagram. Do not invent backend or API details.
 

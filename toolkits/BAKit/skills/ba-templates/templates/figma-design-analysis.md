@@ -31,21 +31,34 @@ get_reactions      {123:470}                 -> {n} reactions
 
 | # | Màn hình (Screen) | Node ID | Ảnh tham chiếu (Reference image) | Mục đích (Purpose) | Vào từ (Entry from) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 01 | {Đăng nhập} | `{123:456}` | `screens/01-login.png` | {một dòng} | {Splash / deep link / —} |
+| 01 | {Đăng nhập} | `{123:456}` | ![01 — {Đăng nhập}](screens/01-login.png) | {một dòng} | {Splash / deep link / —} |
 
 ## 3. Luồng màn hình (Screen Flow)
+
+> Giữ mỗi sơ đồ **đơn giản, tối đa 8–12 node**, nhãn ngắn gọn (3–6 từ). Nếu luồng có nhiều màn hình hoặc nhiều nhánh phụ / lỗi, **bắt buộc tách thành nhiều sơ đồ nhỏ** theo từng mục con (`3.1 Luồng chính`, `3.2 Nhánh phụ / Xử lý lỗi…`) để dễ nhìn — không nhồi tất cả vào một sơ đồ lớn. Cạnh lấy từ `get_reactions` là **[Prototype]** (nét liền `-->`); cạnh suy từ tên frame hoặc nút là **[Inferred]** (nét đứt `-.->`).
+
+### 3.1 Luồng chính (Main Screen Flow)
 
 ```mermaid
 flowchart TD
     S01[01 Đăng nhập] -->|tap Đăng nhập| S02[02 Nhập OTP]
-    S02 -->|OTP sai| S02E[02 Lỗi OTP]
+    S02 -->|OTP đúng| S03[03 Trang chủ]
+    S02 -.->|OTP sai / Gửi lại| SUB_ERR[Xem 3.2 Nhánh lỗi & Gửi lại OTP]
 ```
 
-Cạnh lấy từ `get_reactions` là **[Prototype]**; cạnh suy từ tên frame hoặc nút là **[Inferred]** và vẽ nét đứt (`-.->`).
+### 3.2 Nhánh phụ / Xử lý lỗi (Sub-flows & Error States — tách thêm sơ đồ khi cần)
+
+```mermaid
+flowchart TD
+    S02[02 Nhập OTP] -->|OTP sai| S02E[02 Lỗi OTP]
+    S02E -->|tap Gửi lại mã| S02
+```
 
 ## 4. Chi tiết màn hình (Screen Details)
 
 ### 01 — {Tên màn hình}
+
+![01 — {Tên màn hình}](screens/01-login.png)
 
 - **Mục đích (Purpose):** {Màn hình dùng để làm gì}
 - **Bố cục (Layout):** {Các vùng chính: header, nội dung, bottom bar, …}
@@ -77,9 +90,9 @@ Một dòng cho mỗi trạng thái của mỗi màn hình, kể cả trạng th
 
 | Màn hình (Screen) | Trạng thái (State) | Thiết kế (Designed) | Node ID / Ảnh | Ghi chú (Notes) |
 | :--- | :--- | :--- | :--- | :--- |
-| 01 | Default | Yes | `{123:456}` | — |
+| 01 | Default | Yes | `{123:456}` · ![01 — Default](screens/01-login.png) | — |
 | 01 | Loading | not designed | — | {→ Q-01} |
-| 01 | Error (sai định dạng) | Yes | `{123:520}` · `screens/01-login-error.png` | — |
+| 01 | Error (sai định dạng) | Yes | `{123:520}` · ![01 — Error](screens/01-login-error.png) | — |
 | 01 | Empty / Disabled / Success / No network / Permission denied | {Yes / not designed} | — | — |
 
 ## 7. Nội dung & thông báo (Copy & Messages)

@@ -39,7 +39,7 @@ A Figma tree is unbounded and the design is the largest thing that will enter yo
 
 ## What the analysis must let the spec writer do without asking
 
-- Describe every screen (§2, §4) with a reference image that exists on disk.
+- Describe every screen (§2, §4) with an exported reference image that exists on disk and is embedded using Markdown image syntax (`![{NN} — {Screen name}](screens/{NN}-{slug}.png)`) so it renders as a preview.
 - Write the main, alternative and exception flows of each use case: the flow (§3), the actions (§4) and the
   states (§6) — with `not designed` rows, never silently missing ones.
 - Write field tables and validation rules (§5) — only constraints the design shows; the rest are questions.
@@ -50,7 +50,7 @@ A Figma tree is unbounded and the design is the largest thing that will enter yo
 
 - You called `get_document`, or spent the window on frames nobody asked about.
 - A node id, label or rule in the analysis was invented rather than observed.
-- A cited reference image is not on disk.
+- A cited reference image is not on disk, or is written as a plain code path without `![...](...)` preview.
 - §6 lists only the default state of a screen, or §11 is empty on a real flow.
 - You presented a `FR-DSN-*` candidate as confirmed, or wrote to `docs/project-srs.md`, `docs/project-fsd.md`, `docs/usecases/` or
   `docs/BA/stories/`.

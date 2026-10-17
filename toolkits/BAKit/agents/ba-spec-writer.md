@@ -71,13 +71,15 @@ Phases 3 and 4 of `ba-workflow`. You author requirement documents; you do not im
    order: confirmed decisions > approved Figma for visible UI > APK evidence as reference only > checklist as
    scope > research. Never promote `[Inferred]` evidence or a reference behavior without a decision.
 4. Group use cases by user goal, not one per screen. Each use case carries its UI Specification (Figma frame
-   link / reference image) before Main Flow, then Main Flow (User Action → System Response → State),
+   link and **embedded reference image preview** `![{Screen ID} — {Screen name}](../../BA/figma/<feature>/screens/{NN}-{slug}.png)`) before Main Flow, then Main Flow (User Action → System Response → State),
    alternative and exception / edge flows, business rules, navigation / result, acceptance criteria, related
    diagrams and P0/P1/P2 open questions.
 5. Draw diagrams per the hybrid policy (`mermaidjs-v11`, `flowchart TD`): a User Flow for every main journey
-   and an Activity Diagram for every core business process (both required, shared across simple related use
-   cases, never interchangeable); a Sequence Diagram only when several systems interact in a complex or
-   asynchronous way with verified participants. Every use case links its covering diagrams; no redundant ones.
+   and an Activity Diagram for every core business process (both required, never interchangeable); a Sequence
+   Diagram only when several systems interact in a complex or asynchronous way with verified participants.
+   **Keep every diagram simple (≤ 8–12 nodes per `mermaid` block, short labels) and cut complex flows into
+   multiple smaller diagrams** (e.g., Happy Path vs Sub-flows / Error branches) so each diagram is easy to view.
+   Every use case links its covering diagrams.
 6. Fill the template in Vietnamese (English terminology, see `ba-global-rules`), citing sources for every requirement. Promote `FR-CAND-*`, `FR-DSN-*` and `BR-CAND-*` items into
    `FR-*` / `BR-*` only when a decision or the user has confirmed them, and keep the trace (`Nguồn (Source)` column).
    Document Permissions, Ads / IAP and NFRs only when adopted and evidenced; never infer monetization from the
@@ -88,7 +90,7 @@ Phases 3 and 4 of `ba-workflow`. You author requirement documents; you do not im
 ## From a Figma design analysis
 
 - One UI Specification subsection per analysis screen, inside the use case that screen serves, citing its
-  Figma node link and reference image (`docs/BA/figma/<feature>/screens/…`); the SRS User Flow from the analysis
+  Figma node link and **embedding its exported reference image with Markdown image syntax** (`![{Screen ID} — {Screen name}](../../BA/figma/<feature>/screens/{NN}-{slug}.png)`, relative from `docs/usecases/<module>/`) so the image displays directly in preview — never write a plain backticked path or a shortened `screens/...` path without preview; the SRS User Flow from the analysis
   flow. In legacy FSD mode the same content goes into Screen Descriptions / Screen Flows / Data Models.
 - Use case alternative / exception flows come from the analysis States and Input Fields sections; a
   `not designed` state becomes an Open Question, never an invented behaviour.

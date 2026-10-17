@@ -62,7 +62,7 @@ Các journey chính in scope phải có User Flow có thể chỉnh sửa, thể
 | :--- | :--- | :--- | :--- |
 | UF-{MOD}-{NNN} | {Journey} | [UF-{MOD}-{NNN}](diagrams/{module}/uf-{mod}-{nnn}.md) | UC-{MOD}-{NNN}, UC-{MOD}-{NNN} |
 
-> Dùng Mermaid `flowchart TD` cho điều hướng màn hình. User Flow không thay thế Activity Diagram.
+> Dùng Mermaid `flowchart TD` cho điều hướng màn hình. **Giữ mỗi sơ đồ đơn giản (tối đa 8–12 node, nhãn ngắn 3–6 từ) và tách luồng lớn thành nhiều sơ đồ nhỏ** (theo từng sub-journey hoặc tách riêng Happy Path và Nhánh phụ / Xử lý lỗi) để dễ nhìn. User Flow không thay thế Activity Diagram.
 
 ## 6. Yêu cầu chức năng & Use case (Functional Requirements & Use Cases)
 
@@ -82,7 +82,7 @@ Các journey chính in scope phải có User Flow có thể chỉnh sửa, thể
 | :--- | :--- | :--- | :--- |
 | ACT-{MOD}-{NNN} | {Quy trình nghiệp vụ / logic rẽ nhánh cốt lõi} | [ACT-{MOD}-{NNN}](diagrams/{module}/act-{mod}-{nnn}.md) | UC-{MOD}-{NNN} |
 
-> Một Activity Diagram dùng chung có thể bao phủ nhiều use case đơn giản liên quan. Quy trình phức tạp độc lập có sơ đồ riêng; không vẽ sơ đồ cho mỗi màn hình.
+> Giữ mỗi Activity Diagram đơn giản (**tối đa 8–12 node / block**); nếu quy trình có nhiều nhánh rẽ hoặc xử lý lỗi phức tạp, **bắt buộc cắt thành nhiều sơ đồ nhỏ** (ví dụ: *1. Luồng chính*, *2. Nhánh phụ / Lỗi*) thay vì nhồi vào một sơ đồ lớn.
 
 **Sequence Diagram — Chỉ khi độ phức tạp cần (Only if warranted):**
 
@@ -90,7 +90,7 @@ Các journey chính in scope phải có User Flow có thể chỉnh sửa, thể
 | :--- | :--- | :--- | :--- |
 | SEQ-{MOD}-{NNN} | {Tương tác nhiều thành phần đã xác minh} | [SEQ-{MOD}-{NNN}](diagrams/{module}/seq-{mod}-{nnn}.md) | UC-{MOD}-{NNN} |
 
-> Bỏ bảng Sequence Diagram khi không cần. Không bịa API, tương tác SDK, participant hay kiến trúc.
+> Bỏ bảng Sequence Diagram khi không cần. Giữ mỗi sơ đồ tối đa 4 participant và 10–12 bước thông điệp (tách thành nhiều sơ đồ theo pha nếu dài hơn). Không bịa API, tương tác SDK, participant hay kiến trúc.
 
 <!-- Lặp lại mục 6.x cho mỗi nhóm tính năng in scope. -->
 

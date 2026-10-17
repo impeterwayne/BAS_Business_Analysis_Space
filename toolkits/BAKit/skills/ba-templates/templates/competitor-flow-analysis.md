@@ -27,6 +27,8 @@
 
 ## 4. Sơ đồ chuyển trạng thái (State Transitions)
 
+> Giữ mỗi sơ đồ **đơn giản (tối đa 8–12 node)**; nếu luồng có nhiều nhánh hoặc trạng thái lỗi thì **cắt thành nhiều sơ đồ nhỏ** (`4.1 Luồng chính`, `4.2 Nhánh phụ / Lỗi`) để dễ nhìn.
+
 ```mermaid
 flowchart TD
     S01[01 Màn hình A] -->|tap Tiếp tục| S02[02 Màn hình B]

@@ -29,6 +29,14 @@ Copy the template below and replace the `<...>` placeholders with actual content
 | **Assumptions:** | 1. \<assumption 1\><br>2. \<assumption 2\> |
 | **Notes and Issues:** | [TBD-1] \<question\> \| Owner: \<...\> \| Due: \<...\> \| Resolution: \<...\> |
 
+### Reference Screens (when writing from Figma / UI design)
+
+> Embed exported reference images using Markdown image syntax `![...](...)` with the relative path from this UC file so the image displays a preview directly (never use a plain/shortened code path without preview):
+
+- **Figma Frame:** [\<Screen Name / Node ID\>](https://www.figma.com/design/…?node-id=…)
+
+![01 — \<Screen Name\>](../../BA/figma/\<feature\>/screens/01-\<slug\>.png)
+
 ---
 *Template by **Phúc NT** · BA Zone · Digital School*  
 *Please keep attribution intact when distributing this template.*

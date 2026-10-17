@@ -11,7 +11,7 @@ Example: `/specs analyze "AI image generation: input photo validation and retry"
 The description may be a path to a Product Decision Summary (`docs/BA/decisions/…_decisions_*.md`), a feature
 brief (`docs/BA/briefs/…`) or a Figma design analysis (`docs/BA/figma/{feature}/{feature}_figma_*.md`). The
 decision file or brief then sets the confirmed scope; the Figma analysis supplies the screens, flows, fields,
-states and messages, with its reference images cited.
+states and messages, with its exported reference images embedded as Markdown image previews (`![...](...)`).
 
 ## Steps
 
@@ -97,7 +97,7 @@ Instructions:
    .agents/skills/ba-templates/templates/use-case.md.
 2. Reuse/update an existing UC when it covers the same user goal; otherwise create a new UC
    with the next stable ID in the module.
-3. Put the Figma-linked UI Specification inside the UC before Main Flow.
+3. Put the Figma-linked UI Specification inside the UC before Main Flow, embedding each exported screen image with Markdown image syntax (`![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)`) so it renders a visual preview rather than a shortened or plain backticked path.
 4. Include Main, Alternative, Exception / Edge Flows, Business Rules, Navigation / Result, Acceptance Criteria.
 5. Update shared User Flow / Activity Diagrams only where impacted; add a dedicated diagram for
    independently complex logic. Sequence Diagram only for warranted interactions.

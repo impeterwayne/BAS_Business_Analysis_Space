@@ -93,12 +93,12 @@ Starts from a READY FOR SRS summary, an approved feature brief, or an explicit u
 4. Requirements are organised by **use case** (user goal), not one use case per screen. Each use case
    embeds its **UI Specification with Figma / screenshot references before the flows**, then main,
    alternative and exception flows, business rules, navigation, diagram references and open questions.
-5. **Hybrid diagram policy** (`mermaidjs-v11`):
-   - **User Flow — required**: main journeys and screen navigation, usually per feature group.
-   - **Activity Diagram — required**: core business processes, decisions, validations, success/failure paths.
-     One diagram may serve several simple use cases; independently complex logic gets its own.
+5. **Hybrid diagram policy — simple & split for easy viewing** (`mermaidjs-v11`):
+   - **Keep diagrams simple and cut into multiple smaller diagrams**: each `mermaid` block holds at most 8–12 nodes with short labels (3–6 words). Split complex journeys or processes into multiple focused diagrams (e.g., Happy Path vs Sub-flows / Error & Retry branches) rather than one giant chart.
+   - **User Flow — required**: main journeys and screen navigation, split by sub-journey when large.
+   - **Activity Diagram — required**: core business processes, decisions, validations, success/failure paths, split into separate small blocks when complex.
    - **Sequence Diagram — conditional**: only for complex or asynchronous app / backend / SDK / third-party
-     interactions.
+     interactions (≤ 4 participants, ≤ 10–12 messages per block).
    - A User Flow and an Activity Diagram are not interchangeable, even though both are Mermaid flowcharts.
      Every use case references the diagrams that cover it; no diagrams made only to fill a quota.
 6. Permissions, Ads / IAP, NFRs and dependencies are written only when applicable and supported. Reference

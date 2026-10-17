@@ -144,6 +144,9 @@ Read `references/writing-style.md` for writing conventions (active voice, number
 | **Notes and Issues:**   | TBD-1: [open question] / Owner / Due       |
 ```
 
+**When writing from Figma / UI designs (Reference Images):**
+If the Use Case is derived from a Figma design or has exported screen images (e.g. `docs/BA/figma/{feature}/screens/{NN}-{slug}.png`), **always embed the exported image using Markdown image syntax `![{Screen ID} — {Screen Name}](<relative-path-to-image>.png)`** (for example `![01 — Login](../../BA/figma/{feature}/screens/01-login.png)` relative from `docs/usecases/{module}/`) right before or alongside the flow / UI reference section so the image renders as a visual preview — **never** write just a shortened `screens/...` path or a plain backticked path without preview.
+
 Copy-ready template lives in `assets/uc-template.md`.
 
 ### 3.2. Sequential generation — the 5 section groups

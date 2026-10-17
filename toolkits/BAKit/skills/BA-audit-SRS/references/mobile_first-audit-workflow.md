@@ -111,8 +111,7 @@ Working-note table (not the report):
 
 For each UI-bearing UC:
 
-- The UI Specification is embedded in the UC **before** the flows and references the authentic Figma frame /
-  screenshot for each screen (or `Design Pending`, which is itself a gap when the screen is in scope).
+- The UI Specification is embedded in the UC **before** the flows, cites the authentic Figma frame link, and **embeds the exported screenshot / reference image with Markdown image syntax** (`![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)`, relative from the UC file) so it displays a preview directly — flag a plain backticked path or a broken shortened `screens/...` path without `![...](...)` preview as a formatting/traceability defect (or `Design Pending`, which is itself a gap when the screen is in scope).
 - The specified components match the supplied design and the screen purpose; labels are consistent between
   design and UC (verbatim, original language).
 - For each relevant component check: label, default value, visibility, enabled / disabled state, tap action,
