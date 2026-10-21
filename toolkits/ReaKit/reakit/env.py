@@ -181,19 +181,22 @@ def inject_runtime_path():
     if new_dirs:
         os.environ["PATH"] = os.pathsep.join(new_dirs + path_entries)
 
-    # Set default scrcpy environment variables if not already defined or invalid
+    # Set default scrcpy environment variables if not already defined, invalid, or pointing to a stale REAKit copy
     scrcpy_dir = find_scrcpy_dir()
+    base_str = str(BASE_DIR.resolve()).lower()
     if scrcpy_dir and scrcpy_dir.exists():
         server_file = scrcpy_dir / "scrcpy-server"
-        existing_server = os.environ.get("SCRCPY_SERVER_PATH")
-        if server_file.exists() and (not existing_server or not Path(existing_server).exists()):
+        existing_server = os.environ.get("SCRCPY_SERVER_PATH", "")
+        is_stale_server = (not existing_server) or (not Path(existing_server).exists()) or ("reakit" in existing_server.lower() and not existing_server.lower().startswith(base_str))
+        if server_file.exists() and is_stale_server:
             os.environ["SCRCPY_SERVER_PATH"] = str(server_file.resolve())
         if "SCRCPY_SERVER_VERSION" not in os.environ:
             os.environ["SCRCPY_SERVER_VERSION"] = "4.1"
         
         adb_file = scrcpy_dir / ("adb.exe" if os.name == "nt" else "adb")
-        existing_adb = os.environ.get("ADB_PATH") or os.environ.get("ADB")
-        if adb_file.exists() and (not existing_adb or not Path(existing_adb).exists()):
+        existing_adb = os.environ.get("ADB_PATH") or os.environ.get("ADB") or ""
+        is_stale_adb = (not existing_adb) or (not Path(existing_adb).exists()) or ("reakit" in existing_adb.lower() and not existing_adb.lower().startswith(base_str))
+        if adb_file.exists() and is_stale_adb:
             os.environ["ADB_PATH"] = str(adb_file.resolve())
             os.environ["ADB"] = str(adb_file.resolve())
 
@@ -663,11 +666,15 @@ def install_environment(
             current_user_path = res.stdout.strip()
             existing = [p.strip() for p in current_user_path.split(";") if p.strip()]
             
-            # Filter out stale legacy scrcpy paths
+            # Filter out stale legacy scrcpy or old REAKit paths outside this bundle
+            base_str = str(BASE_DIR.resolve()).lower()
             core_str = str(CORE_DIR.resolve()).lower()
             cleaned_existing = [
                 p for p in existing
-                if not (p.lower().startswith(core_str) and "scrcpy-win64" in p.lower())
+                if not (
+                    (p.lower().startswith(core_str) and "scrcpy-win64" in p.lower())
+                    or ("reakit" in p.lower() and not p.lower().startswith(base_str))
+                )
             ]
             existing_lower = [p.lower() for p in cleaned_existing]
             
@@ -685,23 +692,23 @@ def install_environment(
                            f'[Environment]::SetEnvironmentVariable("Path", \'{escaped_path}\', "User")']
                 subprocess.run(cmd_set, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
 
-                scrcpy_dir = find_scrcpy_dir()
-                if scrcpy_dir and scrcpy_dir.exists():
-                    server_file = scrcpy_dir / "scrcpy-server"
-                    if server_file.exists():
-                        escaped_srv = str(server_file.resolve()).replace("'", "''")
-                        subprocess.run(['powershell', '-NoProfile', '-Command',
-                                       f'[Environment]::SetEnvironmentVariable("SCRCPY_SERVER_PATH", \'{escaped_srv}\', "User")'],
-                                       check=False)
-                        subprocess.run(['powershell', '-NoProfile', '-Command',
-                                       '[Environment]::SetEnvironmentVariable("SCRCPY_SERVER_VERSION", "4.1", "User")'],
-                                       check=False)
-                    adb_file = scrcpy_dir / ("adb.exe" if os.name == "nt" else "adb")
-                    if adb_file.exists():
-                        escaped_adb = str(adb_file.resolve()).replace("'", "''")
-                        subprocess.run(['powershell', '-NoProfile', '-Command',
-                                       f'[Environment]::SetEnvironmentVariable("ADB_PATH", \'{escaped_adb}\', "User")'],
-                                       check=False)
+            scrcpy_dir = find_scrcpy_dir()
+            if scrcpy_dir and scrcpy_dir.exists():
+                server_file = scrcpy_dir / "scrcpy-server"
+                if server_file.exists():
+                    escaped_srv = str(server_file.resolve()).replace("'", "''")
+                    subprocess.run(['powershell', '-NoProfile', '-Command',
+                                   f'[Environment]::SetEnvironmentVariable("SCRCPY_SERVER_PATH", \'{escaped_srv}\', "User")'],
+                                   check=False)
+                    subprocess.run(['powershell', '-NoProfile', '-Command',
+                                   '[Environment]::SetEnvironmentVariable("SCRCPY_SERVER_VERSION", "4.1", "User")'],
+                                   check=False)
+                adb_file = scrcpy_dir / ("adb.exe" if os.name == "nt" else "adb")
+                if adb_file.exists():
+                    escaped_adb = str(adb_file.resolve()).replace("'", "''")
+                    subprocess.run(['powershell', '-NoProfile', '-Command',
+                                   f'[Environment]::SetEnvironmentVariable("ADB_PATH", \'{escaped_adb}\', "User")'],
+                                   check=False)
         except Exception as e:
             log_error(f"Failed to update Windows User PATH: {e}")
             return []

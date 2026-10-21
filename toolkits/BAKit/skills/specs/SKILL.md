@@ -1,6 +1,6 @@
 ---
 name: specs
-description: "Create, analyze and maintain the Software Requirements Specification (SRS): use cases with embedded UI specifications, business rules, and editable User Flow / Activity / Sequence diagrams, built from the feature checklist, competitor APK evidence, Figma analysis and confirmed product decisions. Legacy FSD kept on request. Operations: init, analyze 'feature', update."
+description: "Create, analyze and maintain the Software Requirements Specification (SRS) for the app: supports Single-File Mobile SRS mode (docs/ba/srs/{app}_srs_v{N}.md with all Use Cases and Mermaid diagrams inline, ready for srs-export to Word .docx) as well as Modular Living SRS mode (docs/project-srs.md + docs/usecases/ + docs/diagrams/). Built from the Feature Checklist, APK evidence, Figma/Design images and confirmed Product Decisions. Operations: init, analyze 'feature', update."
 argument-hint: "init|analyze 'description'|update"
 ---
 
@@ -9,12 +9,21 @@ argument-hint: "init|analyze 'description'|update"
 Create and maintain the **Software Requirements Specification (SRS)** and its use cases. The default process
 is evidence-first:
 
-**Feature Checklist + APK evidence + Figma analysis + confirmed Product Decisions → SRS + Use Cases + Diagrams**
+**Feature Checklist + APK evidence + Design / Figma analysis + confirmed Product Decisions → SRS + Use Cases + Diagrams (→ Quick Audit → Word `.docx` via `srs-export`)**
 
 A codebase is optional corroboration, never a prerequisite. `ba-spec-writer` owns requirement analysis and
 integration; this skill routes the work, fixes the structure and manages the resulting files.
 
 **Documentation only. Do not implement code.**
+
+## Output Modes (Single-File Mobile SRS vs Modular SRS)
+
+1. **Single-File Mobile SRS Mode (Default for Mobile Apps & Word `.docx` Handoff):**
+   - Writes **one self-contained Vietnamese Markdown file**: `docs/ba/srs/{app}_srs_v{N}.md` (using `references/templates/srs-template.md` and `references/templates/use-case-template.md`).
+   - All Use Cases are written **in full** inside Section 6 (no separate `docs/usecases/` files needed), and all Mermaid diagrams are written **inline** inside the SRS with `<a id="..."></a>` anchors (`<a id="uc-..."></a>`, `<a id="uf-..."></a>`, `<a id="act-..."></a>`) so `srs-export` converts them directly into native Word bookmarks and embedded diagram images in `docs/ba/srs-word/{app}_srs_v{N}.docx`.
+   - Versioning: never overwrite an existing `v{N}` file; write `v{N+1}` when updating.
+2. **Modular Living SRS Mode (When `docs/project-srs.md` exists or requested for multi-module Web/Enterprise projects):**
+   - Master SRS at `docs/project-srs.md` (template `.agents/skills/ba-templates/templates/srs.md`), per-UC files in `docs/usecases/{module}/uc-{module}-{nnn}-{slug}.md` (`.agents/skills/ba-templates/templates/use-case.md`), and diagram files in `docs/diagrams/{module}/{diagram-id}.md`.
 
 ## Default (No Arguments)
 
@@ -22,16 +31,16 @@ If invoked without an operation, list the operations below and ask the user in c
 
 | Operation | Description |
 | :--- | :--- |
-| `init` | Create the SRS with its linked use cases and required diagrams |
-| `analyze` | Specify one feature, or revise its use cases and diagrams |
-| `update` | Reconcile the SRS with confirmed requirement or design changes |
+| `init` | Create the SRS (`docs/ba/srs/{app}_srs_v1.md` or `docs/project-srs.md`) with full Use Cases and diagrams |
+| `analyze` | Specify one feature, or add/revise its Use Cases and diagrams in the SRS |
+| `update` | Reconcile the SRS with confirmed requirement or design changes (`v{N+1}`) |
 
 ## Subcommands
 
 | Subcommand | Reference | Purpose |
 | :--- | :--- | :--- |
-| `/specs init` | `references/init-workflow.md` | Create the initial SRS + mapped use cases + required diagrams |
-| `/specs analyze "feature"` | `references/analyze-workflow.md` | Analyze one feature and add/update its FRs, use cases and diagrams |
+| `/specs init` | `references/init-workflow.md` | Create the initial SRS + full Use Cases + required diagrams |
+| `/specs analyze "feature"` | `references/analyze-workflow.md` | Analyze one feature and add/update its FRs, Use Cases and diagrams |
 | `/specs update` | `references/update-workflow.md` | Apply confirmed changes while preserving unaffected requirements |
 
 ## Routing
@@ -45,162 +54,81 @@ Read the first word of the user's input after the command:
 
 ## Project Type Resolution
 
-1. Read `Project type` from `.agents/config/ba-project-config.md`. If it is set, use it.
-2. Otherwise infer it from repository markers:
-
-| Marker | Type |
-| :--- | :--- |
-| `AndroidManifest.xml`, `build.gradle(.kts)` with an Android plugin, `pubspec.yaml`, `ios/` + `*.xcodeproj` | `mobile` |
-| `package.json` with a UI framework (react, vue, angular, svelte, next) and a server (express, nest, next API routes) | `fullstack-web` |
-| `package.json` with a UI framework only | `web-frontend` |
-| Server code only (express, nest, fastapi, django, spring, go `net/http`) | `api-backend` |
-
-3. If nothing matches (for example a documents-only BA workspace), ask the user and suggest saving
-   the answer in `ba-project-config.md`.
-
-The project type only filters the `<!-- SECTION: ... -->` blocks of the `srs`, `use-case` and `fsd` templates
-(keep the matching blocks, delete the markers): for example `api-backend` drops the use case UI Specification and
-keeps the SRS API Contracts. It never makes a codebase a requirement source, and a missing codebase never blocks the
-workflow.
+1. Read `Project type` from `.agents/config/ba-project-config.md` (or `.agents/config/project-config.md`). Default is `mobile`.
+2. Otherwise infer it from repository markers (`AndroidManifest.xml`, `build.gradle(.kts)`, `pubspec.yaml`, `ios/` → `mobile`; `package.json` UI + server → `fullstack-web`; UI only → `web-frontend`; server only → `api-backend`).
 
 ## Shared Context
 
 ### Accepted Inputs (use what exists, log what is missing)
 
-| Input | BAKit location | Role | Limitation |
+| Input | Location | Role | Limitation |
 | :--- | :--- | :--- | :--- |
-| Product Decision Summary | `docs/BA/decisions/{feature-slug}_decisions_{YYYYMMDD}_v{N}.md` (`product-decision`, IDs `PD-{NNN}`) | Confirmed `KEEP / MODIFY / REMOVE / NEW` target behavior; verdict `READY FOR SRS` / `NOT READY FOR SRS` | `TBD` items stay open |
+| Product Decision Summary / Rule Confirmation Table | `docs/BA/decisions/{feature-slug}_decisions_*.md` or `docs/ba/product-decisions/{app}_rule-confirmation_v{N}.md` (`PD-{NNN}`) | Confirmed `KEEP / MODIFY / REMOVE / NEW` target behavior; verdict `READY FOR SRS` / `NOT READY FOR SRS` | `TBD` items stay open |
 | Feature brief | `docs/BA/briefs/` (`brainstorm-features`) | The chosen approach and its agreed edge cases | Options not chosen are not requirements |
-| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` | Scope inventory: feature groups, features, sub-features, PO notes | Not a detailed specification |
-| APK evidence | `docs/BA/competitor/{app-slug}/` — `*_profile_*`, `*_screens_*`, `*_flow-{flow}_*`, screenshots in `screens/` | Reference-app behavior graded observed / `[Code]` / `[Inferred]` | Reference only, never target approval |
+| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | Scope inventory: feature groups, features, sub-features, PO notes | Not a detailed specification |
+| APK evidence | `docs/BA/competitor/{app-slug}/` or `docs/inputs/apk/` — `*_profile*`, `*_screens*`, `*_flow-*` | Reference-app behavior graded observed / `[Code]` / `[Inferred]` | Reference only, never target approval |
 | Comparison / gap report | `docs/BA/competitor/{topic}_comparison_*.md` (`GAP-*`, `FR-CAND-*`) | Candidate requirements | Promoted only when confirmed |
-| Figma design analysis | `docs/BA/figma/{feature}/{feature}_figma_*.md`, images in `screens/` (`FR-DSN-*`, `BR-CAND-*`) | Target screens, components, visible states, navigation, copy | A mockup does not define hidden business logic |
-| PRD / research / approved requirements | `docs/project-overview-pdr.md`, `docs/BA/research/`, `docs/BA/*_extracted_*` | Goals, constraints, supplementary evidence | Recommendations are not approvals |
-| Existing SRS / use cases / diagrams | `docs/project-srs.md`, `docs/usecases/`, `docs/diagrams/` | Approved rules and change impact | Preserve unaffected content |
-| Codebase | the repository, if any | Optional corroboration | Never a prerequisite, never an automatic product decision |
+| Figma analysis / Design images | `docs/BA/figma/{feature}/` (`*_figma_*.md`, `screens/*.png`) or `docs/inputs/design/` | Target screens, components, visible states, navigation, copy | A mockup does not define hidden business logic |
+| PRD / research / approved requirements | `docs/BA/research/` or `docs/inputs/research/` | Goals, constraints, supplementary evidence | Recommendations are not approvals |
+| Existing SRS | `docs/ba/srs/{app}_srs_v{N}.md` or `docs/project-srs.md` | Approved rules and change impact | Preserve unaffected content |
 
 Candidates (`FR-CAND-*`, `FR-DSN-*`, `BR-CAND-*`) are promoted into `FR-*` / `BR-*` only when a Product
 Decision, the brief, or the user confirms them. Keep the candidate ID in the `Nguồn (Source)` column.
 
-### Templates (only in the `ba-templates` catalog)
+### Templates
 
-| Key | Path | Use |
+| Mode | Template Path | Use |
 | :--- | :--- | :--- |
-| `srs` | `.agents/skills/ba-templates/templates/srs.md` | Master SRS — default deliverable |
-| `use-case` | `.agents/skills/ba-templates/templates/use-case.md` | Every use case, SRS or legacy FSD |
-| `fsd` | `.agents/skills/ba-templates/templates/fsd.md` | **Legacy only** (see below) |
+| **Single-File Mobile SRS** | `references/templates/srs-template.md` | Single-file SRS (`docs/ba/srs/{app}_srs_v{N}.md`) |
+| **Single-File Mobile UC** | `references/templates/use-case-template.md` | Structure for each Use Case inside Section 6 of the single-file SRS |
+| **Modular Master SRS** | `.agents/skills/ba-templates/templates/srs.md` | Master SRS (`docs/project-srs.md`) |
+| **Modular Use Case** | `.agents/skills/ba-templates/templates/use-case.md` | Standalone Use Case (`docs/usecases/{module}/...`) |
+| **Legacy FSD** | `.agents/skills/ba-templates/templates/fsd.md` | Legacy only (`docs/project-fsd.md`) |
 
-Do not keep template copies inside this skill.
+### Writing Quality for Use Cases
 
-### Agents & Supporting Skills
-
-- Author: `ba-spec-writer`. When this skill runs outside it (for example in `ba-lead`), dispatch
-  `ba-spec-writer` with `invoke_subagent`; when it already runs inside `ba-spec-writer`, do the work directly.
-- Unresolved product decisions: the `product-decision` skill, run by `ba-brainstormer`.
-- Diagrams: `mermaidjs-v11`. Audit: `BA-audit-SRS` (then `BA-audit-QnA`).
-
-### Default Outputs
-
-| Artifact | Path |
-| :--- | :--- |
-| Master SRS (living) | `docs/project-srs.md` |
-| Use cases (living) | `docs/usecases/{module}/uc-{module}-{nnn}-{slug}.md` |
-| Editable diagram sources (living) | `docs/diagrams/{module}/{diagram-id}.md` (split complex flows into multiple simple `mermaid` blocks or separate diagram files) |
-| Screenshots / Figma images | The actual supplied paths only (`docs/BA/figma/{feature}/screens/…`, `docs/BA/competitor/{app-slug}/screens/…`), **embedded with Markdown image syntax** `![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)` (relative from the use case file) so the image displays a preview instead of just a shortened or plain backticked path; otherwise the Figma node link or `Design Pending` |
-
-- IDs: `FR-{MOD}-{NNN}`, `UC-{MOD}-{NNN}`, `BR-{NNN}`, `UF-{MOD}-{NNN}` (User Flow), `ACT-{MOD}-{NNN}`
-  (Activity), conditional `SEQ-{MOD}-{NNN}` (Sequence). Keep IDs stable across updates.
-- A diagram file is named by its ID in lowercase, e.g. `docs/diagrams/img/uf-img-001.md`. It starts with the header table (title, diagram ID, type, module, created, last updated,
-  author/agent, version), then **one or more simple, focused `mermaid` blocks** under clear `###` subheadings (e.g., `### 1. Luồng chính (Happy Path)`, `### 2. Nhánh phụ / Xử lý lỗi (Sub-flow / Error Handling)`), then a `Use case liên quan (Covered use cases)` list.
-- Living documents are updated in place: bump the header version and add a Change Log row.
-- The master SRS links the use case and diagram files; it does not duplicate full use cases. When the user
-  asks for a **single handoff document**, assemble one consolidated SRS that inlines the relevant use cases and
-  diagrams without losing source links or traceability IDs.
+Apply `.agents/skills/use-case-writer/SKILL.md` whenever writing or updating Use Cases:
+- Scope Use Cases with `use-case-writer/references/scoping-rules.md` (1 user — 1 goal — 1 session; coffee-break test).
+- Follow `use-case-writer/references/writing-style.md` (Vietnamese prose, English UI/screen/feature terms without parenthesized Vietnamese translations, active voice, 1 action per step, no `if/else` in Main Flow).
+- Run the 16-item self-check (`use-case-writer/references/self-check.md`, `K1–K16`) before saving.
 
 ## Requirements & Source-of-Truth Rules
 
 For target requirements, the order of authority is:
 
 1. **Confirmed Product Decisions** (`PD-*`), the approved brief and explicit user decisions.
-2. **Approved Figma** — only for UI the design visibly defines; never infer hidden business logic from appearance.
+2. **Approved Design / Figma** — only for UI the design visibly defines; never infer hidden business logic from appearance.
 3. **APK evidence** — reference only: use observed / `[Code]` / `[Inferred]` facts to understand the reference
    app and to ask questions; do not silently inherit its values, limits, validations, permissions, monetization
    or implementation details. Never promote `[Inferred]` into a requirement.
 4. **Feature Checklist** — scope and high-level description, not a complete specification.
 5. **Research** — supplementary; a recommendation is not an approval.
 
-- A `KEEP` decision covers only the behavior it names, not every incidental detail of the reference app.
-- A confirmed `REMOVE` is out of scope: never write it as a functional requirement.
-- An unresolved conflict or `TBD` becomes an **Open Question** with `P0/P1/P2` impact; route product decisions
-  to `product-decision` (`ba-brainstormer`).
-- Never fabricate API endpoints, defaults, error handling, estimates, Figma links, screenshots, SDKs or decisions.
-
 ## Use Case Contract
 
-Every use case follows `ba-templates/templates/use-case.md`:
+Every Use Case (whether inline in Section 6 of `docs/ba/srs/{app}_srs_v{N}.md` or in `docs/usecases/`) includes:
 
-1. Overview: actor, trigger / entry point, preconditions, postconditions, related FRs and screens.
-2. **UI Specification inside the use case, before Main Flow**, with the authentic Figma frame link and
-   **embedded reference image preview** (`![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)`) for each screen — never just a shortened `screens/...` or plain backticked path without preview; one use case may document several screens.
-3. Main Flow as `User Action → System Response → Screen / State`.
-4. Alternative Flows; Exception / Error / Edge Cases.
-5. Business Rules, Navigation / Result, Acceptance Criteria, Related Diagrams, Open Questions (`P0/P1/P2`) and
-   evidence links.
+1. Overview: actor, goal, trigger / entry point, preconditions, postconditions, related FRs and screens.
+2. **UI Specification inside the Use Case, BEFORE Main Flow**, with the **Design image block placed at the very top of each screen subsection** (`![{Screen ID} — {Screen name}](<relative-path>.png)`) — never a plain backticked path without preview — followed by the UI component table (`UI ID | Thành phần | Nội dung hiển thị | Thao tác & Phản hồi của App | Trạng thái / Kiểm tra dữ liệu`). If no design image exists yet, write `Chưa có thiết kế (Design Pending)` and open a `Q-{NNN}`.
+3. Main Flow as `Bước | Hành động của User | Phản hồi của App | Màn hình / Trạng thái`.
+4. Alternative Flows (`AF-01`); Exception / Error / Edge Cases (`EF-01`).
+5. Business Rules (`BR-{NNN}`), Navigation / Result, Acceptance Criteria (`AC-01`), Related Diagrams (`#uf-...`, `#act-...`), Open Questions (`Q-{NNN}`) and Evidence references.
 
-Group use cases by **user goal**, not one per screen. Update an existing use case when it covers the same goal.
+Group use cases by **user goal**, not one per screen.
 
 ## Diagram Policy — Hybrid Coverage, Simple & Split for Easy Viewing
 
 - **Keep every diagram simple and split into multiple small diagrams:**
   - Each `mermaid` block MUST stay small and readable: **at most 8–12 nodes**, **at most 2–3 branches** per decision node, and concise labels (**3–6 words**).
-  - **Never cram an entire module or all alternative/exception branches into one giant diagram.** Cut complex journeys or processes into **multiple smaller diagrams** (either multiple `###` sub-diagrams inside the diagram file—e.g. *1. Luồng chính (Happy Path)*, *2. Nhánh phụ / Xử lý lỗi (Alternative & Error Flow)*—or separate diagram files `uf-{mod}-001`, `uf-{mod}-002` / `act-{mod}-001`, `act-{mod}-002` per sub-flow), connected by simple handoff nodes.
-- **User Flow — REQUIRED:** covers the main in-scope journeys: entry points, user actions, screens, navigation
-  and exits. Split large feature groups into multiple simple User Flow diagrams by sub-journey so each diagram is easy to view.
-- **Activity Diagram — REQUIRED:** covers core business processes: validations, decisions, state changes,
-  success / failure, cancel and retry. Separate the happy path from complex exception/retry sub-flows into distinct small `mermaid` blocks when combined nodes exceed 10–12.
-- **Sequence Diagram — CONDITIONAL:** only for complex ordered interactions among app, backend, SDK or third
-  parties, or asynchronous processing, where it clarifies a genuine requirement. Keep each block to **≤ 4 participants** and **≤ 10–12 messages**; split multi-phase interactions into separate sequence diagrams. Do not invent participants or
-  architecture; if they are unknown and essential, raise an Open Question instead.
-- A User Flow and an Activity Diagram are **not interchangeable**, even though both use Mermaid `flowchart`.
-- Flowcharts are vertical: `flowchart TD`, never `LR` (`ba-markdown-formatting` §5).
-- Every applicable use case references its covering diagram(s) in `Sơ đồ liên quan (Related Diagrams)`.
+  - Flowcharts are vertical: `flowchart TD`, never `LR` (`ba-markdown-formatting` §5).
+- **User Flow (`UF-{MOD}-{NNN}`) — REQUIRED:** covers the main in-scope journeys: entry points, user actions, screens, navigation and exits (placed in Section 5 of the single-file SRS with `<a id="uf-..."></a>`).
+- **Activity Diagram (`ACT-{MOD}-{NNN}`) — REQUIRED for large/complex features:** required when a feature has **3+ screens**, **multiple conditional branches**, or **payment / IAP / permission** logic; optional for simple 1–2 screen linear features. Separate the happy path from complex exception/retry sub-flows into distinct small `mermaid` blocks when combined nodes exceed 10–12.
+- **Sequence Diagram (`SEQ-{MOD}-{NNN}`) — CONDITIONAL:** only for complex ordered interactions among app, backend, SDK or third parties (≤ 4 participants, ≤ 10–12 messages).
 
-## Optional Sections
+## Quality Gate, Audit & Word Export Handoff
 
-- **Permissions:** only when applicable and supported by a decision, the design or the brief. Do not copy the
-  reference app's permission handling.
-- **Ads / IAP:** only when adopted in target scope by a confirmed decision. Otherwise omit the section (say why
-  in one line). Never infer monetization from the reference app; if the reference monetizes and adoption is
-  unclear, raise an Open Question.
-- **NFRs / dependencies:** only confirmed or evidenced details; never invent numeric targets.
+Before finishing the SRS:
 
-## Legacy FSD
-
-The FSD (`fsd` template, `docs/project-fsd.md`) is kept for backward compatibility. Use it only when the user
-asks for an FSD, or when `docs/project-fsd.md` already exists and the user wants to keep it. If an FSD exists and
-no SRS does, ask whether to keep the FSD or start an SRS. Legacy mode follows the same source-of-truth rules and
-the same `use-case` template; it does not revert to codebase-first analysis.
-
-## Quality Gate / Audit Handoff
-
-Before marking the SRS `Ready for SRS Audit`, verify:
-
-- Every confirmed in-scope checklist feature maps to an FR / use case or a documented shared rule.
-- Relevant Figma screens and component states map to use cases.
-- Confirmed Product Decisions are reflected; removed behaviors are excluded.
-- Main / alternative / exception flows, business rules, persistence and navigation are coherent.
-- Main journeys have User Flows; core business processes have Activity Diagrams.
-- Sequence Diagrams exist only where warranted and use verified participants.
-- Open Questions are explicit and no blocking `P0` remains unresolved.
-- Cross-file links, IDs and Change Log rows are consistent; Markdown passes `ba-markdown-formatting`.
-
-Then hand off to `BA-audit-SRS` (`/ba-review`) — only when the user asks. **Ready for audit is not approved
-for development.**
-
-## Important
-
-- Preserve existing `docs/` artifacts and unrelated user edits on updates.
-- Deliverables are Vietnamese with English terminology (`ba-global-rules`); on-screen labels and messages stay
-  in their original language with English in parentheses.
-- Do not create missing evidence or claim to have read files that were not supplied.
-- **Do not** start implementing code. This skill produces documentation only.
+1. Run the 16-item Use Case self-check (`use-case-writer/references/self-check.md`, `K1–K16`).
+2. Verify every in-scope checklist feature maps to an FR / Use Case, every supplied design image is embedded with `![...](...)`, confirmed `PD-*` decisions are reflected, and no `P0` is silently closed.
+3. In Single-File Mobile SRS mode, run `BA-audit-SRS` (Quick Mode) to verify handoff blockers, and when `Ready` or `Conditionally Ready`, run `srs-export` (`python .agents/skills/srs-export/scripts/export_docx.py docs/ba/srs/{app}_srs_v{N}.md`) to generate the Word file `docs/ba/srs-word/{app}_srs_v{N}.docx` for testers.

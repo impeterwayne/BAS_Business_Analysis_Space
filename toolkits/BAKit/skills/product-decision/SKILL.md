@@ -1,28 +1,29 @@
 ---
 name: product-decision
-description: "Evidence-led Product Decisions before the SRS: compare a reference / competitor app (APK profile, screens, flows, checklist, gap report) and the Figma target design against confirmed PO decisions, surface conflicts and gaps, ask the PO one decision at a time, and classify each reference behavior as KEEP / MODIFY / REMOVE / NEW / TBD. Use when the competitor app and Figma disagree, a checklist row or rule is TBD, Figma shows UI without the business rule, or someone asks whether a feature is \"ready for SRS\". Writes a versioned Product Decision Summary with a READY FOR SRS / NOT READY FOR SRS verdict; conditional, it skips features that are already defined."
+description: "Evidence-led Product Decisions before the SRS: compare a reference / competitor app (APK profile, screens, flows, checklist, gap report) and the Figma target design against confirmed PO decisions, surface hidden rules not visible in design, present a single Batch Rule Confirmation Table ('Bảng xác nhận rule') for the PO to confirm in one pass, and classify each reference behavior as KEEP / MODIFY / REMOVE / NEW / TBD. Writes a versioned Product Decision Summary with a READY FOR SRS / NOT READY FOR SRS verdict; conditional, it skips features that are already defined."
 license: MIT
-version: 1.0.0
+version: 1.1.0
 argument-hint: "[feature or unresolved decision]"
 ---
 
 # Product Decision
 
 Clarify a feature's target requirements, resolve conflicts between sources, and record confirmed Product
-Decisions before `ba-spec-writer` writes the SRS and use cases. The output is a **Product Decision Summary**
-that `specs analyze` consumes.
+Decisions before `ba-spec-writer` writes the SRS and use cases. The output is a **Rule Confirmation Table / Product Decision Summary**
+that `specs` consumes.
 
 This skill is **conditional**. Not every feature needs it. Run it only when a meaningful unresolved product
 decision exists (section 5); otherwise skip it (section 6).
 
 **IMPORTANT:** Do not write the SRS, use cases or code. Do not route to implementation planning. The only
-transition is to `specs analyze` (via `ba-spec-writer`).
+transition is to `specs` (via `ba-spec-writer`).
 
 ## 1. Boundary vs `brainstorm-features`
 
 | Situation | Skill | Output |
 | :--- | :--- | :--- |
-| A reference app, Figma design or Feature Checklist exists for the feature, and the question is which of its behaviors the target adopts | `product-decision` (this skill) | Product Decision Summary (`decisions`) |
+| A reference app, Figma design or Feature Checklist exists for the feature, and the question is which of its behaviors/rules the target adopts | `product-decision` (this skill) | Rule Confirmation Table & Product Decision Summary (`decisions`) |
+| PO research notes exist (`docs/BA/research/` or `docs/inputs/research/`) with no APK yet, and the PO needs a Feature Checklist first | `ba-brainstormer` (Section 5A) → then `product-decision` | Feature Checklist → Rule Confirmation Table & Product Decision Summary |
 | A new idea with no reference evidence, still weighing approaches and designing from scratch | `brainstorm-features` | Feature brief (`brief`) |
 
 `ba-brainstormer` chooses: run this skill when competitor, Figma or checklist inputs exist for the feature,
@@ -33,21 +34,21 @@ covers (a `NEW` item with no target behavior at all), finish the summary with th
 ## 2. Inputs
 
 Use every relevant source that exists. The skill must work with only part of this set. Never invent missing
-evidence. Paths are relative to the workspace.
+evidence. Paths are relative to the workspace (supporting both `docs/BA/...` and `docs/ba/...` / `docs/inputs/...` layouts).
 
 | Input | Location | Contains |
 | :--- | :--- | :--- |
-| Project config | `.agents/config/ba-project-config.md` | Project type, deliverable language, competitor apps |
-| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` | Feature scope and hierarchy, `PO note`, Dev-owned columns |
-| APK profile | `docs/BA/competitor/{app-slug}/{app-slug}_profile_*.md` | Reference capability map, modules, constraints |
-| APK screen inventory | `docs/BA/competitor/{app-slug}/{app-slug}_screens_*.md` | Reference screens, entry points, components, states |
-| APK flow analysis | `docs/BA/competitor/{app-slug}/{app-slug}_flow-{flow}_*.md` | Actions, responses, branches, validations, limits, rules |
+| Project config | `.agents/config/ba-project-config.md` (or `.agents/config/project-config.md`) | Project type, deliverable language, competitor apps |
+| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | Feature scope and hierarchy, `PO note`, Dev-owned columns |
+| APK profile | `docs/BA/competitor/{app-slug}/{app-slug}_profile_*.md` or `docs/inputs/apk/*_profile*.md` | Reference capability map, modules, constraints |
+| APK screen inventory | `docs/BA/competitor/{app-slug}/{app-slug}_screens_*.md` or `docs/inputs/apk/*_screens*.md` | Reference screens, entry points, components, states |
+| APK flow analysis | `docs/BA/competitor/{app-slug}/{app-slug}_flow-{flow}_*.md` or `docs/inputs/apk/*_flow-*.md` | Actions, responses, branches, validations, limits, rules |
 | Comparison / gap report | `docs/BA/competitor/*_comparison_*.md` | `CF-*`, `GAP-*`, `FR-CAND-*` IDs |
-| Figma analysis | `docs/BA/figma/{feature}/{feature}_figma_*.md` | Target screens and states, `FR-DSN-*`, `BR-CAND-*` |
-| Research | `docs/BA/research/` | Options, market practice, supplementary evidence |
+| Figma analysis / Design images | `docs/BA/figma/{feature}/{feature}_figma_*.md`, `docs/inputs/design/` | Target screens and states, `FR-DSN-*`, `BR-CAND-*` |
+| Research | `docs/BA/research/` or `docs/inputs/research/` | Options, market practice, supplementary evidence |
 | Feature briefs | `docs/BA/briefs/` | Earlier design decisions for the feature |
-| Previous decisions | `docs/BA/decisions/{feature-slug}_decisions_*.md` | Confirmed `PD-*` decisions and open items |
-| Existing specs | `docs/project-srs.md` (or legacy `docs/project-fsd.md`), `docs/usecases/` | Current rules when updating an existing feature |
+| Previous decisions | `docs/BA/decisions/{feature-slug}_decisions_*.md` or `docs/ba/product-decisions/` | Confirmed `PD-*` decisions and open items |
+| Existing specs | `docs/project-srs.md`, `docs/ba/srs/{app}_srs_v{N}.md`, `docs/usecases/` | Current rules when updating an existing feature |
 | PO notes | Chat, meeting notes, checklist `PO note` column | Confirmed target decisions |
 
 Read the latest version of each versioned file. Reuse the existing IDs (`CF-*`, `GAP-*`, `FR-CAND-*`,
@@ -77,7 +78,7 @@ Always separate evidence from decision. For each unresolved item, record four th
 one assumed requirement:
 
 - **Reference Evidence** — what the reference product does, with its grade and citation.
-- **Target Design** — what Figma shows (screen / node, `FR-DSN-*`, `BR-CAND-*`).
+- **Target Design** — what Figma / design screenshots show (screen / node, `FR-DSN-*`, `BR-CAND-*`).
 - **Existing Decision** — what the PO has already confirmed (`PD-*`, `PO note`, existing FR / BR).
 - **Gap** — what remains unresolved.
 
@@ -93,7 +94,7 @@ Run this skill when at least one is true:
 2. A feature, checklist row or rule is marked `TBD`.
 3. APK evidence and Figma are inconsistent.
 4. A reference behavior exists but whether the target adopts it is unclear.
-5. Figma contains UI without enough business behavior.
+5. Figma / Design contains UI without enough hidden business behavior (limits, defaults, error states, persistence).
 6. Multiple valid approaches exist.
 7. Research suggests competing approaches.
 8. The PO requests a recommendation.
@@ -129,27 +130,13 @@ Use exactly these types:
 
 ### Step 1 — Collect context
 
-Read the project config and the available inputs (section 2). Identify the target feature, known scope,
-available reference evidence, available target design, existing decisions (including the latest
-`docs/BA/decisions/` file for the feature) and unresolved gaps. Do not ask the user for information already
+Read the project config and the available inputs (section 2). Identify the target feature(s), known scope,
+available reference evidence, available target design, existing decisions and unresolved gaps. Do not ask the user for information already
 present in these sources.
 
 ### Step 2 — Identify decision gaps
 
-List the real unresolved decision points, concisely:
-
-```text
-Feature: Beauty
-
-Known:
-- Reference has 9 beauty parameters ({app-slug}_flow-beauty, observed).
-- Figma shows 6 parameter controls (FR-DSN-004).
-
-Unknown:
-- Should the target include 6 or 9?
-- Are the default values inherited or redefined?
-- Does Reset apply to one parameter or the whole beauty group?
-```
+List the real unresolved decision points — **only rules not visible on the design images** (e.g., slider range, min/max photo count, output format/resolution, back/cancel behavior, permission denial behavior, ads/IAP triggers, error handling). Anything already visible in the design or confirmed in `PO note` is NOT asked again.
 
 ### Step 3 — Separate evidence from target requirement
 
@@ -162,38 +149,41 @@ stage.
 - `P1` — Important: materially affects flow, rule, UX or implementation, but some specification can continue.
 - `P2` — Optional: can be deferred without blocking the core feature.
 
-Resolve P0 first. Do not spend interaction time on P2 while P0 or P1 items remain.
+Sort rows with `P0` first, then `P1`, then `P2`.
 
-### Step 5 — Ask clarifying questions
+### Step 5 — Present the Rule Confirmation Table (Mandatory Batch Mode)
 
-Ask in chat, **one decision point per message**, multiple choice preferred. Wait for the answer before asking
-the next. For prioritising and phrasing questions, follow
-`.agents/skills/brainstorm-features/references/dynamic-questioning.md`.
+Before detailed Use Cases are written, do **NOT** ask one question per turn in a long back-and-forth when multiple rules need confirmation. Instead, collect **all** unresolved rules across the in-scope features into **one single confirmation table** ("Bảng xác nhận rule") and send it in one message (and save it to `docs/BA/decisions/{feature-slug}_decisions_{YYYYMMDD}_v{N}.md` or `docs/ba/product-decisions/{app}_rule-confirmation_v{N}.md`) so the PO can confirm everything in one pass.
 
-```text
-Feature:
-Decision to confirm:
+#### Rules for building the table
 
-Reference:
-...
+1. **Only include items that genuinely need a decision** — rules not visible in the design images (limits, defaults, save format, back/cancel behavior, error handling, permission denial, etc.) or places where APK evidence and design disagree.
+2. **Never include what the design already shows** (screen layout, visible buttons, visible tabs, visible labels) or what `PO note` already decided.
+3. **Every row must show both:**
+   - **Giá trị trong APK** — the exact value/behavior found in the APK evidence (or `Không có trong APK` if the feature is new / not in APK).
+   - **Đề xuất của AI** — a concrete, practical recommendation (with short options `A / B / C` when helpful) so the PO can simply reply `OK` (keep APK value), `A` / `B`, or type a custom value.
+4. Group rows by feature (`Group of feature` / `Tính năng`) and sort `P0` rows first.
+5. Keep the wording short, plain Vietnamese with English screen/feature/UI names (no parenthesized Vietnamese translations).
 
-Figma:
-...
+#### Required Batch Table Format
 
-Question:
-...
+```markdown
+# Bảng xác nhận rule trước khi viết Use Case — [App Name]
 
-Options:
-A.
-B.
-C.
+> **Cách PO phản hồi nhanh:**
+> - Ghi **`OK`** nếu đồng ý giữ theo **Giá trị trong APK** (hoặc theo **Đề xuất của AI** khi APK không có).
+> - Ghi **`A` / `B` / `C`** để chọn phương án tương ứng trong cột Đề xuất.
+> - Hoặc ghi trực tiếp rule/giá trị mới vào cột **PO chốt**.
+> - Có thể trả lời nhanh tại khung chat theo mã, ví dụ: `PD-001: OK, PD-002: B, PD-003: tối đa 15 ảnh`.
 
-Recommendation:
-...
+| Mã | Tính năng | Rule cần chốt (không thấy trên Design) | Giá trị trong APK | Đề xuất của AI | Ưu tiên | PO chốt |
+|---|---|---|---|---|---|---|
+| PD-001 | Beauty | Số lượng tham số làm đẹp và dải giá trị Slider | 9 tham số, Slider 0–100, mặc định 50 | **A.** Giữ 6 tham số đúng theo Design, Slider 0–100 (mặc định 50)<br>**B.** Đưa đủ 9 tham số như APK | P0 |  |
+| PD-002 | Collage | Số lượng ảnh tối thiểu / tối đa khi ghép | Tối thiểu 2 ảnh, tối đa 9 ảnh | Giữ như APK: 2–9 ảnh (ghi `OK` nếu đồng ý) | P0 |  |
+| PD-003 | Save & Share | Định dạng và chất lượng ảnh khi lưu về Gallery | JPEG 90%, lưu vào thư mục `Pictures/<AppName>` | Giữ như APK: JPEG 90%, lưu vào `Pictures/<AppName>` | P1 |  |
 ```
 
-`Options` and `Recommendation` are optional. Do not create artificial alternatives when the decision is
-straightforward. If the user does not answer a question, leave the item `TBD`.
+Wait for the PO's single-pass reply (either edited in the file or pasted in chat such as `PD-001: A, PD-002: OK`). Any row the PO leaves blank or skips stays `TBD`.
 
 ### Step 6 — Evaluate options
 
@@ -204,30 +194,14 @@ fabricate exact effort or development time.
 
 ### Step 7 — Record the decision
 
-After the PO confirms, record it:
+After the PO replies to the confirmation table, map each response (`OK`, `A/B/C`, or custom text) into a structured decision record:
 
-```text
-Decision ID: PD-001
-Feature:
-Status: Confirmed
+- `OK` on an APK-backed row → `KEEP` with the APK value as `Final Rule`.
+- `OK` on a row where APK had no value → `NEW` with the AI-recommended value as `Final Rule`.
+- `A` / `B` / `C` or custom value that differs from APK → `MODIFY` (or `REMOVE` / `NEW` as appropriate) with the chosen value as `Final Rule`.
+- Unanswered row → `TBD`.
 
-Reference:
-...
-
-Decision:
-KEEP | MODIFY | REMOVE | NEW
-
-Final Rule:
-...
-
-Reason:
-...
-
-Source:
-PO | Figma | Research | Existing Requirement | Other confirmed source
-```
-
-Decision IDs are `PD-{NNN}`, numbered per feature and **stable across versions**: a `TBD` keeps its ID when it
+Decision IDs are `PD-{NNN}`, numbered per feature/app and **stable across versions**: a `TBD` keeps its ID when it
 is later confirmed, and a reversed decision keeps its ID with the change recorded in the Change Log. Never
 renumber or reuse an ID.
 
@@ -243,15 +217,10 @@ provided the values.
 Fill template key `product-decision` (`.agents/skills/ba-templates/templates/product-decision-summary.md`) and
 save it as:
 
-```
-docs/BA/decisions/{feature-slug}_decisions_{YYYYMMDD}_v{N}.md
-```
+- `docs/BA/decisions/{feature-slug}_decisions_{YYYYMMDD}_v{N}.md` (standard BAKit path), or
+- `docs/ba/product-decisions/{app}_product-decisions_v{N}.md` (when the workspace uses `docs/ba/` layout).
 
-Naming type `decisions`, per `ba-naming-convention`. The file is **immutable once written**: new or changed
-decisions go into a new `v{N+1}` that carries forward every `PD-*` from the previous version, with the change in
-the Change Log. Write the deliverable in the language set by `ba-global-rules` and follow
-`ba-markdown-formatting`. The summary contains: scope and sources, Confirmed Decisions, Open Decisions,
-modified and removed reference behaviors, new target behaviors, evidence links and the readiness verdict.
+The file is **immutable once written**: new or changed decisions go into a new `v{N+1}` that carries forward every `PD-*` from the previous version, with the change in the Change Log. Write the deliverable in the language set by `ba-global-rules` and follow `ba-markdown-formatting`.
 
 ### Step 10 — Readiness check
 
@@ -264,12 +233,12 @@ remaining P1/P2 items are explicitly documented and do not block the SRS.
 other, or Figma and a confirmed requirement still conflict on implementation-critical behavior. List the
 blocking reasons.
 
-Then tell the user the file path and the verdict. On READY FOR SRS, ask whether to proceed to `specs analyze`
+Then tell the user the file path and the verdict. On READY FOR SRS, ask whether to proceed to `specs`
 with the decisions file as input; on NOT READY, list the blocking `PD-*` items to resolve first.
 
 ## 9. Conflict Handling
 
-Never silently choose one source when sources conflict; turn the conflict into a decision point. Examples:
+Never silently choose one source when sources conflict; turn the conflict into a decision point in the Batch Confirmation Table. Examples:
 
 - APK supports 12 categories; Figma shows 6.
 - APK auto-saves; Figma shows a Save button.
@@ -296,16 +265,16 @@ A technical decision must never redefine a product requirement without PO confir
 
 ## 12. Handoff Contract
 
-The decisions file is the input for `ba-spec-writer` (`specs analyze`). It must include:
+The decisions file is the input for `ba-spec-writer` (`specs`). It must include:
 
-1. Confirmed Product Decisions
-2. Open Decisions
+1. Confirmed Product Decisions (`PD-*`)
+2. Open Decisions (`TBD`)
 3. Modified reference behaviors
 4. Removed reference behaviors
 5. New target behaviors
 6. Relevant evidence (file paths and IDs)
 7. Remaining P1/P2 items
-8. SRS readiness status
+8. SRS readiness status (`READY FOR SRS` / `NOT READY FOR SRS`)
 
 ## 13. Hard Rules
 
@@ -327,5 +296,5 @@ The decisions file is the input for `ba-spec-writer` (`specs analyze`). It must 
 
 The skill is complete when all P0 decisions are resolved, the target scope is sufficiently clear, core target
 behavior is confirmed, unresolved P1/P2 items are explicitly documented, and the Product Decision Summary is
-saved under `docs/BA/decisions/` with its readiness verdict. If the user stops before P0 items are resolved,
+saved with its readiness verdict. If the user stops before P0 items are resolved,
 still save the summary with verdict NOT READY FOR SRS and the open items.

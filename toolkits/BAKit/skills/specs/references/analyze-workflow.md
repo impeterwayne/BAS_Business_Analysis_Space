@@ -1,146 +1,50 @@
 # Analyze Workflow — /specs analyze "feature description"
 
-Analyze one **target feature**, create or update its use cases and diagrams, and synchronize the SRS without
-rewriting unrelated modules.
+Analyze one **target feature**, create or update its Use Cases and diagrams, and synchronize the SRS without
+rewriting unrelated modules. Works with both **Single-File Mobile SRS Mode** (`docs/ba/srs/{app}_srs_v{N}.md`) and **Modular Living SRS Mode** (`docs/project-srs.md` + `docs/usecases/` + `docs/diagrams/`).
 
 ## Arguments
 
 Everything the user typed after `analyze` is the feature description.
 Example: `/specs analyze "AI image generation: input photo validation and retry"`
 
-The description may be a path to a Product Decision Summary (`docs/BA/decisions/…_decisions_*.md`), a feature
-brief (`docs/BA/briefs/…`) or a Figma design analysis (`docs/BA/figma/{feature}/{feature}_figma_*.md`). The
-decision file or brief then sets the confirmed scope; the Figma analysis supplies the screens, flows, fields,
-states and messages, with its exported reference images embedded as Markdown image previews (`![...](...)`).
+The description may be a path to a Product Decision Summary / Rule Confirmation Table (`docs/BA/decisions/…` or `docs/ba/product-decisions/…`), a feature
+brief (`docs/BA/briefs/…`) or a Figma design analysis (`docs/BA/figma/{feature}/{feature}_figma_*.md`).
 
 ## Steps
 
-### 1. Detect Project Type
+### 1. Detect Project Type & SRS Mode
 
-Follow **Project Type Resolution** in `specs/SKILL.md` and store the result (`web-frontend`, `api-backend`,
-`fullstack-web`, `mobile`, or `unknown`).
+- Follow **Project Type Resolution** in `specs/SKILL.md`.
+- Check whether the workspace uses `docs/ba/srs/{app}_srs_v{N}.md` (Single-File Mobile SRS Mode) or `docs/project-srs.md` (Modular Mode). If neither exists yet, initialize using Single-File Mobile SRS Mode for mobile apps (or Modular Mode if requested).
 
 ### 2. Check the Decision Gate
 
 Find what confirms the target behavior, in this order:
 
-1. A Product Decision Summary `docs/BA/decisions/{feature-slug}_decisions_{YYYYMMDD}_v{N}.md` (latest `v[N]`).
+1. A Product Decision Summary / Rule Confirmation Table (`docs/BA/decisions/` or `docs/ba/product-decisions/`, latest `v{N}`).
 2. A feature brief under `docs/BA/briefs/`.
 3. An explicit decision from the user in this conversation.
 
-- Verdict `NOT READY FOR SRS` → **stop**. Show its blocking `PD-*` / `P0` items and ask whether to resolve
-  them with `product-decision` (`ba-brainstormer`) first.
-- Nothing found → **stop** and ask whether to brainstorm / decide first, or to proceed on the user's explicit
-  decision.
-- Verdict `READY FOR SRS` → continue; carry its `TBD` items forward as Open Questions.
+- Verdict `NOT READY FOR SRS` or unconfirmed hidden rules → **stop**. Show the blocking `PD-*` / `P0` items and run/route to `product-decision` (`ba-brainstormer`) first.
+- Verdict `READY FOR SRS` → continue; carry its `TBD` items forward as Open Questions (`Q-{NNN}`).
 
-### 3. Identify the Feature
+### 3. Read Current Documentation & Source Evidence
 
-Determine its module, related checklist rows, target screens, entry points, existing FRs / use cases and the
-available evidence. If the description is ambiguous, ask before editing.
+1. Read the latest SRS (`docs/ba/srs/{app}_srs_v{N}.md` or `docs/project-srs.md` + `docs/usecases/` + `docs/diagrams/`).
+2. Read the decision file / brief (`KEEP / MODIFY / REMOVE / NEW`), Figma analysis / design screenshots (`docs/inputs/design/` or `docs/BA/figma/`), APK evidence (`*_screens*`, `*_flow-*`), and Feature Checklist.
+3. Keep four buckets apart: **Reference evidence**, **Target design**, **Confirmed target behavior**, **Unresolved gaps**. Never promote `[Inferred]` evidence into requirements.
 
-### 4. Read the Current Documentation
+### 4. Scope & Author/Update Use Cases and Diagrams
 
-Read if present:
+1. Apply `.agents/skills/use-case-writer/references/scoping-rules.md` and `references/writing-style.md`.
+2. Reuse/update an existing Use Case when it covers the same user goal; otherwise create a new Use Case with the next stable ID (`UC-{MOD}-{NNN}`).
+3. Place the **UI Specification before Main Flow**, with the **Design image block (`![{Screen ID} — {Screen name}](<relative-path>.png)`) at the top of each screen subsection** so it renders as an inline preview.
+4. Include Main Flow, Alternative Flows (`AF-*`), Exception / Error Flows (`EF-*`), Business Rules (`BR-*`), Navigation / Result, Acceptance Criteria (`AC-*`), Related Diagrams, Open Questions (`Q-*`) and Evidence links.
+5. Update User Flow (`UF-*`) and Activity Diagrams (`ACT-*`, required for complex features with 3+ screens, multiple branches, or IAP/Permissions), keeping each `mermaid` block simple (`flowchart TD`, ≤ 8–12 nodes).
+6. In **Single-File Mobile SRS Mode**, save as a new version `docs/ba/srs/{app}_srs_v{N+1}.md` (if `v{N}` was already audited/exported) or update the current draft, preserving `<a id="..."></a>` anchors and adding a Change Log row. In **Modular Mode**, update `docs/usecases/{module}/`, `docs/diagrams/{module}/`, and `docs/project-srs.md`.
 
-- `docs/project-srs.md` (or `docs/project-fsd.md` in legacy FSD mode)
-- `docs/usecases/` — list modules and use cases
-- `docs/diagrams/`
-- Existing Open Questions and Change Log
+### 5. Self-Check, Quick Audit & Word Export
 
-If no SRS exists, say so and either create the minimum SRS structure using `/specs init` conventions, or
-proceed with a partial draft marked as such. Do not invent existing content.
-
-### 5. Analyze Source Evidence
-
-For the requested feature, consult:
-
-1. The decision file / brief for confirmed target behavior (`KEEP / MODIFY / REMOVE / NEW`).
-2. The Figma analysis for target screens, components, visible states and copy.
-3. APK `*_screens_*` and relevant `*_flow-{flow}_*` evidence for **reference** rules.
-4. The Feature Checklist and PO notes for scope.
-5. Research / PRD / existing requirements where relevant.
-
-Keep four buckets apart: **Reference evidence**, **Target design**, **Confirmed target behavior**, **Unresolved
-gaps**. Do not promote `[Inferred]` evidence into requirements.
-
-### 6. Detect Gaps & Conflicts
-
-Check for:
-
-- Missing UI states, validations, defaults, limits, save / reset rules.
-- Figma that contradicts confirmed behavior.
-- Missing success / error / empty / loading / retry / cancel handling.
-- Navigation or business rules that conflict with existing ones.
-
-Prioritize gaps `P0/P1/P2`. Route blocking product decisions to `product-decision`; never fill a `TBD` with an
-assumption.
-
-### 7. Hand Off to `ba-spec-writer`
-
-If this skill already runs inside `ba-spec-writer`, do the work below directly. Otherwise dispatch
-`ba-spec-writer` with `invoke_subagent` and this brief:
-
-```
-Analyze the requested feature and update the SRS and use cases.
-
-Feature: {feature-description}
-Project type: {resolved-type}
-Decision source: {decisions file + verdict / brief / user decision}
-Current SRS: {summary or "none"}
-Existing use cases / diagrams: {relevant paths}
-Sources: {checklist / Figma analysis / APK evidence / research paths}
-Gaps: {P0/P1/P2 list}
-
-Instructions:
-1. Read .agents/skills/ba-templates/templates/srs.md and
-   .agents/skills/ba-templates/templates/use-case.md.
-2. Reuse/update an existing UC when it covers the same user goal; otherwise create a new UC
-   with the next stable ID in the module.
-3. Put the Figma-linked UI Specification inside the UC before Main Flow, embedding each exported screen image with Markdown image syntax (`![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)`) so it renders a visual preview rather than a shortened or plain backticked path.
-4. Include Main, Alternative, Exception / Edge Flows, Business Rules, Navigation / Result, Acceptance Criteria.
-5. Update shared User Flow / Activity Diagrams only where impacted; add a dedicated diagram for
-   independently complex logic. Sequence Diagram only for warranted interactions.
-6. Synchronize FR / UC / BR / diagram references, the traceability matrix and Open Questions in the SRS.
-7. Promote FR-CAND / FR-DSN / BR-CAND only when confirmed; keep the candidate ID in Nguồn (Source).
-8. Bump versions and add Change Log rows; preserve unrelated approved content.
-9. Vietnamese with English terminology; validate against ba-markdown-formatting. Do not implement code.
-```
-
-### 8. Update Use Cases & Diagrams
-
-- Write or update use cases in `docs/usecases/{module}/`; create the module directory if it is new.
-- Navigation changed → update the covering `UF-*`.
-- Decisions or branches changed → update the covering `ACT-*`.
-- Complex interaction changed and warranted → update or create `SEQ-*`.
-- Link shared diagrams from every relevant use case; avoid duplicate diagram files.
-
-### 9. Synchronize the Master SRS
-
-Update only what applies:
-
-- Traceability matrix and Functional Requirements (add a module section for a new module).
-- Global Business Rules.
-- User Flow, Activity and Sequence indexes.
-- Permissions, Ads / IAP, NFRs, dependencies **only when applicable and supported**.
-- Open Questions and Change Log.
-
-Do not overwrite unaffected requirements or claim designs or screenshots that do not exist.
-
-### 10. Quality Check & Summary
-
-Run the **Quality Gate** in `specs/SKILL.md` for the affected module, then report:
-
-- Module affected (new or existing) and the decision source used.
-- FRs and use cases created or updated; business rules added.
-- UI states / rules added or clarified.
-- User Flow / Activity / conditional Sequence diagrams updated.
-- Open Questions and outstanding `P0` blockers.
-- Readiness for `BA-audit-SRS`.
-
-## Important
-
-- Update an existing use case when the user goal is the same; do not duplicate it.
-- Do not remove unrelated use cases.
-- Do not treat APK reference rules as approved target rules.
-- Documentation only; no implementation.
+1. Run the **16-item Use Case self-check (`K1–K16`)** in `.agents/skills/use-case-writer/references/self-check.md`.
+2. Run `BA-audit-SRS` (Quick Mode) and, when `Ready` or `Conditionally Ready` in Single-File Mobile SRS Mode, export the updated Word `.docx` with `srs-export` (`python .agents/skills/srs-export/scripts/export_docx.py docs/ba/srs/{app}_srs_v{N}.md`).

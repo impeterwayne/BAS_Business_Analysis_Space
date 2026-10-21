@@ -5946,7 +5946,7 @@ const BAKIT_COMPONENTS = [
     name: 'BA Skills & Templates (specs, competitor & Figma analysis, audits, QC, diagrams, Minipower, Office)',
     folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: '40 skills: ba-templates, apk-code-index, apk-feature-extractor, competitor-app-analysis, mobilerun, figma-ba-analysis, specs, use-case-writer, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, product-decision, problem-solving, sequential-thinking.',
+    description: '41 skills: ba-templates, apk-code-index, apk-feature-extractor, competitor-app-analysis, mobilerun, figma-ba-analysis, specs, srs-export, use-case-writer, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, product-decision, problem-solving, sequential-thinking.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
       '.agents/skills/apk-code-index/',
@@ -5955,6 +5955,7 @@ const BAKIT_COMPONENTS = [
       '.agents/skills/mobilerun/',
       '.agents/skills/figma-ba-analysis/',
       '.agents/skills/specs/',
+      '.agents/skills/srs-export/',
       '.agents/skills/use-case-writer/',
       '.agents/skills/user-story-ac-writer/',
       '.agents/skills/minipower/',

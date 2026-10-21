@@ -33,6 +33,7 @@ Before writing any Markdown file to disk, the agent MUST perform these checks:
 5. **Trailing whitespace:** Remove trailing spaces that could cause unintended line breaks.
 6. **Mermaid direction check:** Every `flowchart` / `graph` header is `TD` (or `TB`), and no diagram or `subgraph` sets `direction LR` / `direction RL` (see section 5).
 7. **Mermaid simplicity & split check:** No single `mermaid` block exceeds **10–12 nodes** or mixes a complex happy path with every alternative/error branch into one giant tangled chart. Split large flows into multiple smaller, focused diagrams (see section 5).
+8. **Embedded Figma / Design image check:** Every screen screenshot in Figma analysis, SRS, or Use Case files uses Markdown image syntax `![{Screen ID} — {Screen name}](<relative-path>.png)` with a relative path calculated from the **target Markdown file's directory** (using forward slashes `/`), and the referenced `.png` file actually exists on disk (see section 6).
 
 ### 3. General Document Structure
 
@@ -63,6 +64,23 @@ Documents are read top-down in a narrow pane (Obsidian, preview panels). Horizon
   - For `sequenceDiagram`, keep to **≤ 4 participants** and **≤ 10–12 message arrows** per block; split multi-phase interactions (e.g., Init/Auth vs Execution vs Callback) into separate sequence diagrams.
 - **Exempt from vertical rule (horizontal by nature):** `sequenceDiagram`, `gantt`, `timeline`, `journey`. Their layout is fixed, but the simplicity and splitting rules still apply.
 - **Only exception:** the user explicitly asks for a horizontal or single consolidated diagram.
+
+### 6. Embedded Reference & Figma Images (Display in Markdown Preview & Word Export)
+
+To ensure Figma / design screenshots render inline in Markdown previewers (BA Space, VS Code, Obsidian, GitHub) and embed properly when exported to Word `.docx` via `srs-export`:
+
+- **Always use Markdown image syntax:** Write `![{Screen ID} — {Screen name}](<relative-path>.png)`. NEVER write plain backticked paths (`` `screens/01-home.png` ``) or plain text paths without `![...](...)`.
+- **Always use forward slashes (`/`)** in image paths, never Windows backslashes (`\`).
+- **Calculate the relative path from the directory of the Markdown file being written** (NEVER copy the shortened `screens/{NN}-{slug}.png` path from a Figma analysis file directly into an SRS or Use Case file without adjusting `../` depth):
+
+| Document Being Written | Relative Path to `/ba-figma` Screenshot (`docs/BA/figma/{feature-slug}/screens/{NN}-{slug}.png`) | Relative Path to `docs/inputs/design/SCR-{MOD}-{NN}.png` |
+|---|---|---|
+| **Figma Analysis** (`docs/BA/figma/{feature-slug}/{feature-slug}_figma_*.md`) | `screens/{NN}-{slug}.png` | `../../../inputs/design/SCR-{MOD}-{NN}.png` |
+| **Single-File Mobile SRS** (`docs/ba/srs/{app}_srs_v{N}.md`) | `../../BA/figma/{feature-slug}/screens/{NN}-{slug}.png` | `../../inputs/design/SCR-{MOD}-{NN}.png` |
+| **Modular Use Case** (`docs/usecases/{module}/uc-{module}-{nnn}-{slug}.md`) | `../../BA/figma/{feature-slug}/screens/{NN}-{slug}.png` | `../../inputs/design/SCR-{MOD}-{NN}.png` |
+| **Modular Master SRS** (`docs/project-srs.md`) | `BA/figma/{feature-slug}/screens/{NN}-{slug}.png` | `inputs/design/SCR-{MOD}-{NN}.png` |
+
+- **Never cite a non-existent image:** Verify the `.png` file exists on disk before writing the `![...](...)` tag. If a screen has no exported image yet, write `Design Pending — chưa có ảnh {Screen ID}` and log an Open Question (`Q-{NNN}`).
 
 ## Error Examples
 

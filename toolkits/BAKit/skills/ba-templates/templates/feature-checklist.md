@@ -15,7 +15,7 @@
 
 | Thuộc tính (Attribute) | Chi tiết (Details) |
 | :--- | :--- |
-| Thư mục bằng chứng (Evidence Directory) | `docs/BA/competitor/{app-slug}/` |
+| Thư mục bằng chứng (Evidence Directory) | `docs/BA/competitor/{app-slug}/` hoặc `docs/inputs/apk/` |
 | Hồ sơ ứng dụng (Profile) | `{app-slug}_profile_{YYYYMMDD}_v1.md` |
 | Danh mục màn hình (Screens) | `{app-slug}_screens_{YYYYMMDD}_v1.md` |
 | Phân tích luồng (Flows) | `{app-slug}_flow-*_{YYYYMMDD}_v1.md` |
@@ -25,11 +25,12 @@
 
 | STT | Group of feature | Tính năng | Tính năng nhỏ | Mô tả tính năng | Link tham khảo | Khả thi | Mức độ | Thời gian (about) | PO note | Ưu tiên | Technology notes |
 |---:|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | {Nhóm tính năng} | {Tính năng chính} | {Tính năng nhỏ} | {Mô tả mục đích và hành vi tham chiếu quan trọng} | {flow-*.md; screens.md; profile.md} | | | | | | {Ghi chú kỹ thuật nếu có ràng buộc rõ ràng} |
+| 1 | Onboarding | Onboarding | | | | | | | | | |
+| 2 | {Nhóm tính năng} | {Tính năng chính} | {Tính năng nhỏ} | {Mô tả mục đích và hành vi tham chiếu bằng tiếng Việt tự nhiên, giữ tên màn hình/tính năng/UI bằng tiếng Anh không kèm dịch trong ngoặc} | | | | | | | {Ghi chú kỹ thuật nếu có ràng buộc rõ ràng} |
 
 > **Quy tắc điền bảng (Ownership Rule):**
-> - **Tự động điền từ bằng chứng:** `STT`, `Group of feature`, `Tính năng`, `Tính năng nhỏ`, `Mô tả tính năng`, `Link tham khảo`, `Technology notes` (chỉ khi có ràng buộc kỹ thuật rõ ràng).
-> - **Không tự suy diễn/ước lượng:** Để trống các cột `Khả thi`, `Mức độ`, `Thời gian (about)`, `Ưu tiên`, `PO note` trừ khi có quyết định/dữ liệu chính thức từ Tech, Dev hoặc Product Owner.
+> - **Tự động điền từ bằng chứng:** `STT`, `Group of feature`, `Tính năng`, `Tính năng nhỏ`, `Mô tả tính năng` (**riêng dòng `Onboarding` bắt buộc để trống `Mô tả tính năng`**), `Technology notes` (chỉ khi có ràng buộc kỹ thuật rõ ràng).
+> - **Luôn để trống trong output trích xuất:** `Link tham khảo` (để PO/BA tự gắn link ngoài khi cần), `Khả thi`, `Mức độ`, `Thời gian (about)`, `Ưu tiên`, `PO note` trừ khi có quyết định/dữ liệu chính thức từ Tech, Dev hoặc Product Owner.
 
 ## 3. Ghi chú độ phủ & Xác minh (Coverage / Verification Notes)
 

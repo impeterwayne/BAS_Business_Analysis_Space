@@ -4,6 +4,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { DeviceService } from './deviceService';
+import { bundledScrcpyServer } from '../runtimes';
 
 const CONTROL_MSG_TYPE_INJECT_KEYCODE = 0;
 const CONTROL_MSG_TYPE_INJECT_TEXT = 1;
@@ -180,6 +181,10 @@ export class DeviceStreamService {
   }
 
   private findScrcpyServer(): string | null {
+    const bundled = bundledScrcpyServer();
+    if (bundled) {
+      return bundled;
+    }
     if (process.env.SCRCPY_SERVER_PATH && fs.existsSync(process.env.SCRCPY_SERVER_PATH)) {
       return process.env.SCRCPY_SERVER_PATH;
     }

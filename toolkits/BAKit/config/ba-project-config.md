@@ -6,7 +6,8 @@ writing any deliverable. Never store passwords, OTPs or API tokens here.
 | Field | Value |
 | :--- | :--- |
 | Project | [Tên dự án thực tế] |
-| Project type | [web-frontend / api-backend / fullstack-web / mobile] |
+| App slug (`{app}`) | [ten-app-viet-thuong-gach-ngang, ví dụ: photo-editor] |
+| Project type | [mobile / web-frontend / api-backend / fullstack-web] |
 | Deliverable language | Vietnamese |
 | Communication language | Vietnamese |
 | Created | [YYYY-MM-DD] |
@@ -15,9 +16,9 @@ writing any deliverable. Never store passwords, OTPs or API tokens here.
 
 ## 1. Project Overview
 
-> **Description:** [Bối cảnh dự án, ví dụ: ví điện tử, cổng dịch vụ công, nền tảng thương mại điện tử]
-> **Domain:** [E-commerce / Finance / Government / Healthcare / …]
-> **Target audience:** [Người dùng nội bộ / Khách hàng cá nhân / Đối tác B2B]
+> **Description:** [Bối cảnh dự án, ví dụ: ứng dụng chỉnh sửa ảnh, ví điện tử, nền tảng thương mại điện tử]
+> **Domain:** [Photo & Video / Utility / E-commerce / Finance / …]
+> **Target audience:** [Người dùng cá nhân / Người dùng nội bộ / Đối tác B2B]
 
 ## 2. Links & Resources
 
@@ -60,19 +61,18 @@ Used by `competitor-app-analysis` / `/ba-competitor`. One row per app to benchma
 
 ## 6. Output Locations
 
-| Deliverable | Path |
-| :--- | :--- |
-| Extracted / audited requirements, question backlogs | `docs/BA/SRS-report/[UC-folder]/` |
-| Research notes | `docs/BA/research/` |
-| Feature briefs | `docs/BA/briefs/` |
-| Product Decision Summaries | `docs/BA/decisions/` |
-| User stories | `docs/BA/stories/` |
-| Competitor analysis | `docs/BA/competitor/[app-slug]/` |
-| Figma design analysis | `docs/BA/figma/[feature-slug]/` |
-| SRS | `docs/project-srs.md` (legacy FSD: `docs/project-fsd.md`) |
-| Use cases | `docs/usecases/[module]/` |
-| Diagram sources | `docs/diagrams/[module]/` |
-| Test cases | `docs/testcases/[module]/` |
+| Deliverable | Single-File Mobile SRS Layout (`docs/ba/`) | Modular / Multi-Agent Layout (`docs/BA/`) |
+| :--- | :--- | :--- |
+| APK Evidence / Competitor analysis | `docs/inputs/apk/` | `docs/BA/competitor/[app-slug]/` |
+| Design images / Figma analysis | `docs/inputs/design/` | `docs/BA/figma/[feature-slug]/` |
+| Research notes | `docs/inputs/research/` | `docs/BA/research/` |
+| Feature Checklist | `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | `docs/BA/competitor/[app-slug]/[app-slug]_checklist_*.md` |
+| Batch Rule Confirmation / Decisions | `docs/ba/product-decisions/{app}_rule-confirmation_v{N}.md` | `docs/BA/decisions/[feature-slug]_decisions_*.md` |
+| Feature briefs | `docs/BA/briefs/` | `docs/BA/briefs/` |
+| SRS | `docs/ba/srs/{app}_srs_v{N}.md` (inline UCs & diagrams) | `docs/project-srs.md` + `docs/usecases/[module]/` + `docs/diagrams/[module]/` |
+| Word SRS for Testers (`.docx`) | `docs/ba/srs-word/{app}_srs_v{N}.docx` | `docs/ba/srs-word/{app}_srs_v{N}.docx` |
+| SRS / UC Audit reports | `docs/ba/audit/{app}_srs-audit_v{N}.md` | `docs/BA/SRS-report/[UC-folder]/` |
+| Test cases | `docs/qc/` or `docs/testcases/[module]/` | `docs/testcases/[module]/` |
 
 ## 7. Pipeline Settings
 
@@ -80,4 +80,4 @@ Used by `competitor-app-analysis` / `/ba-competitor`. One row per app to benchma
 | :--- | :--- |
 | Auto-proceed between phases | Disabled (user controls) |
 | Overwrite versioned files | Never (create a new version) |
-| Mobile vs Web audit rules | [mobile / web] |
+| Mobile vs Web audit rules | mobile |

@@ -1,5 +1,5 @@
 node_modules/
-dist/
+/dist/
 out/
 release/
 build/*
@@ -10,6 +10,7 @@ build/*
 Thumbs.db
 .idea/
 /BA_Flow
+/My Project
 mobilerun-mcp/.venv/
 mobilerun-mcp/dist/
 .pytest_cache/

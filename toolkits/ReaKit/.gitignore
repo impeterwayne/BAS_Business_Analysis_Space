@@ -7,7 +7,8 @@ __pycache__/
 env/
 build/
 develop-eggs/
-dist/
+/dist/
+!core/scrcpy_cli/dist/
 downloads/
 eggs/
 .eggs/

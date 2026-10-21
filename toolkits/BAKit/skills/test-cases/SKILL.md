@@ -1,6 +1,6 @@
 ---
 name: test-cases
-description: "Generate test cases from use cases, update when requirements change, export to CSV/JSON."
+description: "Generate test cases from use cases (either from Section 6 of the single-file SRS docs/ba/srs/{app}_srs_v{N}.md or from standalone use case files in docs/usecases/{module}/), update when requirements change, export to CSV/JSON."
 argument-hint: "generate [module[/uc]]|update|export csv|json"
 ---
 
@@ -39,11 +39,12 @@ Read the user's input after the command:
 
 ## Shared Context
 
-- TC template: `.agents/skills/ba-templates/templates/test-case.md`
+- TC template: `.agents/skills/ba-templates/templates/test-case.md` or `references/templates/test-case-template.md`
 - Summary template: `references/templates/test-summary-template.md`
-- Input UCs: `docs/usecases/{module}/*.md`
-- Input SRS: `docs/project-srs.md` (or legacy `docs/project-fsd.md`)
-- Output TCs: `docs/testcases/{module}/tc-{module}-{nnn}-{slug}.md`
+- Input UCs:
+  - **Single-File SRS mode**: Section 6 of `docs/ba/srs/{app}_srs_v{N}.md` (latest version), or
+  - **Modular SRS mode**: `docs/usecases/{module}/*.md` + `docs/project-srs.md` (or legacy `docs/project-fsd.md`)
+- Output TCs: `docs/testcases/{module}/tc-{module}-{nnn}-{slug}.md` (or `docs/qc/`)
 - Output summary: `docs/testcases/test-summary.md`
 - Output config: `docs/testcases/test-config.md` (created once on first generate, manually maintained after)
 - Config template: `references/templates/test-config-template.md`

@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import { getManagedMobilerunCli } from '../bakit/mobilerunSetup';
 import { isWin, exeName, androidSdkDirs, findOnPath, localDataDir, unixBinDirs } from '../platform';
+import { bundledAdb, bundledScrcpy } from '../runtimes';
 const {
   parseAdbDevicesOutput,
   parseDeviceEnrichment,
@@ -64,17 +65,29 @@ export class DeviceService {
       return this.cachedAdbPath;
     }
 
+    const settings = this.getSettings ? this.getSettings() : {};
+    const customScrcpyDir = settings?.scrcpyPath && fs.existsSync(settings.scrcpyPath)
+      ? (fs.statSync(settings.scrcpyPath).isDirectory() ? settings.scrcpyPath : path.dirname(settings.scrcpyPath))
+      : null;
+    const envAdb = (process.env.ADB_PATH || process.env.ADB || '').trim().replace(/^"|"$/g, '');
+
     const possiblePaths = [
-      // Android SDK platform-tools (per-OS default location, ANDROID_HOME, ANDROID_SDK_ROOT)
+      // 1. Project-bundled adb (toolkits/ReaKit/core/scrcpy_cli/vendor/scrcpy or runtimes)
+      bundledAdb(),
+      // 2. Sibling adb next to configured settings.scrcpyPath
+      customScrcpyDir ? path.join(customScrcpyDir, exeName('adb')) : null,
+      // 3. Explicit ADB_PATH / ADB environment variable
+      envAdb || null,
+      // 4. Android SDK platform-tools (per-OS default location, ANDROID_HOME, ANDROID_SDK_ROOT)
       ...androidSdkDirs().map((sdk) => path.join(sdk, 'platform-tools', exeName('adb'))),
-      // Common scrcpy bundled adb (Windows) / package-manager installs (macOS, Linux)
+      // 5. Common scrcpy bundled adb (Windows) / package-manager installs (macOS, Linux)
       ...(isWin
         ? [
           path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'adb.exe'),
           path.join(localDataDir(), 'Programs', 'scrcpy', 'adb.exe'),
         ]
         : unixBinDirs().map((dir) => path.join(dir, 'adb'))),
-    ];
+    ].filter(Boolean) as string[];
 
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
@@ -104,12 +117,17 @@ export class DeviceService {
       return settings.scrcpyPath;
     }
 
-    const possiblePaths = isWin
-      ? [
-        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
-        path.join(localDataDir(), 'Programs', 'scrcpy', 'scrcpy.exe'),
-      ]
-      : unixBinDirs().map((dir) => path.join(dir, 'scrcpy'));
+    const envScrcpy = (process.env.SCRCPY_PATH || '').trim().replace(/^"|"$/g, '');
+    const possiblePaths = [
+      bundledScrcpy(),
+      envScrcpy || null,
+      ...(isWin
+        ? [
+          path.join(process.env.ProgramFiles || 'C:\\Program Files', 'scrcpy', 'scrcpy.exe'),
+          path.join(localDataDir(), 'Programs', 'scrcpy', 'scrcpy.exe'),
+        ]
+        : unixBinDirs().map((dir) => path.join(dir, 'scrcpy'))),
+    ].filter(Boolean) as string[];
 
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
