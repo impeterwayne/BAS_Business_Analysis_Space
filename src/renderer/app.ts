@@ -25,6 +25,7 @@ const {
   buildBenchmarkSlashCommand,
   buildTargetFlowSlashCommand,
   buildChecklistSlashCommand,
+  buildFeatureExtractorSlashCommand,
   cleanApkAppName,
 } = require('../domain');
 
@@ -86,6 +87,7 @@ const state: {
   projects: any[];
   settings: {
     subworktreeBranchParents?: Record<string, string>;
+    vscodePath?: string;
     androidStudioPath?: string;
     antigravityPath?: string;
     antigravityAgentPath?: string;
@@ -221,6 +223,12 @@ const dom = {
   dashLegacyDocsBody: $('#dash-legacy-docs-body'),
   dashBtnBrowserPrd: $('#dash-btn-browser-prd'),
   dashBtnBrowserChecklist: $('#dash-btn-browser-checklist'),
+  dashSectionChecklist: $('#dash-section-checklist'),
+  dashChecklistBadge: $('#dash-checklist-badge'),
+  dashBtnChecklistOpenLink: $('#dash-btn-checklist-open-link'),
+  dashBtnChecklistResources: $('#dash-btn-checklist-resources'),
+  dashBtnAddChecklistScope: $('#dash-btn-add-checklist-scope'),
+  dashChecklistBody: $('#dash-checklist-body'),
   dashSectionCompetitors: $('#dash-section-competitors'),
   dashBtnImportCompApk: $('#dash-btn-import-comp-apk'),
   dashCompBadge: $('#dash-comp-badge'),
@@ -2706,6 +2714,8 @@ function renderFigmaInlineEdit(activeProject: any, currentUrl: string) {
       showToast(url ? 'Figma link updated' : 'Figma link cleared', 'success');
       activeProject.figmaUrl = url;
       renderDashboardFigma(activeProject);
+      const { activeWt } = getActiveProjectAndWorktree();
+      renderDashboardChecklist(activeProject, activeWt);
     } else {
       showToast(`Failed to update: ${res?.error || 'Unknown error'}`, 'error');
     }
@@ -2752,6 +2762,8 @@ async function saveProjectLegacyPrdUrl(activeProject: any, url: string, successM
     showToast(successMsg, url ? 'success' : 'info');
     activeProject.legacyPrdUrl = url;
     renderDashboardLegacyDocs(activeProject);
+    const { activeWt } = getActiveProjectAndWorktree();
+    renderDashboardChecklist(activeProject, activeWt);
   } else {
     showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
   }
@@ -2763,6 +2775,8 @@ async function saveProjectLegacyChecklistUrl(activeProject: any, url: string, su
     showToast(successMsg, url ? 'success' : 'info');
     activeProject.legacyChecklistUrl = url;
     renderDashboardLegacyDocs(activeProject);
+    const { activeWt } = getActiveProjectAndWorktree();
+    renderDashboardChecklist(activeProject, activeWt);
   } else {
     showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
   }
@@ -2982,6 +2996,8 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
     return;
   }
 
+  const productChecklistCmd = buildChecklistSlashCommand();
+
   if (!checklistUrl) {
     slot.innerHTML = `
       <div class="dash-legacy-empty-card checklist">
@@ -2989,9 +3005,15 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
           ${CHECKLIST_ICON_SVG}
         </div>
         <div class="dash-legacy-empty-content">
-          <div class="dash-legacy-empty-label">
-            <span>Checklist</span>
-            <span class="dash-legacy-empty-subtext">(QA & Acceptance Checklist)</span>
+          <div class="dash-legacy-empty-label" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
+            <div>
+              <span>Checklist</span>
+              <span class="dash-legacy-empty-subtext">(Product Feature &amp; QA Checklist)</span>
+            </div>
+            <button type="button" class="btn-secondary btn-small" id="dash-legacy-checklist-copy-cmd" title="Copy ${esc(productChecklistCmd)} to generate our product's Feature Checklist in docs/BA/checklist/">
+              ${icons.copy || ''}
+              <span>${esc(productChecklistCmd)}</span>
+            </button>
           </div>
           <div class="dash-legacy-input-wrapper">
             <input type="text" class="dash-legacy-input" id="dash-legacy-checklist-input" placeholder="Paste Checklist link (Google Sheets, Notion, Excel...)" autocomplete="off" spellcheck="false" />
@@ -3003,6 +3025,16 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
 
     const input = slot.querySelector('#dash-legacy-checklist-input') as HTMLInputElement;
     const saveBtn = slot.querySelector('#dash-legacy-checklist-save') as HTMLButtonElement;
+    const copyCmdBtn = slot.querySelector('#dash-legacy-checklist-copy-cmd') as HTMLButtonElement;
+
+    copyCmdBtn?.addEventListener('click', () => {
+      void navigator.clipboard.writeText(productChecklistCmd);
+      showToast(`Copied command: ${productChecklistCmd} — paste into Antigravity!`, 'success');
+      const { activeWt } = getActiveProjectAndWorktree();
+      if (activeProject?.path) {
+        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
+      }
+    });
 
     saveBtn?.addEventListener('click', () => {
       const raw = input?.value.trim();
@@ -3025,7 +3057,7 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
   }
 
   const parsed = parseDocUrl(checklistUrl);
-  const displayName = parsed?.service ? `${parsed.service} Checklist` : 'QA & Acceptance Checklist';
+  const displayName = parsed?.service ? `${parsed.service} Checklist` : 'Product Feature Checklist';
   const displayUrl = formatDisplayUrl(checklistUrl);
 
   slot.innerHTML = `
@@ -3065,10 +3097,14 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
         </div>
       </div>
 
-      <div class="dash-legacy-action-footer">
+      <div class="dash-legacy-action-footer" style="display: flex; gap: 8px; flex-wrap: wrap;">
         <button type="button" class="btn-legacy-doc-launch" id="dash-btn-card-open-checklist" title="Open Checklist in browser">
           ${icons.link || ''}
           <span>Open in Browser</span>
+        </button>
+        <button type="button" class="btn-secondary btn-small" id="dash-btn-card-copy-checklist-cmd" title="Copy ${esc(productChecklistCmd)} to generate or update our product's Feature Checklist">
+          ${icons.copy || ''}
+          <span>${esc(productChecklistCmd)}</span>
         </button>
       </div>
     </div>
@@ -3076,6 +3112,14 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
 
   const openChecklist = () => { void window.api.openExternal(checklistUrl); };
   slot.querySelector('#dash-btn-card-open-checklist')?.addEventListener('click', openChecklist);
+  slot.querySelector('#dash-btn-card-copy-checklist-cmd')?.addEventListener('click', () => {
+    void navigator.clipboard.writeText(productChecklistCmd);
+    showToast(`Copied command: ${productChecklistCmd} — paste into Antigravity!`, 'success');
+    const { activeWt } = getActiveProjectAndWorktree();
+    if (activeProject?.path) {
+      void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
+    }
+  });
   slot.querySelector('#dash-checklist-url-anchor')?.addEventListener('click', (e: Event) => {
     e.preventDefault();
     openChecklist();
@@ -3259,6 +3303,7 @@ if (window.api.onCompetitorDecodeProgress) {
 }
 
 function renderDashboardCompetitors(activeProject: any, activeWt: any) {
+  renderDashboardChecklist(activeProject, activeWt);
   if (!dom.dashCompetitorList) return;
   const competitors = Array.isArray(activeProject.competitors) ? activeProject.competitors : [];
 
@@ -3308,11 +3353,10 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
     const initials = getCompetitorInitials(comp.name);
     const urlInfo = formatCompetitorUrlLabel(comp.url);
     const target = comp.packageName || comp.name;
-    const checklistCmd = buildChecklistSlashCommand(target);
-    const shortPkg = comp.packageName ? (comp.packageName.split('.').pop() || comp.name) : comp.name;
+    const isCodeOnly = comp.analysisMode === 'code-only';
+    const competitorCmd = buildBenchmarkSlashCommand(target, '', { codeOnly: isCodeOnly });
+    const featureExtractorCmd = buildFeatureExtractorSlashCommand(target, { codeOnly: isCodeOnly });
     const hasIcon = Boolean(comp.iconUrl);
-    const flows = parseBenchmarkFlows(comp.notes);
-    const allFlowsSlugs = flows.map(formatFlowSlug).filter(Boolean).join(' ');
 
     return `
       <div class="dash-comp-card" data-comp-id="${esc(comp.id)}">
@@ -3429,9 +3473,9 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                     </div>
                   </div>
                   <div class="dash-comp-artifact-actions">
-                    <button type="button" class="dash-comp-btn-action checklist" data-action="copy-bench-cmd" data-cmd="${esc(checklistCmd)}" title="Copy apk-feature-extractor command: ${esc(checklistCmd)}">
-                      ${icons.check || ''}
-                      <span>Checklist</span>
+                    <button type="button" class="dash-comp-btn-action analyze" data-action="copy-bench-cmd" data-cmd="${esc(competitorCmd)}" title="Copy competitor analysis command (profile, screens, flows &amp; feature extraction): ${esc(competitorCmd)}">
+                      ${icons.decode || icons.code || ''}
+                      <span>Analyze</span>
                     </button>
                     <button type="button" class="dash-comp-btn-action source" data-action="comp-open-jadx-src" data-comp-id="${esc(comp.id)}" data-pkg="${esc(comp.packageName || '')}" data-jadx-path="${esc(comp.jadxSourcePath || '')}" title="Open decompiled source folder in ${FILE_MANAGER_LABEL}">
                       ${icons.folder}
@@ -3490,44 +3534,33 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
               `}
             </div>
           `)}
-        </div>
 
-        <div class="dash-comp-bench-section">
-          <div class="dash-comp-bench-header">
-            <div class="dash-comp-bench-header-left">
-              <span class="dash-comp-bench-title" title="Target user flows and slash commands for /ba-competitor">Target Flows &amp; Commands</span>
-              ${flows.length > 0 ? `<span class="dash-comp-bench-count">${flows.length} flow${flows.length === 1 ? '' : 's'}</span>` : ''}
-              ${flows.length > 0 ? `
-                <span class="dash-comp-mcp-status ${comp.analysisMode === 'code-only' ? 'code-only' : 'hybrid'}" title="${comp.analysisMode === 'code-only' ? 'Mobilerun MCP disabled for this worktree to save agent tokens' : 'Mobilerun MCP active in workspace plugin'}">
-                  ${comp.analysisMode === 'code-only' ? 'MCP Off' : 'MCP On'}
+          <div class="dash-comp-bench-section">
+            <div class="dash-comp-bench-header">
+              <div class="dash-comp-bench-header-left">
+                <span class="dash-comp-bench-title" title="Extract reference app features with apk-feature-extractor">Feature Extraction</span>
+                <span class="dash-comp-mcp-status ${isCodeOnly ? 'code-only' : 'hybrid'}" title="${isCodeOnly ? 'Mobilerun MCP disabled for this worktree to save agent tokens' : 'Mobilerun MCP active in workspace plugin'}">
+                  ${isCodeOnly ? 'MCP Off' : 'MCP On'}
                 </span>
-              ` : ''}
-            </div>
-            <div class="dash-comp-bench-header-right">
-              ${flows.length > 0 ? `
-                <div class="dash-comp-mode-toggle" title="Switch between Live Device (mobilerun) and Static Code-Only analysis">
-                  <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? '' : 'active'}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="hybrid" title="Live Device Mode: Drives app on connected device with screenshots (mobilerun)">
-                    ${(icons as any).mobile || icons.android || ''}
+              </div>
+              <div class="dash-comp-bench-header-right">
+                <div class="dash-comp-mode-toggle" title="Toggle Mobilerun On (Live Device + Code) or Off (--code-only static extraction)">
+                  <button type="button" class="dash-comp-mode-btn ${isCodeOnly ? '' : 'active'}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="hybrid" title="Mobilerun On: Drives app on connected Android device + decoded code">
+                    ${icons.android || ''}
                     <span>Mobilerun</span>
                   </button>
-                  <button type="button" class="dash-comp-mode-btn ${comp.analysisMode === 'code-only' ? 'active' : ''}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="code-only" title="Code-Only Mode: Static decompiled code analysis without device (--code-only)">
-                    ${icons.decode || icons.code || ''}
+                  <button type="button" class="dash-comp-mode-btn ${isCodeOnly ? 'active' : ''}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="code-only" title="Mobilerun Off: Static decompiled code extraction without device (--code-only)">
+                    ${icons.code || ''}
                     <span>Code-Only</span>
                   </button>
                 </div>
-              ` : ''}
-              <button type="button" class="dash-comp-btn-add-flow-header" data-action="quick-add-flow-toggle" data-id="${esc(comp.id)}" title="Add a target user flow to ${esc(comp.name)}">
-                ${icons.plus || '+'}
-                <span>Add Flow</span>
-              </button>
+              </div>
             </div>
-          </div>
 
-          <div class="dash-comp-cmd-list">
-            <div class="dash-comp-cmd-item checklist" data-action="copy-bench-cmd" data-cmd="${esc(checklistCmd)}" title="Feature Checklist (apk-feature-extractor) — Click to copy: ${esc(checklistCmd)}">
+            <div class="dash-comp-cmd-item checklist" data-action="copy-bench-cmd" data-cmd="${esc(featureExtractorCmd)}" title="Extract competitor features (${isCodeOnly ? 'Mobilerun Off / Code-Only' : 'Mobilerun On / Device + Code'}) — Click to copy: ${esc(featureExtractorCmd)}">
               <div class="dash-comp-cmd-left">
-                <span class="dash-comp-cmd-num checklist" title="Feature Checklist (apk-feature-extractor)">📋</span>
-                <code class="dash-comp-cmd-code">${esc(checklistCmd)}</code>
+                <span class="dash-comp-cmd-num checklist" title="Competitor Feature Extraction (apk-feature-extractor)">${icons.check || '✓'}</span>
+                <code class="dash-comp-cmd-code">${esc(featureExtractorCmd)}</code>
               </div>
               <div class="dash-comp-cmd-right">
                 <span class="dash-comp-cmd-tag checklist">apk-feature-extractor</span>
@@ -3536,60 +3569,6 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 </span>
               </div>
             </div>
-
-            ${flows.length > 0 ? (() => {
-              const isCodeOnly = comp.analysisMode === 'code-only';
-              const cmdItems: Array<{ slashCmd: string; label: string; isAll: boolean }> = flows.map((flow: string) => ({
-                slashCmd: buildBenchmarkSlashCommand(target, flow, { codeOnly: isCodeOnly }),
-                label: flow,
-                isAll: false,
-              }));
-              if (flows.length > 1) {
-                cmdItems.push({
-                  slashCmd: buildBenchmarkSlashCommand(target, flows, { codeOnly: isCodeOnly }),
-                  label: `All ${flows.length} flows`,
-                  isAll: true,
-                });
-              }
-              return cmdItems.map((item, index) => `
-                <div class="dash-comp-cmd-item" data-action="copy-bench-cmd" data-cmd="${esc(item.slashCmd)}" title="Target Flow: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
-                  <div class="dash-comp-cmd-left">
-                    <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all target flows' : `Flow #${index + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : index + 1}</span>
-                    <code class="dash-comp-cmd-code">${esc(item.slashCmd)}</code>
-                  </div>
-                  <div class="dash-comp-cmd-right">
-                    <span class="dash-comp-cmd-copy-btn" title="Copy command">
-                      <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
-                    </span>
-                  </div>
-                </div>
-              `).join('');
-            })() : ''}
-
-            <!-- Inline Quick Add Input (Available in both empty and populated states) -->
-            <div class="dash-comp-inline-add-wrap" id="dash-comp-inline-add-${esc(comp.id)}" style="display: none;">
-              <div class="dash-comp-inline-input-row">
-                <input type="text" class="dash-comp-inline-input" placeholder="e.g. Onboarding KYC, Checkout (press Enter)..." autocomplete="off" spellcheck="false" />
-                <button type="button" class="dash-comp-inline-submit-btn" data-action="quick-add-flow-submit" data-id="${esc(comp.id)}" title="Save flow">Add</button>
-                <button type="button" class="dash-comp-inline-cancel-btn" data-action="quick-add-flow-cancel" data-id="${esc(comp.id)}" title="Cancel">✕</button>
-              </div>
-              <div class="dash-comp-inline-hint-row">
-                <span>Tip: Type flow name &amp; press Enter</span>
-                <a href="#" class="dash-comp-inline-modal-link" data-action="edit-comp-flows" data-id="${esc(comp.id)}" title="Open modal for full flow management">Full editor ↗</a>
-              </div>
-            </div>
-
-            ${flows.length > 0 ? `
-              <button type="button" class="dash-comp-btn-add-flow-row" data-action="quick-add-flow-toggle" data-id="${esc(comp.id)}" title="Add another target user flow to ${esc(comp.name)}">
-                <span class="dash-comp-add-flow-plus">+</span>
-                <span class="dash-comp-add-flow-text">Add Target Flow</span>
-              </button>
-            ` : `
-              <button type="button" class="dash-comp-bench-empty" data-action="quick-add-flow-toggle" data-id="${esc(comp.id)}" title="Click to add target user flows for /ba-competitor">
-                <span class="dash-comp-bench-empty-icon">+</span>
-                <span class="dash-comp-bench-empty-text">Add Target Flow for /ba-competitor</span>
-              </button>
-            `}
           </div>
         </div>
       </div>
@@ -3663,6 +3642,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
   dom.dashCompetitorList.querySelectorAll('[data-action="copy-bench-cmd"]').forEach((el: Element) => {
     el.addEventListener('click', (e: Event) => {
+      if ((e.target as HTMLElement).closest('[data-action="set-comp-bench-mode"], .dash-comp-mode-toggle')) return;
       e.stopPropagation();
       const target = e.currentTarget as HTMLElement;
       const cmd = target.dataset.cmd;
@@ -3671,7 +3651,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       void navigator.clipboard.writeText(cmd);
       showToast(`Copied command: ${cmd} — paste into Antigravity!`, 'success');
 
-      // /ba-competitor takes the decoded-source path and flows from ba-project-config.md: refresh it now.
+      // /ba-competitor and /apk-feature-extractor take the decoded-source path and mode from ba-project-config.md: refresh it now.
       const { activeProject, activeWt } = getActiveProjectAndWorktree();
       if (activeProject) {
         void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path })
@@ -3697,6 +3677,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
   dom.dashCompetitorList.querySelectorAll('[data-action="set-comp-bench-mode"]').forEach((el: Element) => {
     el.addEventListener('click', async (e: Event) => {
+      e.preventDefault();
       e.stopPropagation();
       const target = e.currentTarget as HTMLElement;
       const id = target.dataset.id;
@@ -3709,6 +3690,10 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         }
 
         const wtPath = activeWt?.path || state.activeWorktreePath;
+        if (activeProject?.path) {
+          void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: wtPath });
+        }
+
         if (wtPath) {
           try {
             if (mode === 'code-only') {
@@ -3718,15 +3703,15 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
               if (!anyOtherNeedsMobilerun) {
                 const unreg = await window.api.unregisterMobilerunMcp({ worktreePath: wtPath });
                 if (unreg?.success) {
-                  showToast('Code-Only mode: Disabled mobilerun MCP plugin for this worktree to save agent tokens.', 'info');
+                  showToast('Mobilerun Off (Code-Only): Disabled mobilerun MCP plugin for this worktree to save agent tokens.', 'info');
                 }
               } else {
-                showToast('Code-Only command active for this app (other competitors still use Mobilerun).', 'info');
+                showToast('Mobilerun Off (--code-only) active for this app (other competitors still use Mobilerun).', 'info');
               }
             } else {
               const reg = await window.api.registerMobilerunMcp({ worktreePath: wtPath });
               if (reg?.success) {
-                showToast('Mobilerun mode: Enabled mobilerun MCP plugin in this worktree.', 'success');
+                showToast('Mobilerun On: Enabled mobilerun MCP plugin in this worktree.', 'success');
               }
             }
           } catch (mcpErr: any) {
@@ -3748,195 +3733,6 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         openCompetitorModal({
           project: activeProject,
           competitor: comp,
-          dom,
-          icons,
-          configureModalFooter,
-          showModal,
-          hideModal,
-          showToast,
-          focusModalInputLater,
-          bindModalEnterSubmit,
-          withAsyncButtonState,
-          onSuccess: async (updated: any) => {
-            activeProject.competitors = updated.competitors;
-            const wtPath = activeWt?.path || state.activeWorktreePath;
-            if (wtPath) {
-              const allCodeOnly = (activeProject.competitors || []).length > 0 &&
-                (activeProject.competitors || []).every((c: any) => c.analysisMode === 'code-only');
-              if (allCodeOnly) {
-                try {
-                  const unreg = await window.api.unregisterMobilerunMcp({ worktreePath: wtPath });
-                  if (unreg?.success) {
-                    showToast('All competitors set to Code-Only: mobilerun MCP plugin disabled for this worktree.', 'info');
-                  }
-                } catch (_) {}
-              }
-            }
-            renderDashboardCompetitors(activeProject, activeWt);
-          },
-        });
-      }
-    });
-  });
-
-  async function submitQuickAddFlow(card: HTMLElement, compId: string) {
-    const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
-    const input = inlineWrap?.querySelector('.dash-comp-inline-input') as HTMLInputElement;
-    const submitBtn = inlineWrap?.querySelector('.dash-comp-inline-submit-btn') as HTMLButtonElement;
-    const flowText = input?.value.trim();
-    if (!flowText) {
-      showToast('Please enter a target flow name', 'info');
-      input?.focus();
-      return;
-    }
-
-    const comp = (activeProject?.competitors || []).find((c: any) => c.id === compId);
-    if (!comp || !activeProject?.path) return;
-
-    const existingFlows = parseBenchmarkFlows(comp.notes);
-    const parsedNew = parseBenchmarkFlows(flowText);
-    const toAdd = parsedNew.length > 0 ? parsedNew : [flowText];
-
-    let addedCount = 0;
-    for (const flow of toAdd) {
-      const cf = flow.trim();
-      if (!cf) continue;
-      if (!existingFlows.some((f: string) => f.toLowerCase() === cf.toLowerCase())) {
-        existingFlows.push(cf);
-        addedCount++;
-      }
-    }
-
-    if (addedCount === 0) {
-      showToast(`Flow "${flowText}" already in list`, 'info');
-      if (input) input.value = '';
-      return;
-    }
-
-    comp.notes = existingFlows.join('\n');
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Saving...';
-    }
-
-    try {
-      const res = await window.api.updateProjectCompetitor(activeProject.path, comp);
-      if (res?.success) {
-        showToast(`Added target flow: ${toAdd.join(', ')}`, 'success');
-        const wtPath = activeWt?.path || state.activeWorktreePath;
-        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: wtPath });
-        renderDashboardCompetitors(activeProject, activeWt);
-      } else {
-        showToast(`Failed to add flow: ${res?.error || 'Unknown error'}`, 'error');
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Add';
-        }
-      }
-    } catch (err: any) {
-      showToast(`Error: ${err?.message || 'Unknown error'}`, 'error');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Add';
-      }
-    }
-  }
-
-  dom.dashCompetitorList.querySelectorAll('[data-action="quick-add-flow-toggle"]').forEach((el: Element) => {
-    el.addEventListener('click', (e: Event) => {
-      e.stopPropagation();
-      const btn = e.currentTarget as HTMLElement;
-      const card = btn.closest('.dash-comp-card') as HTMLElement;
-      if (!card) return;
-      const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
-      const input = inlineWrap?.querySelector('.dash-comp-inline-input') as HTMLInputElement;
-      const rowBtn = card.querySelector('.dash-comp-btn-add-flow-row') as HTMLElement;
-      const emptyBtn = card.querySelector('.dash-comp-bench-empty') as HTMLElement;
-
-      if (inlineWrap) {
-        const isHidden = inlineWrap.style.display === 'none' || !inlineWrap.style.display;
-        if (isHidden) {
-          inlineWrap.style.display = 'flex';
-          if (rowBtn) rowBtn.style.display = 'none';
-          if (emptyBtn) emptyBtn.style.display = 'none';
-          input?.focus();
-        } else {
-          input?.focus();
-        }
-      }
-    });
-  });
-
-  dom.dashCompetitorList.querySelectorAll('[data-action="quick-add-flow-cancel"]').forEach((el: Element) => {
-    el.addEventListener('click', (e: Event) => {
-      e.stopPropagation();
-      const btn = e.currentTarget as HTMLElement;
-      const card = btn.closest('.dash-comp-card') as HTMLElement;
-      if (!card) return;
-      const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
-      const input = inlineWrap?.querySelector('.dash-comp-inline-input') as HTMLInputElement;
-      const rowBtn = card.querySelector('.dash-comp-btn-add-flow-row') as HTMLElement;
-      const emptyBtn = card.querySelector('.dash-comp-bench-empty') as HTMLElement;
-
-      if (inlineWrap) {
-        inlineWrap.style.display = 'none';
-        if (input) input.value = '';
-        if (rowBtn) rowBtn.style.display = '';
-        if (emptyBtn) emptyBtn.style.display = '';
-      }
-    });
-  });
-
-  dom.dashCompetitorList.querySelectorAll('[data-action="quick-add-flow-submit"]').forEach((el: Element) => {
-    el.addEventListener('click', async (e: Event) => {
-      e.stopPropagation();
-      const btn = e.currentTarget as HTMLElement;
-      const id = btn.dataset.id;
-      const card = btn.closest('.dash-comp-card') as HTMLElement;
-      if (card && id) {
-        await submitQuickAddFlow(card, id);
-      }
-    });
-  });
-
-  dom.dashCompetitorList.querySelectorAll('.dash-comp-inline-input').forEach((el: Element) => {
-    const input = el as HTMLInputElement;
-    input.addEventListener('keydown', async (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const card = input.closest('.dash-comp-card') as HTMLElement;
-        const id = card?.dataset.compId;
-        if (card && id) {
-          await submitQuickAddFlow(card, id);
-        }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        const card = input.closest('.dash-comp-card') as HTMLElement;
-        if (!card) return;
-        const inlineWrap = card.querySelector('.dash-comp-inline-add-wrap') as HTMLElement;
-        const rowBtn = card.querySelector('.dash-comp-btn-add-flow-row') as HTMLElement;
-        const emptyBtn = card.querySelector('.dash-comp-bench-empty') as HTMLElement;
-        if (inlineWrap) {
-          inlineWrap.style.display = 'none';
-          input.value = '';
-          if (rowBtn) rowBtn.style.display = '';
-          if (emptyBtn) emptyBtn.style.display = '';
-        }
-      }
-    });
-  });
-
-  dom.dashCompetitorList.querySelectorAll('[data-action="edit-comp-flows"]').forEach((el: Element) => {
-    el.addEventListener('click', (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = (e.currentTarget as HTMLElement).dataset.id;
-      const comp = competitors.find((c: any) => c.id === id);
-      if (comp) {
-        openCompetitorModal({
-          project: activeProject,
-          competitor: comp,
-          initialFocusField: 'flow',
           dom,
           icons,
           configureModalFooter,
@@ -4373,6 +4169,228 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
   }
 }
 
+function renderDashboardChecklist(activeProject: any, activeWt: any) {
+  if (!dom.dashChecklistBody) return;
+  const competitors = Array.isArray(activeProject?.competitors) ? activeProject.competitors : [];
+  const readyJadxCount = competitors.filter((c: any) => c.jadxStatus === 'ready' || Boolean(c.jadxSourcePath)).length;
+  const figmaUrl = (activeProject?.figmaUrl || '').trim();
+  const prdUrl = (activeProject?.legacyPrdUrl || '').trim();
+  const checklistUrl = (activeProject?.legacyChecklistUrl || '').trim();
+  const scopes = parseBenchmarkFlows(activeProject?.checklistScope || '');
+
+  if (dom.dashChecklistBadge) {
+    dom.dashChecklistBadge.textContent = scopes.length > 0
+      ? `${scopes.length} Module${scopes.length === 1 ? '' : 's'}`
+      : 'All Product';
+  }
+
+  if (dom.dashBtnChecklistOpenLink) {
+    if (checklistUrl) {
+      dom.dashBtnChecklistOpenLink.classList.remove('hidden');
+    } else {
+      dom.dashBtnChecklistOpenLink.classList.add('hidden');
+    }
+  }
+
+  const fullChecklistCmd = buildChecklistSlashCommand();
+  const projectSlug = formatFlowSlug(activeProject?.name || 'project') || 'project';
+
+  const moduleRowsHtml = scopes.length > 0 ? (() => {
+    const cmdItems: Array<{ slashCmd: string; label: string; isAll: boolean; idx: number }> = scopes.map((scope: string, idx: number) => ({
+      slashCmd: buildChecklistSlashCommand(scope),
+      label: scope,
+      isAll: false,
+      idx,
+    }));
+    if (scopes.length > 1) {
+      cmdItems.push({
+        slashCmd: buildChecklistSlashCommand(scopes),
+        label: `All ${scopes.length} modules`,
+        isAll: true,
+        idx: -1,
+      });
+    }
+    return cmdItems.map((item) => `
+      <div class="dash-comp-cmd-item" data-action="copy-checklist-cmd" data-cmd="${esc(item.slashCmd)}" title="Module Scope: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
+        <div class="dash-comp-cmd-left">
+          <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all target modules' : `Module #${item.idx + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : item.idx + 1}</span>
+          <code class="dash-comp-cmd-code">${esc(item.slashCmd)}</code>
+          <span class="dash-checklist-scope-label">${esc(item.label)}</span>
+        </div>
+        <div class="dash-comp-cmd-right">
+          <span class="dash-comp-cmd-copy-btn" title="Copy command">
+            <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
+          </span>
+          ${!item.isAll ? `
+            <button type="button" class="dash-checklist-scope-del" data-action="remove-checklist-scope" data-index="${item.idx}" title="Remove module ${esc(item.label)}">
+              ${icons.close || '×'}
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `).join('');
+  })() : '';
+
+  dom.dashChecklistBody.innerHTML = `
+    <div class="dash-checklist-workbench">
+      <div class="dash-checklist-sources-bar">
+        <span class="dash-checklist-sources-label">Synthesis Sources:</span>
+        <span class="dash-checklist-source-pill ${competitors.length > 0 ? 'ready' : 'idle'}" title="Competitor evidence under docs/BA/competitor/">
+          <span>Competitors: ${competitors.length}${readyJadxCount > 0 ? ` (${readyJadxCount} decoded)` : ''}</span>
+        </span>
+        <span class="dash-checklist-source-pill ${figmaUrl ? 'ready' : 'idle'}" title="${figmaUrl ? esc(figmaUrl) : 'Link Figma in Project Resources'}">
+          <span>${figmaUrl ? 'Figma Linked' : 'No Figma'}</span>
+        </span>
+        <span class="dash-checklist-source-pill ${prdUrl ? 'ready' : 'idle'}" title="${prdUrl ? esc(prdUrl) : 'Link PRD in Project Resources'}">
+          <span>${prdUrl ? 'PRD Linked' : 'No PRD'}</span>
+        </span>
+        <span class="dash-checklist-source-pill ${checklistUrl ? 'ready' : 'local'}" title="${checklistUrl ? esc(checklistUrl) : `Writes to docs/BA/checklist/${projectSlug}_checklist_YYYYMMDD_v1.md`}">
+          <span>${checklistUrl ? 'External Sheet Linked' : `docs/BA/checklist/${esc(projectSlug)}_checklist_v1.md`}</span>
+        </span>
+      </div>
+
+      <div class="dash-comp-cmd-list">
+        <div class="dash-comp-cmd-item checklist" data-action="copy-checklist-cmd" data-cmd="${esc(fullChecklistCmd)}" title="Synthesize our product's full Feature Checklist from Competitor evidence, Figma, PRD &amp; PO decisions — Click to copy: ${esc(fullChecklistCmd)}">
+          <div class="dash-comp-cmd-left">
+            <span class="dash-comp-cmd-num checklist" title="Target Product Feature Checklist (ba-checklist)">${icons.check || '✓'}</span>
+            <code class="dash-comp-cmd-code">${esc(fullChecklistCmd)}</code>
+            <span class="dash-checklist-scope-label">Full Product Checklist (12-column standard)</span>
+          </div>
+          <div class="dash-comp-cmd-right">
+            <span class="dash-comp-cmd-tag checklist">ba-checklist</span>
+            <span class="dash-comp-cmd-copy-btn" title="Copy command">
+              <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
+            </span>
+          </div>
+        </div>
+
+        ${moduleRowsHtml}
+
+        <div class="dash-comp-inline-add-wrap" id="dash-checklist-inline-add" style="display: none;">
+          <div class="dash-comp-inline-input-row">
+            <input type="text" class="dash-comp-inline-input" id="dash-checklist-inline-input" placeholder="e.g. onboarding, ai-voice-changer, paywall-iap (press Enter)..." autocomplete="off" spellcheck="false" />
+            <button type="button" class="dash-comp-inline-submit-btn" id="dash-checklist-inline-submit" title="Add module scope">Add</button>
+            <button type="button" class="dash-comp-inline-cancel-btn" id="dash-checklist-inline-cancel" title="Cancel">✕</button>
+          </div>
+          <div class="dash-comp-inline-hint-row">
+            <span>Tip: Add one or comma-separated target modules to generate scoped /ba-checklist commands</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  dom.dashChecklistBody.querySelectorAll('[data-action="copy-checklist-cmd"]').forEach((el: Element) => {
+    el.addEventListener('click', (e: Event) => {
+      if ((e.target as HTMLElement).closest('[data-action="remove-checklist-scope"]')) return;
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const cmd = target.dataset.cmd;
+      if (!cmd) return;
+
+      void navigator.clipboard.writeText(cmd);
+      showToast(`Copied command: ${cmd} — paste into Antigravity!`, 'success');
+
+      if (activeProject?.path) {
+        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path })
+          .then((res: any) => {
+            if (!res?.success) showToast(`Config sync failed: ${res?.error || 'Unknown error'}`, 'error');
+          });
+      }
+
+      target.classList.add('copied');
+      const iconState = target.querySelector('.dash-comp-bench-icon-state') as HTMLElement;
+      const origHtml = iconState?.innerHTML;
+      if (iconState) {
+        iconState.innerHTML = `<span class="dash-bench-copied-text">✓ Copied</span>`;
+      }
+      setTimeout(() => {
+        target.classList.remove('copied');
+        if (iconState && origHtml) {
+          iconState.innerHTML = origHtml;
+        }
+      }, 1400);
+    });
+  });
+
+  dom.dashChecklistBody.querySelectorAll('[data-action="remove-checklist-scope"]').forEach((btnEl: Element) => {
+    btnEl.addEventListener('click', async (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number((e.currentTarget as HTMLElement).dataset.index);
+      if (isNaN(idx) || idx < 0 || idx >= scopes.length) return;
+      const nextScopes = scopes.filter((_: string, i: number) => i !== idx);
+      const nextScopeStr = nextScopes.join('\n');
+      activeProject.checklistScope = nextScopeStr;
+      if (activeProject?.path) {
+        await window.api.updateProjectMetadata(activeProject.path, { checklistScope: nextScopeStr });
+        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
+      }
+      renderDashboardChecklist(activeProject, activeWt);
+    });
+  });
+
+  const inlineWrap = dom.dashChecklistBody.querySelector('#dash-checklist-inline-add') as HTMLElement;
+  const inlineInput = dom.dashChecklistBody.querySelector('#dash-checklist-inline-input') as HTMLInputElement;
+  const inlineSubmit = dom.dashChecklistBody.querySelector('#dash-checklist-inline-submit') as HTMLButtonElement;
+  const inlineCancel = dom.dashChecklistBody.querySelector('#dash-checklist-inline-cancel') as HTMLButtonElement;
+
+  const submitScope = async () => {
+    const raw = inlineInput?.value.trim() || '';
+    if (!raw) {
+      showToast('Please enter a module or scope name', 'info');
+      inlineInput?.focus();
+      return;
+    }
+    const parsedNew = parseBenchmarkFlows(raw);
+    const toAdd = parsedNew.length > 0 ? parsedNew : [raw];
+    const nextScopes = [...scopes];
+    let added = 0;
+    for (const item of toAdd) {
+      const clean = item.trim();
+      if (clean && !nextScopes.some((s: string) => s.toLowerCase() === clean.toLowerCase())) {
+        nextScopes.push(clean);
+        added++;
+      }
+    }
+    if (added === 0) {
+      showToast('Module already in list', 'info');
+      if (inlineInput) inlineInput.value = '';
+      return;
+    }
+    const nextScopeStr = nextScopes.join('\n');
+    activeProject.checklistScope = nextScopeStr;
+    if (activeProject?.path) {
+      await window.api.updateProjectMetadata(activeProject.path, { checklistScope: nextScopeStr });
+      void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
+    }
+    showToast(`Added checklist module: ${toAdd.join(', ')}`, 'success');
+    renderDashboardChecklist(activeProject, activeWt);
+  };
+
+  inlineSubmit?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    void submitScope();
+  });
+
+  inlineCancel?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    if (inlineWrap) inlineWrap.style.display = 'none';
+    if (inlineInput) inlineInput.value = '';
+  });
+
+  inlineInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void submitScope();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (inlineWrap) inlineWrap.style.display = 'none';
+      inlineInput.value = '';
+    }
+  });
+}
+
 function renderDashboardViewer() {
   const { activeProject, activeWt } = getActiveProjectAndWorktree();
 
@@ -4398,6 +4416,7 @@ function renderDashboardViewer() {
     dom.dashProjectPath.textContent = currentPath;
     dom.dashProjectPath.title = currentPath;
   }
+  renderDashboardChecklist(activeProject, activeWt);
   renderDashboardCompetitors(activeProject, activeWt);
   renderProjectResourcesScreen();
 }
@@ -4642,6 +4661,32 @@ if (dom.dashBtnBrowserChecklist) {
     const { activeProject } = getActiveProjectAndWorktree();
     if (activeProject?.legacyChecklistUrl) {
       await window.api.openExternal(activeProject.legacyChecklistUrl);
+    }
+  });
+}
+
+if (dom.dashBtnChecklistOpenLink) {
+  dom.dashBtnChecklistOpenLink.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (activeProject?.legacyChecklistUrl) {
+      await window.api.openExternal(activeProject.legacyChecklistUrl);
+    }
+  });
+}
+
+if (dom.dashBtnChecklistResources) {
+  dom.dashBtnChecklistResources.addEventListener('click', () => {
+    showProjectResourcesScreen();
+  });
+}
+
+if (dom.dashBtnAddChecklistScope) {
+  dom.dashBtnAddChecklistScope.addEventListener('click', () => {
+    const inlineWrap = dom.dashChecklistBody?.querySelector('#dash-checklist-inline-add') as HTMLElement | null;
+    const inlineInput = dom.dashChecklistBody?.querySelector('#dash-checklist-inline-input') as HTMLInputElement | null;
+    if (inlineWrap) {
+      inlineWrap.style.display = 'flex';
+      inlineInput?.focus();
     }
   });
 }
@@ -5943,12 +5988,13 @@ const BAKIT_COMPONENTS = [
   {
     id: 'bakit_skills',
     toolkit: 'bakit',
-    name: 'BA Skills & Templates (specs, competitor & Figma analysis, audits, QC, diagrams, Minipower, Office)',
+    name: 'BA Skills & Templates (specs, checklist, competitor & Figma analysis, audits, QC, diagrams, Minipower, Office)',
     folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: '41 skills: ba-templates, apk-code-index, apk-feature-extractor, competitor-app-analysis, mobilerun, figma-ba-analysis, specs, srs-export, use-case-writer, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, product-decision, problem-solving, sequential-thinking.',
+    description: '42 skills: ba-templates, ba-checklist, apk-code-index, apk-feature-extractor, competitor-app-analysis, mobilerun, figma-ba-analysis, specs, srs-export, use-case-writer, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, product-decision, problem-solving, sequential-thinking.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
+      '.agents/skills/ba-checklist/',
       '.agents/skills/apk-code-index/',
       '.agents/skills/apk-feature-extractor/',
       '.agents/skills/competitor-app-analysis/',

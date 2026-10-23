@@ -63,12 +63,13 @@ Used by `competitor-app-analysis` / `/ba-competitor`. One row per app to benchma
 
 | Deliverable | Single-File Mobile SRS Layout (`docs/ba/`) | Modular / Multi-Agent Layout (`docs/BA/`) |
 | :--- | :--- | :--- |
-| APK Evidence / Competitor analysis | `docs/inputs/apk/` | `docs/BA/competitor/[app-slug]/` |
+| APK Evidence / Competitor analysis & feature extraction | `docs/inputs/apk/` | `docs/BA/competitor/[app-slug]/` |
 | Design images / Figma analysis | `docs/inputs/design/` | `docs/BA/figma/[feature-slug]/` |
 | Research notes | `docs/inputs/research/` | `docs/BA/research/` |
-| Feature Checklist | `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | `docs/BA/competitor/[app-slug]/[app-slug]_checklist_*.md` |
+| Target Product Feature Checklist (`/ba-checklist`) | `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | `docs/BA/checklist/[slug]_checklist_*.md` |
 | Batch Rule Confirmation / Decisions | `docs/ba/product-decisions/{app}_rule-confirmation_v{N}.md` | `docs/BA/decisions/[feature-slug]_decisions_*.md` |
 | Feature briefs | `docs/BA/briefs/` | `docs/BA/briefs/` |
+| User stories | `docs/BA/stories/` | `docs/BA/stories/` |
 | SRS | `docs/ba/srs/{app}_srs_v{N}.md` (inline UCs & diagrams) | `docs/project-srs.md` + `docs/usecases/[module]/` + `docs/diagrams/[module]/` |
 | Word SRS for Testers (`.docx`) | `docs/ba/srs-word/{app}_srs_v{N}.docx` | `docs/ba/srs-word/{app}_srs_v{N}.docx` |
 | SRS / UC Audit reports | `docs/ba/audit/{app}_srs-audit_v{N}.md` | `docs/BA/SRS-report/[UC-folder]/` |

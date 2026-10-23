@@ -279,6 +279,7 @@ function normalizeProjectMetadata(metadata) {
     firebaseUrl: typeof meta.firebaseUrl === 'string' ? meta.firebaseUrl.trim() : '',
     legacyPrdUrl: typeof meta.legacyPrdUrl === 'string' ? meta.legacyPrdUrl.trim() : '',
     legacyChecklistUrl: typeof meta.legacyChecklistUrl === 'string' ? meta.legacyChecklistUrl.trim() : '',
+    checklistScope: typeof meta.checklistScope === 'string' ? meta.checklistScope.trim() : '',
     apkFiles: Array.isArray(meta.apkFiles)
       ? meta.apkFiles
           .filter(a => a && typeof a === 'object' && typeof a.path === 'string' && a.path.trim())
@@ -518,11 +519,24 @@ function buildBenchmarkSlashCommand(target, flow, opts = {}) {
   return `/ba-competitor ${pkg}${slug ? ` ${slug}` : ''}${codeOnlyFlag}`;
 }
 
-// target: app name or package identifier. Returns /ba-checklist <app> for apk-feature-extractor
-function buildChecklistSlashCommand(target) {
-  const pkg = (target || 'app').trim();
-  return `/ba-checklist ${pkg}`;
+// scope: optional module/feature scope name or array of scopes for OUR product Feature Checklist (/ba-checklist)
+function buildChecklistSlashCommand(scope = '', opts = {}) {
+  const scopes = Array.isArray(scope) ? scope : (scope ? [scope] : []);
+  const slug = scopes.map(formatFlowSlug).filter(Boolean).join(' ');
+  const fromList = opts && opts.from
+    ? (Array.isArray(opts.from) ? opts.from : [opts.from]).map((s) => String(s || '').trim()).filter(Boolean)
+    : [];
+  const fromFlag = fromList.length > 0 ? ` --from ${fromList.join(' ')}` : '';
+  const figmaFlag = opts && opts.figma && String(opts.figma).trim() ? ` --figma ${formatFlowSlug(String(opts.figma))}` : '';
+  return `/ba-checklist${slug ? ` ${slug}` : ''}${fromFlag}${figmaFlag}`;
 }
+
+function buildFeatureExtractorSlashCommand(target, opts = {}) {
+  const pkg = (target || 'app').trim();
+  const codeOnlyFlag = opts && (opts.codeOnly || opts.noDevice) ? ' --code-only' : '';
+  return `/apk-feature-extractor ${pkg}${codeOnlyFlag}`;
+}
+
 
 function cleanApkAppName(fileName) {
   if (!fileName || typeof fileName !== 'string') return '';
@@ -576,6 +590,6 @@ module.exports = {
   buildBenchmarkSlashCommand,
   buildTargetFlowSlashCommand: buildBenchmarkSlashCommand,
   buildChecklistSlashCommand,
-  buildFeatureExtractorSlashCommand: buildChecklistSlashCommand,
+  buildFeatureExtractorSlashCommand,
 };
 

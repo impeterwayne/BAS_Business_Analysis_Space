@@ -1861,6 +1861,17 @@ kbd {
   min-height: 0;
 }
 
+.dashboard-viewer #dash-section-checklist {
+  grid-column: 1 / -1;
+  grid-row: auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
 .dashboard-viewer #dash-section-competitors {
   grid-column: 1 / -1;
   grid-row: auto;
@@ -2111,6 +2122,96 @@ kbd {
   background: rgba(255, 160, 0, 0.12);
   border: 1px solid rgba(255, 160, 0, 0.28);
   color: #ffa000;
+}
+
+.dash-section-icon.checklist-tint {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #34d399;
+}
+
+/* Product Feature Checklist Workbench */
+.dash-checklist-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.dash-checklist-sources-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.dash-checklist-sources-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.dash-checklist-source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+
+.dash-checklist-source-pill.ready {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.28);
+  color: #34d399;
+}
+
+.dash-checklist-source-pill.local {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.24);
+  color: #38bdf8;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.dash-checklist-scope-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-checklist-scope-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--transition-fast);
+}
+
+.dash-checklist-scope-del:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
 }
 
 .dash-section-icon.competitor-tint {
@@ -3388,6 +3489,20 @@ kbd {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.26);
   color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.dash-comp-btn-action.analyze {
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.dash-comp-btn-action.analyze:hover {
+  background: rgba(56, 189, 248, 0.24);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #bae6fd;
   transform: translateY(-1px);
 }
 
@@ -5084,7 +5199,7 @@ kbd {
   flex: 0 0 auto;
 }
 
-.dashboard-viewer.dash-list-mode .dash-competitor-list:has(> .dash-comp-card:only-child) .dash-comp-card {
+.dashboard-viewer.dash-list-mode .dash-competitor-list:has(> .dash-comp-card:only-child) .dash-comp-card-unused {
   flex: 1 1 0%;
   min-height: 0;
 }

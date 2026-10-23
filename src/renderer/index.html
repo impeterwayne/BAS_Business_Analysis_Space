@@ -129,8 +129,43 @@
             </div>
           </div>
 
-          <!-- ── Main Viewer Content Sections: Competitors Only ── -->
+          <!-- ── Main Viewer Content Sections: Product Feature Checklist & Competitors ── -->
           <div class="dash-sections-container">
+
+            <!-- Product Feature Checklist Section -->
+            <section class="dash-section-card" id="dash-section-checklist">
+              <div class="dash-section-header">
+                <div class="dash-section-title-group">
+                  <div class="dash-section-icon checklist-tint">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m9 11 3 3L22 4"></path>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                  </div>
+                  <div class="dash-title-with-badge">
+                    <h3 class="dash-section-title">Product Feature Checklist</h3>
+                    <span class="dash-count-badge" id="dash-checklist-badge">All Product</span>
+                  </div>
+                </div>
+                <div class="dash-section-actions">
+                  <button type="button" class="btn-secondary btn-small hidden" id="dash-btn-checklist-open-link" title="Open linked external Feature Checklist">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open Sheet</span>
+                  </button>
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-checklist-resources" title="Manage Feature Checklist link &amp; source docs in Project Resources">
+                    <img src="icons/folder.svg" width="12" height="12" alt="" />
+                    <span>Resources</span>
+                  </button>
+                  <button type="button" class="btn-primary btn-small" id="dash-btn-add-checklist-scope" title="Add target product module / scope slug for /ba-checklist">
+                    <img src="icons/plus.svg" width="12" height="12" alt="" />
+                    <span>Add Module</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dash-section-body" id="dash-checklist-body">
+                <!-- Rendered dynamically by JS -->
+              </div>
+            </section>
 
             <!-- Competitor Applications Section -->
             <section class="dash-section-card" id="dash-section-competitors">

@@ -39,7 +39,8 @@ evidence. Paths are relative to the workspace (supporting both `docs/BA/...` and
 | Input | Location | Contains |
 | :--- | :--- | :--- |
 | Project config | `.agents/config/ba-project-config.md` (or `.agents/config/project-config.md`) | Project type, deliverable language, competitor apps |
-| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | Feature scope and hierarchy, `PO note`, Dev-owned columns |
+| Target Feature Checklist | `docs/BA/checklist/*_checklist_*.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | Our product's feature scope and hierarchy, `PO note`, Dev-owned columns |
+| Competitor Feature Extraction | `docs/BA/competitor/{app-slug}/{app-slug}_features_*.md` (or `*_checklist_*.md`) | Normalized reference feature inventory from decoded APK |
 | APK profile | `docs/BA/competitor/{app-slug}/{app-slug}_profile_*.md` or `docs/inputs/apk/*_profile*.md` | Reference capability map, modules, constraints |
 | APK screen inventory | `docs/BA/competitor/{app-slug}/{app-slug}_screens_*.md` or `docs/inputs/apk/*_screens*.md` | Reference screens, entry points, components, states |
 | APK flow analysis | `docs/BA/competitor/{app-slug}/{app-slug}_flow-{flow}_*.md` or `docs/inputs/apk/*_flow-*.md` | Actions, responses, branches, validations, limits, rules |

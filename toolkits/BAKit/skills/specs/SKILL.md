@@ -65,8 +65,9 @@ Read the first word of the user's input after the command:
 | :--- | :--- | :--- | :--- |
 | Product Decision Summary / Rule Confirmation Table | `docs/BA/decisions/{feature-slug}_decisions_*.md` or `docs/ba/product-decisions/{app}_rule-confirmation_v{N}.md` (`PD-{NNN}`) | Confirmed `KEEP / MODIFY / REMOVE / NEW` target behavior; verdict `READY FOR SRS` / `NOT READY FOR SRS` | `TBD` items stay open |
 | Feature brief | `docs/BA/briefs/` (`brainstorm-features`) | The chosen approach and its agreed edge cases | Options not chosen are not requirements |
-| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` | Scope inventory: feature groups, features, sub-features, PO notes | Not a detailed specification |
-| APK evidence | `docs/BA/competitor/{app-slug}/` or `docs/inputs/apk/` — `*_profile*`, `*_screens*`, `*_flow-*` | Reference-app behavior graded observed / `[Code]` / `[Inferred]` | Reference only, never target approval |
+| Target Feature Checklist | `docs/BA/checklist/*_checklist_*.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md` (`ba-checklist`) | Our product's scope inventory: feature groups, features, sub-features, PO notes | Not a detailed specification |
+| Competitor Feature Extraction | `docs/BA/competitor/{app-slug}/{app-slug}_features_*.md` (`apk-feature-extractor`) | Reference-app feature inventory extracted from APK evidence | Reference only, never target approval |
+| APK evidence | `docs/BA/competitor/{app-slug}/` or `docs/inputs/apk/` — `*_profile*`, `*_screens*`, `*_flow-*`, screenshots in `screens/` | Reference-app behavior graded observed / `[Code]` / `[Inferred]` | Reference only, never target approval |
 | Comparison / gap report | `docs/BA/competitor/{topic}_comparison_*.md` (`GAP-*`, `FR-CAND-*`) | Candidate requirements | Promoted only when confirmed |
 | Figma analysis / Design images | `docs/BA/figma/{feature}/` (`*_figma_*.md`, `screens/*.png`) or `docs/inputs/design/` | Target screens, components, visible states, navigation, copy | A mockup does not define hidden business logic |
 | PRD / research / approved requirements | `docs/BA/research/` or `docs/inputs/research/` | Goals, constraints, supplementary evidence | Recommendations are not approvals |

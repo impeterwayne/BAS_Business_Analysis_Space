@@ -1,12 +1,11 @@
 ---
 name: competitor-app-analysis
 description: >-
-  Explores a competitor (opponent) Android app on a connected device through the `mobilerun` MCP server,
-  captures a screenshot and accessibility tree at every screen, and writes BA deliverables from templates:
-  app profile, screen inventory, per-flow analysis, and a feature comparison / gap analysis with candidate
-  requirements. When the APK has been decoded with jadx, it follows an exploration plan built from the
-  `apk-code-index` notes and records which code predictions the device confirmed. Use when the user asks to
-  analyse, benchmark, survey, or document a competitor app, or runs /ba-competitor.
+  Explores a competitor (opponent) Android app on a connected device through the `mobilerun` MCP server
+  (or statically from decoded `jadx_src` code), captures screenshots and accessibility trees, and writes
+  BA deliverables from templates: app profile, screen inventory, per-flow analysis, normalized competitor
+  feature extraction (`apk-feature-extractor`), and a feature comparison / gap analysis. Use when the user
+  asks to analyse, benchmark, survey, or document a competitor app, or runs /ba-competitor.
 ---
 
 # Competitor App Analysis
@@ -19,7 +18,8 @@ You operate the app; you never modify, patch or repackage it.
 
 Tools: the `mobilerun` MCP server (see the `mobilerun` skill for the full tool list) plus file writes.
 Templates: `ba-templates` catalog keys `competitor-profile`, `competitor-screens`, `competitor-flow`,
-`comparison-gap`. Code side: the `apk-code-index` skill.
+`competitor-features`, `comparison-gap`. Code side: `apk-code-index` and `apk-feature-extractor`.
+(Note: To synthesize **our own product's** real Feature Checklist from competitor extractions, Figma, and PRD, use the separate `ba-checklist` skill via `/ba-checklist`.)
 
 In the competitor analysis pipeline (`ba-lead`), the work is split across two execution branches:
 - **Branch 1: Hybrid / Device-Verified (with `mobilerun`)** — Explores on a connected device, captures screenshots/UI trees, verifies code findings live.
@@ -44,14 +44,14 @@ In the competitor analysis pipeline (`ba-lead`), the work is split across two ex
   - **A1 — in parallel, one `invoke_subagent` call, at most 3 scouts:** `code-scout` screen map + features (`code-index/screen-map.md`), and `code-scout` flow `<flow>` (`code-index/flow-<flow>.md` with the **Verify on device** checklist). Wait for every scout before Wave B.
 - **Wave B — write the exploration plan yourself.** Read every scout note, then write `<dir>exploration-plan.md` (Entry points, expected screens, verify on device checklist, expected walls).
 - **Wave C — device walks (one flow per dispatch, strictly one at a time).** Dispatch `competitor-analyst` in WALK mode for each flow using `mobilerun`.
-- **Wave D — synthesize.** Dispatch `competitor-analyst` in SYNTHESIZE mode: screen inventory from captures, app profile with tech stack, flow docs, comparison/gap report if `compare` was provided, and optional Feature Checklist (`{app-slug}_checklist_{YYYYMMDD}_v1.md`) via `apk-feature-extractor`.
+- **Wave D — synthesize.** Dispatch `competitor-analyst` in SYNTHESIZE mode: screen inventory (`{app-slug}_screens_{YYYYMMDD}_v1.md`) from captures, app profile (`{app-slug}_profile_{YYYYMMDD}_v1.md`) with tech stack, flow docs (`{app-slug}_flow-{flow}_{YYYYMMDD}_v1.md`), normalized competitor feature extraction (`{app-slug}_features_{YYYYMMDD}_v1.md`) via `apk-feature-extractor`, and comparison/gap report if `compare` was provided.
 - **Wave E — verify.** Dispatch `evidence-verifier` alone with document list, captures, code index, and plan. Checks `[Observed]`, `[Code]`, and `[Inferred]` claims.
 
 ### Branch 2: Static / Code-Only (without `mobilerun`)
 - **Wave A — deep code scouts (requires decoded source `jadx_src`).**
   - **A0 (Index)**: Build index (`apk_index.py build`) if `code-index/_meta.md` does not exist yet.
   - **A1 — in parallel, one `invoke_subagent` call with 2–3 scouts:** `code-scout` screen map + layouts (`code-index/screen-map.md` analyzing activities, fragments, nav graphs, Compose routes, and `res/layout/*.xml`), and `code-scout` flow `<flow>` deep-code (`code-index/flow-<flow>.md` detailing step-by-step logic, input fields, validation rules, `res/values/strings.xml`, error handlers, and API endpoints). Wait for every scout before synthesis.
-- **Wave B — static deliverable synthesis (no device, no `mobilerun`).** Dispatch `competitor-analyst` in SYNTHESIZE mode with `mode="code-only"`: Screen Inventory (`{app-slug}_screens_{YYYYMMDD}_v1.md`), Flow Analysis (`{app-slug}_flow-{flow}_{YYYYMMDD}_v1.md`), App Profile (`{app-slug}_profile_{YYYYMMDD}_v1.md`), Comparison / Gap (`{topic}_comparison_{YYYYMMDD}_v1.md`), and optional Feature Checklist (`{app-slug}_checklist_{YYYYMMDD}_v1.md`).
+- **Wave B — static deliverable synthesis (no device, no `mobilerun`).** Dispatch `competitor-analyst` in SYNTHESIZE mode with `mode="code-only"`: Screen Inventory (`{app-slug}_screens_{YYYYMMDD}_v1.md`), Flow Analysis (`{app-slug}_flow-{flow}_{YYYYMMDD}_v1.md`), App Profile (`{app-slug}_profile_{YYYYMMDD}_v1.md`), Competitor Feature Extraction (`{app-slug}_features_{YYYYMMDD}_v1.md` via `apk-feature-extractor`), and Comparison / Gap (`{topic}_comparison_{YYYYMMDD}_v1.md` if `compare` was provided).
 - **Wave C — verify.** Dispatch `evidence-verifier` alone: verifies all `[Code]` citations (`path:line`) under `jadx_src/`, enforces grade honesty (NO `[Observed]` claims in code-only mode), and checks that no secrets are leaked.
 
 ## Inputs (ask for anything missing before touching the device)
@@ -80,6 +80,7 @@ docs/BA/competitor/
     {app-slug}_profile_{YYYYMMDD}_v1.md
     {app-slug}_screens_{YYYYMMDD}_v1.md
     {app-slug}_flow-{flow}_{YYYYMMDD}_v1.md
+    {app-slug}_features_{YYYYMMDD}_v1.md    competitor feature extraction (apk-feature-extractor)
   {topic}_comparison_{YYYYMMDD}_v1.md      when comparing against our product / other apps
 ```
 
@@ -134,14 +135,16 @@ Fill templates exactly as `ba-templates` describes. The generation strategy adap
 1. **Screen inventory** (`competitor-screens`): one section per captured state, elements taken from the `.tree.txt` (resource-id, label), labels in original language with English in parentheses.
 2. **Flow analysis** (`competitor-flow`), one file per flow: step table, Mermaid state diagram, observed rules, friction, coverage.
 3. **App profile** (`competitor-profile`): overview, survey scope, feature map (`CF-NNN`), strengths, weaknesses, boundaries, open questions. Includes tech section from `code-index/tech.md` and code-only features section.
-4. **Comparison / gap** (`comparison-gap`): feature matrix, `GAP-NNN` list, and `FR-CAND-NNN` candidate requirements.
+4. **Competitor feature extraction** (`competitor-features` via `apk-feature-extractor`): normalized 12-column feature hierarchy (`Group of feature → Tính năng → Tính năng nhỏ`) extracted from profile, screens, and flow evidence (`{app-slug}_features_{YYYYMMDD}_v1.md`).
+5. **Comparison / gap** (`comparison-gap`): feature matrix, `GAP-NNN` list, and `FR-CAND-NNN` candidate requirements.
 
 #### Mode B: Static Code-Only Mode (without `mobilerun` / no device)
 When running without a device (`--code-only` or `--no-device`):
 1. **Screen inventory** (`competitor-screens`): derived from layout XMLs (`res/layout/*.xml`), Jetpack Compose composables, and activity/fragment view bindings. Elements list resource IDs, view classes, and `@string/...` text values. In metadata, set `Thiết bị (Device): None (Static Code Analysis — jadx_src)`.
 2. **Flow analysis** (`competitor-flow`): steps derived from Activity/Fragment transitions, navigation actions (`NavController.navigate`, `startActivity`), and intent extras. State diagram drawn as Mermaid flowchart. Validation rules table extracted from validator classes, min/max limits, and error string resources. Every rule and step cites `[Code] path/to/Class.java:line`.
 3. **App profile** (`competitor-profile`): generated from `_meta.md`, `tech.md`, `packages.md`, and `screens.md`. Feature catalog `CF-NNN` covers all discovered feature modules.
-4. **Comparison / gap** (`comparison-gap`): compares competitor code capabilities directly against our reference. Every proposal is marked `[Code]` or `[Inferred]`.
+4. **Competitor feature extraction** (`competitor-features` via `apk-feature-extractor`): normalized 12-column feature table (`{app-slug}_features_{YYYYMMDD}_v1.md`) extracted from static profile, screens, and flow docs.
+5. **Comparison / gap** (`comparison-gap`): compares competitor code capabilities directly against our reference. Every proposal is marked `[Code]` or `[Inferred]`.
 
 Candidates (`FR-CAND-NNN`) are proposals; they enter the SRS only after the user confirms them, usually through a `product-decision` summary (then run `specs analyze`).
 

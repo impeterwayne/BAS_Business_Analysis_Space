@@ -34,8 +34,9 @@ Paths are relative to `.agents/skills/`.
 | `competitor-profile` | Competitor app profile | `ba-templates/templates/competitor-app-profile.md` | `docs/BA/competitor/{app-slug}/` | `competitor-app-analysis` |
 | `competitor-screens` | Competitor screen inventory | `ba-templates/templates/competitor-screen-inventory.md` | `docs/BA/competitor/{app-slug}/` | `competitor-app-analysis` |
 | `competitor-flow` | Competitor flow analysis | `ba-templates/templates/competitor-flow-analysis.md` | `docs/BA/competitor/{app-slug}/` | `competitor-app-analysis` |
+| `competitor-features` | Competitor feature extraction | `ba-templates/templates/competitor-feature-extraction.md` | `docs/BA/competitor/{app-slug}/` | `apk-feature-extractor`, `competitor-app-analysis` |
 | `comparison-gap` | Feature comparison matrix + gap analysis | `ba-templates/templates/feature-comparison-gap.md` | `docs/BA/competitor/` | `competitor-app-analysis` |
-| `feature-checklist` | Competitor Feature Checklist | `ba-templates/templates/feature-checklist.md` | `docs/BA/competitor/{app-slug}/` | `apk-feature-extractor`, `competitor-app-analysis` |
+| `feature-checklist` | Target Product Feature Checklist (our product) | `ba-templates/templates/feature-checklist.md` | `docs/BA/checklist/` | `ba-checklist` |
 | `figma-analysis` | Figma design analysis (screens, flow, fields, states, copy, candidates) | `ba-templates/templates/figma-design-analysis.md` | `docs/BA/figma/{feature}/` | `figma-ba-analysis` |
 
 The `readiness-review`, `srs-readiness-review` and `question-backlog` templates stay inside their audit skills because those
@@ -50,8 +51,8 @@ workflows score and parse them section by section. Do not copy them elsewhere.
    - `product-decision` → `product-decision`
    - `test-case`, `test-config`, `test-summary` → `test-cases` (or `qc-tc-design` / `qc-tc-summary`)
    - `readiness-review`, `srs-readiness-review` → `BA-audit-SRS` (or `qc-uc-review`); `question-backlog` → `BA-audit-QnA`
-   - `competitor-*`, `comparison-gap` → `competitor-app-analysis`
-   - `feature-checklist` → `apk-feature-extractor`
+   - `competitor-*`, `comparison-gap` → `competitor-app-analysis` (or `apk-feature-extractor` for `competitor-features`)
+   - `feature-checklist` → `ba-checklist`
    - `figma-analysis` → `figma-ba-analysis`
 2. **Collect inputs before writing.** Read every source the document needs: requirement files, SRS (or
    legacy FSD), Product Decision Summaries, use cases, competitor evidence under `docs/BA/competitor/`, and `.agents/config/ba-project-config.md`

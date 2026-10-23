@@ -172,6 +172,9 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     if (metadata.legacyChecklistUrl !== undefined) {
       project.legacyChecklistUrl = String(metadata.legacyChecklistUrl || '').trim();
     }
+    if (metadata.checklistScope !== undefined) {
+      project.checklistScope = String(metadata.checklistScope || '').trim();
+    }
     if (Array.isArray(metadata.apkFiles)) {
       project.apkFiles = metadata.apkFiles;
     }
@@ -390,6 +393,26 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
           content = content.replace(/(\| Figma \|.*\|.*\|)/i, `$1\n${checklistRow}`);
         } else if (/## 2\. Links & Resources/i.test(content)) {
           content = content.replace(/(## 2\. Links & Resources[\s\S]*?\| :--- \| :--- \| :--- \|\r?\n)/i, `$1${checklistRow}\n`);
+        }
+      }
+
+      // Update Target Feature Checklist Scope if provided
+      if (project.checklistScope) {
+        const modules = parseBenchmarkFlows(project.checklistScope);
+        const scopeStr = modules.length > 0 ? modules.join(', ') : project.checklistScope.replace(/[\r\n|]+/g, ', ').trim();
+        const scopeRow = `| Target Checklist Scope | \`${scopeStr}\` | Modules / feature groups for \`/ba-checklist\` (\`docs/BA/checklist/\`) |`;
+        if (/\| Target Checklist Scope \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/\| Target Checklist Scope \|.*\|.*\|/i, scopeRow);
+        } else if (/\| Legacy Checklist \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Legacy Checklist \|.*\|.*\|)/i, `$1\n${scopeRow}`);
+        } else if (/\| Legacy PRD \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Legacy PRD \|.*\|.*\|)/i, `$1\n${scopeRow}`);
+        } else if (/\| Firebase \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Firebase \|.*\|.*\|)/i, `$1\n${scopeRow}`);
+        } else if (/\| Figma \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Figma \|.*\|.*\|)/i, `$1\n${scopeRow}`);
+        } else if (/## 2\. Links & Resources/i.test(content)) {
+          content = content.replace(/(## 2\. Links & Resources[\s\S]*?\| :--- \| :--- \| :--- \|\r?\n)/i, `$1${scopeRow}\n`);
         }
       }
 

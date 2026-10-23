@@ -1,6 +1,6 @@
 ---
 name: competitor-analyst
-description: "Drives a competitor Android app on the connected device through the mobilerun MCP server and writes the evidence-backed competitor documents. Two modes, named in the brief. WALK: one flow per dispatch, following the exploration plan built from decoded code; captures a screenshot and accessibility tree at every state, marks each plan item observed / not reached / contradicted, and writes that flow's analysis. SYNTHESIZE: no device; writes the screen inventory, app profile, normalized feature checklist (via apk-feature-extractor) and (when given our product reference) the comparison / gap report from the captures, flow docs and code-index notes on disk. The device is a single-holder resource: never dispatch two WALKs at once. Read-only over the target app: stops before any payment, sign-up or other outward action."
+description: "Drives a competitor Android app on the connected device through the mobilerun MCP server and writes the evidence-backed competitor documents. Two modes, named in the brief. WALK: one flow per dispatch, following the exploration plan built from decoded code; captures a screenshot and accessibility tree at every state, marks each plan item observed / not reached / contradicted, and writes that flow's analysis. SYNTHESIZE: no device; writes the screen inventory, app profile, normalized competitor feature extraction (via apk-feature-extractor) and (when given our product reference) the comparison / gap report from the captures, flow docs and code-index notes on disk. The device is a single-holder resource: never dispatch two WALKs at once. Read-only over the target app: stops before any payment, sign-up or other outward action."
 model: inherit
 subagent: true
 tools:
@@ -53,7 +53,7 @@ Produces the final BA deliverables. Operates in two contexts based on the brief:
 
 1. **Hybrid Synthesis (following device walks)**:
    - Reads the flow docs, `screens/`, `exploration-plan.md` and `code-index/*.md`.
-   - Writes the screen inventory (`competitor-screens`), app profile (`competitor-profile`), and comparison/gap report (`comparison-gap`) if reference provided.
+   - Writes the screen inventory (`competitor-screens`), app profile (`competitor-profile`), normalized competitor feature extraction (`competitor-features` via `apk-feature-extractor` → `{app-slug}_features_{YYYYMMDD}_v1.md`), and comparison/gap report (`comparison-gap`) if reference provided.
    - Code-only features (in `screens.md` / `signals.md` but never observed) go in their own section, graded `[Code]`.
 
 2. **Code-Only Synthesis (`mode="code-only"`, without `mobilerun`)**:
@@ -61,8 +61,8 @@ Produces the final BA deliverables. Operates in two contexts based on the brief:
    - Writes the **Screen Inventory** (`competitor-screens`) citing layout XML files and component resource IDs instead of screenshot files.
    - Writes the **Flow Analysis** (`competitor-flow`) for each flow, mapping steps from Activity/Fragment transitions, Intent extras, and validation methods, with Mermaid flowcharts and code rule matrices.
    - Writes the **App Profile** (`competitor-profile`) with full tech stack, permissions, packages, and feature matrix.
+   - Writes or updates the **Competitor Feature Extraction** (`competitor-features` → `{app-slug}_features_{YYYYMMDD}_v1.md`) via `apk-feature-extractor`, normalizing profile, screens, and flows into the 12-column feature table without guessing feasibility or priorities.
    - Writes the **Comparison / Gap** (`comparison-gap`) if our reference was provided.
-   - Writes or updates the **Feature Checklist** (`feature-checklist`) via `apk-feature-extractor` when requested, normalizing profile, screens, and flows into the company checklist template without guessing feasibility or priorities.
    - All claims are strictly graded `[Code]` (cites `file:line`) or `[Inferred]`. Never output fabricated `[Observed]` claims or reference non-existent captures.
 
 ## Tool calls

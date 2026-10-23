@@ -1,6 +1,5 @@
 const {
   getCompetitorInitials,
-  parseBenchmarkFlows,
   formatBytes,
   cleanApkAppName,
   extractPlayStorePackageName,
@@ -44,7 +43,6 @@ export async function openCompetitorModal({
   project,
   competitor = null,
   initialApk = null,
-  initialFocusField,
   dom,
   icons,
   configureModalFooter,
@@ -59,7 +57,7 @@ export async function openCompetitorModal({
   const isEditing = Boolean(competitor && competitor.id);
   dom.modalTitle.textContent = isEditing ? 'Edit Competitor App' : (initialApk ? 'Import Competitor APK' : 'Add Competitor App');
 
-  // Enlarge modal dialog width for competitor workbench and flow management
+  // Enlarge modal dialog width for competitor workbench
   dom.modal.classList.add('competitor-modal');
 
   let currentApkPath = competitor?.apkPath || initialApk?.path || '';
@@ -72,11 +70,10 @@ export async function openCompetitorModal({
   const defaultNotes = competitor?.notes || '';
   const defaultIconUrl = competitor?.iconUrl || '';
   let currentIconUrl = defaultIconUrl;
-  const flowList: string[] = parseBenchmarkFlows(defaultNotes);
 
   let currentJadxSourcePath = competitor?.jadxSourcePath || '';
   let currentJadxStatus = competitor?.jadxStatus || '';
-  let currentAnalysisMode = competitor?.analysisMode || 'hybrid';
+  const currentAnalysisMode = competitor?.analysisMode || 'hybrid';
   let isLocalDecoding = false;
   let activeDecodeProgress: { stage: string; percent: number; detail: string; elapsedSec: number } | null = null;
 
@@ -119,7 +116,7 @@ export async function openCompetitorModal({
     </div>
 
     <!-- Group 3: Linked Android Build & Decompiled Code -->
-    <div class="form-group" style="margin-bottom: 12px;">
+    <div class="form-group" style="margin-bottom: 6px;">
       <label class="comp-modal-section-title">
         <span>Linked Android Build (APK & Decompiled Code)</span>
         <span class="form-hint" style="margin: 0; font-size: 11px; text-transform: none; letter-spacing: normal;">Local .apk or .xapk for device testing & JADX source</span>
@@ -128,174 +125,17 @@ export async function openCompetitorModal({
         <!-- Injected dynamically by renderApkSection() -->
       </div>
     </div>
-
-    <!-- Group 4: Target User Flows -->
-    <div class="form-group" style="margin-bottom: 6px;">
-      <label class="comp-modal-section-title">
-        <span>Target User Flows</span>
-        <span id="comp-modal-flow-count" class="comp-modal-count-pill">
-          ${flowList.length} flow${flowList.length === 1 ? '' : 's'}
-        </span>
-      </label>
-      <div class="form-hint" style="margin-top: -3px; margin-bottom: 8px; font-size: 11px;">
-        Key user journeys to explore, audit, and benchmark.
-      </div>
-
-      <div class="comp-modal-flow-container">
-        <!-- Interactive flow chips -->
-        <div id="comp-modal-flow-chips" class="comp-modal-flow-chips"></div>
-
-        <!-- Add flow input group -->
-        <div class="comp-modal-add-flow-group" style="display: flex; gap: 8px; margin-top: 6px;">
-          <input class="form-input" id="comp-input-new-flow" placeholder="Type a flow name and press Enter, or paste comma-separated flows..." autocomplete="off" spellcheck="false" style="flex: 1; height: 36px; font-size: 12px;" />
-          <button type="button" class="btn-secondary btn-small" id="comp-btn-add-flow" title="Add flow to list" style="white-space: nowrap; height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;">
-            ${icons.plus || '+'}
-            <span>Add Flow</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Group 5: Flow Analysis Mode -->
-    <div class="form-group" style="margin-bottom: 6px; margin-top: 14px;">
-      <label class="comp-modal-section-title">
-        <span>Target Flow Analysis Mode</span>
-        <span class="form-hint" style="margin: 0; font-size: 11px; text-transform: none; letter-spacing: normal;">Default for generated /ba-competitor slash commands</span>
-      </label>
-      <div style="display: flex; gap: 10px; margin-top: 6px;">
-        <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; cursor: pointer; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); flex: 1;">
-          <input type="radio" name="comp-analysis-mode" value="hybrid" ${currentAnalysisMode !== 'code-only' ? 'checked' : ''} style="cursor: pointer; margin-top: 2px;" />
-          <div>
-            <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-              ${icons.mobile || icons.android || ''}
-              <span>Live Device (mobilerun)</span>
-            </div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.3;">Drives app on Android device, captures screens &amp; UI trees</div>
-          </div>
-        </label>
-        <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; cursor: pointer; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); flex: 1;">
-          <input type="radio" name="comp-analysis-mode" value="code-only" ${currentAnalysisMode === 'code-only' ? 'checked' : ''} style="cursor: pointer; margin-top: 2px;" />
-          <div>
-            <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-              ${icons.code || ''}
-              <span>Static Code-Only</span>
-            </div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.3;">Decompiled source analysis only (--code-only, no device)</div>
-          </div>
-        </label>
-      </div>
-    </div>
   `;
 
   const urlInput = dom.modalBody.querySelector('#comp-input-url') as HTMLInputElement;
   const nameInput = dom.modalBody.querySelector('#comp-input-name') as HTMLInputElement;
   const pkgInput = dom.modalBody.querySelector('#comp-input-pkg') as HTMLInputElement;
-  const flowChipsEl = dom.modalBody.querySelector('#comp-modal-flow-chips') as HTMLElement;
-  const flowCountBadge = dom.modalBody.querySelector('#comp-modal-flow-count') as HTMLElement;
-  const newFlowInput = dom.modalBody.querySelector('#comp-input-new-flow') as HTMLInputElement;
-  const addFlowBtn = dom.modalBody.querySelector('#comp-btn-add-flow') as HTMLButtonElement;
   const detectBtn = dom.modalBody.querySelector('#comp-btn-detect') as HTMLButtonElement;
   const detectStatus = dom.modalBody.querySelector('#comp-detect-status') as HTMLElement;
   const detectedBadge = dom.modalBody.querySelector('#comp-detected-badge') as HTMLElement;
   const modalIconImg = dom.modalBody.querySelector('#comp-modal-icon-img') as HTMLImageElement;
   const modalInitials = dom.modalBody.querySelector('#comp-modal-avatar-initials') as HTMLElement;
   const apkContainerEl = dom.modalBody.querySelector('#comp-modal-apk-container') as HTMLElement;
-
-  function updateFlowCount() {
-    if (flowCountBadge) {
-      flowCountBadge.textContent = `${flowList.length} flow${flowList.length === 1 ? '' : 's'}`;
-    }
-  }
-
-  function renderFlowList() {
-    updateFlowCount();
-
-    // Render interactive chips
-    if (flowList.length === 0) {
-      flowChipsEl.innerHTML = `
-        <span class="comp-modal-flow-empty-hint">
-          No target flows added yet. Enter flow names below to track them.
-        </span>
-      `;
-      return;
-    }
-
-    flowChipsEl.innerHTML = flowList.map((flow, idx) => `
-      <div class="comp-modal-flow-chip" data-index="${idx}">
-        <span class="comp-modal-flow-chip-num">#${idx + 1}</span>
-        <span class="comp-modal-flow-chip-text" title="${escapeHtml(flow)}">${escapeHtml(flow)}</span>
-        <button type="button" class="comp-modal-flow-chip-del" data-action="remove-flow" data-index="${idx}" title="Remove flow" aria-label="Remove flow">
-          ${icons.close || '×'}
-        </button>
-      </div>
-    `).join('');
-
-    flowChipsEl.querySelectorAll('[data-action="remove-flow"]').forEach((btnEl: Element) => {
-      btnEl.addEventListener('click', (e: Event) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const target = e.currentTarget as HTMLElement;
-        const idx = Number(target.dataset.index);
-        if (!isNaN(idx) && flowList[idx] !== undefined) {
-          flowList.splice(idx, 1);
-          renderFlowList();
-        }
-      });
-    });
-  }
-
-  function addFlows(text: string) {
-    if (!text || !text.trim()) return;
-    const parsed = parseBenchmarkFlows(text);
-    const toAdd = parsed.length > 0 ? parsed : [text.trim()];
-    let addedCount = 0;
-    for (const flow of toAdd) {
-      const clean = flow.trim();
-      if (!clean) continue;
-      if (!flowList.some((f) => f.toLowerCase() === clean.toLowerCase())) {
-        flowList.push(clean);
-        addedCount++;
-      }
-    }
-    renderFlowList();
-    if (addedCount > 0) {
-      flowChipsEl.scrollTop = flowChipsEl.scrollHeight;
-    }
-  }
-
-  addFlowBtn.addEventListener('click', (e: Event) => {
-    e.preventDefault();
-    const val = newFlowInput.value.trim();
-    if (val) {
-      addFlows(val);
-      newFlowInput.value = '';
-      newFlowInput.focus();
-    }
-  });
-
-  newFlowInput.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const val = newFlowInput.value.trim();
-      if (val) {
-        addFlows(val);
-        newFlowInput.value = '';
-        newFlowInput.focus();
-      }
-    }
-  });
-
-  // Fast paste handler: paste multiple comma-separated or newline-separated flows directly
-  newFlowInput.addEventListener('paste', (e: ClipboardEvent) => {
-    const pastedText = e.clipboardData?.getData('text');
-    if (pastedText && (pastedText.includes(',') || pastedText.includes('\n') || pastedText.includes(';') || pastedText.includes('|'))) {
-      e.preventDefault();
-      addFlows(pastedText);
-      newFlowInput.value = '';
-    }
-  });
-
-  renderFlowList();
 
   function updateIconPreview(iconUrl?: string, appName?: string) {
     if (iconUrl) {
@@ -854,14 +694,7 @@ export async function openCompetitorModal({
   const defaultConfirmLabel = confirmBtn.innerHTML;
 
   showModal();
-  if (initialFocusField === 'flow') {
-    focusModalInputLater(newFlowInput);
-    try {
-      newFlowInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } catch (_) {}
-  } else {
-    focusModalInputLater(isEditing ? nameInput : (defaultUrl ? nameInput : urlInput));
-  }
+  focusModalInputLater(isEditing ? nameInput : (defaultUrl ? nameInput : urlInput));
 
   const closeModal = () => {
     window.removeEventListener('competitor-decode-progress', onDecodeProgress);
@@ -878,20 +711,6 @@ export async function openCompetitorModal({
       return;
     }
 
-    const currentFlows: string[] = [...flowList];
-    const pendingNew = newFlowInput.value.trim();
-    if (pendingNew) {
-      const parsedPending = parseBenchmarkFlows(pendingNew);
-      const toAdd = parsedPending.length > 0 ? parsedPending : [pendingNew];
-      for (const p of toAdd) {
-        if (!currentFlows.some((f) => f.toLowerCase() === p.toLowerCase())) {
-          currentFlows.push(p);
-        }
-      }
-    }
-
-    const selectedMode = (dom.modalBody.querySelector('input[name="comp-analysis-mode"]:checked') as HTMLInputElement)?.value === 'code-only' ? 'code-only' : 'hybrid';
-
     const compData: CompetitorData = {
       ...(competitor?.id ? { id: competitor.id } : {}),
       name,
@@ -904,8 +723,8 @@ export async function openCompetitorModal({
       apkSize: currentApkSize,
       jadxSourcePath: currentJadxSourcePath,
       jadxStatus: currentJadxStatus,
-      notes: currentFlows.join('\n'),
-      analysisMode: selectedMode,
+      notes: defaultNotes,
+      analysisMode: currentAnalysisMode,
     };
 
     const res = await withAsyncButtonState(

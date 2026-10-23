@@ -1,13 +1,17 @@
 ---
 name: apk-feature-extractor
-description: "Read APK-decoder evidence documents (profile, screen inventory, flow analysis) and normalize them into the company's Feature Checklist format. Use when decoded APK documentation is provided, when the user runs /ba-checklist or /apk-feature-extractor, and the goal is to identify, group, and describe reference-app features before research, product decision, SRS writing, or technical estimation."
+description: "Read APK-decoder evidence documents (profile, screen inventory, flow analysis) for a competitor/reference app and normalize them into a structured Competitor Feature Extraction document. Use when decoded APK documentation is provided, when running /ba-competitor synthesis, or when the user runs /apk-feature-extractor, before feeding into /ba-checklist (our product checklist), product-decision, or SRS writing."
 version: 1.3.0
-argument-hint: "[app-slug or decoded-apk-docs-path] [optional-output-path]"
+argument-hint: "[app-slug or decoded-apk-docs-path] [--code-only] [optional-output-path]"
 ---
 
-# APK Feature Extractor
+# APK Feature Extractor (Competitor Feature Extraction)
 
-Convert APK-decoder evidence into a structured **Feature Checklist** (`docs/BA/competitor/<app-slug>/<app-slug>_checklist_<YYYYMMDD>_v1.md` or `docs/ba/feature-checklist/<app-slug>_feature-checklist_v1.md`) that matches the company's working template.
+Convert APK-decoder evidence for a competitor/reference app into a structured **Competitor Feature Extraction** document (`docs/BA/competitor/<app-slug>/<app-slug>_features_<YYYYMMDD>_v1.md`) that matches the company's 12-column feature table.
+
+> **Boundary vs `ba-checklist` (`/ba-checklist`):**
+> - **`apk-feature-extractor` (`/apk-feature-extractor` or part of `/ba-competitor`)**: Extracts and normalizes features of a **single reference/competitor app** from its decoded APK evidence (`profile`, `screens`, `flow-*`) into `docs/BA/competitor/<app-slug>/<app-slug>_features_<YYYYMMDD>_v1.md`.
+> - **`ba-checklist` (`/ba-checklist`)**: Synthesizes competitor extractions, Figma designs, PRD, and PO inputs into the **real Feature Checklist for OUR target product** (`docs/BA/checklist/<slug>_checklist_<YYYYMMDD>_v1.md` or `docs/ba/feature-checklist/<app>_feature-checklist_v1.md`).
 
 This skill is an **evidence extraction and normalization skill**.
 It is not a research skill, not a product-decision skill, and not a technical estimation skill.
@@ -57,9 +61,17 @@ Typical inputs:
 
 The skill must work even if only part of this set is available.
 
-### Input completeness rule
+### Input completeness & Mobilerun mode (`--code-only` vs Hybrid)
 
-1. Read all provided decoded documents.
+- **Mobilerun On (default — Live Device + Decoded Code)**:
+  - Reads existing `*_profile.md`, `*_screens.md`, `*_flow-*.md`, and `code-index/` under `docs/BA/competitor/<app-slug>/`.
+  - If decoded docs are missing or incomplete and a device is connected via `mobilerun`, may drive/inspect the competitor app on device + `apk-code-index` (via `competitor-app-analysis`) to capture `[Observed]` screen/flow evidence before normalizing the feature extraction table.
+- **Mobilerun Off (`--code-only` — Static Code-Only)**:
+  - **Never** calls `mobilerun` tools or pings any Android device.
+  - Extracts and normalizes features strictly from decompiled JADX code (`apk-code-index` at `docs/BA/competitor/<app-slug>/code-index/`) and any existing static markdown files.
+  - All extracted items must carry `[Code]` or `[Inferred]` evidence grades (never `[Observed]` unless citing an already-captured screenshot file).
+
+1. Read all provided decoded documents (and `code-index/` when available).
 2. Identify available evidence.
 3. Extract only supported features and behavior.
 4. Mark missing or unverified areas in notes when needed.
@@ -491,10 +503,10 @@ Produce:
 
 ## 15. Default Output Template
 
-Template also available in `.agents/skills/ba-templates/templates/feature-checklist.md` (`feature-checklist` catalog key).
+Template also available in `.agents/skills/ba-templates/templates/competitor-feature-extraction.md` (`competitor-features` catalog key). Output path: `docs/BA/competitor/<app-slug>/<app-slug>_features_<YYYYMMDD>_v1.md`.
 
 ```markdown
-# Feature Checklist — [App Name]
+# Trích xuất tính năng đối thủ (Competitor Feature Extraction) — [App Name]
 
 ## 1. Source Summary
 
@@ -568,10 +580,11 @@ This skill MAY:
 
 ## 18. Handoff to Next Stage
 
-After extraction, the Feature Checklist becomes an input artifact for later stages.
+After extraction, the Competitor Feature Extraction document becomes an input artifact for later stages.
 
 Recommended routing:
 
+- Synthesize into our product's real Feature Checklist → `ba-checklist` (`/ba-checklist`)
 - Need additional market/feature knowledge → `ba-researcher`
 - Need product choice or unresolved behavior → `ba-brainstormer` / `product-decision` / `brainstorm-features`
 - Target decisions and Figma are ready → `ba-spec-writer` / `specs`

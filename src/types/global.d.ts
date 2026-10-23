@@ -198,6 +198,7 @@ declare global {
         firebaseUrl?: string;
         legacyPrdUrl?: string;
         legacyChecklistUrl?: string;
+        checklistScope?: string;
         apkFiles?: any[];
         competitors?: any[];
       }) => Promise<{ success: boolean; project?: any; error?: string }>;

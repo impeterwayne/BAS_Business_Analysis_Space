@@ -12,6 +12,7 @@ tools:
   - search_web
 skills:
   - product-decision
+  - ba-checklist
   - brainstorm-features
   - apk-feature-extractor
   - sequential-thinking

@@ -18,8 +18,8 @@ Behaviour seen in a reference app is never a target requirement until a decision
 | :--- | :--- | :--- |
 | 0. Competitor discovery (optional) | `ba-lead` → `code-scout`, `competitor-analyst`, `evidence-verifier` | `apk-code-index`, `competitor-app-analysis`, `mobilerun`, `ba-templates`, `apk-feature-extractor` |
 | 0. Design discovery (optional) | `ba-lead` → `ba-figma` | `figma-ba-analysis`, `ba-templates` (`figma-analysis`) |
-| 1. Research & problem breakdown | `ba-researcher` | `problem-solving`, `sequential-thinking`, `document-extraction` |
-| 2. Product decisions & ideation (conditional) | `ba-brainstormer` | `product-decision` (Batch Rule Confirmation Table `Bảng xác nhận rule`), `brainstorm-features`, `apk-feature-extractor` (PO research checklist), `ba-templates` (`product-decision`, `feature-brief`) |
+| 1. Research & Target Checklist synthesis | `ba-researcher` / `ba-spec-writer` | `ba-checklist` (`/ba-checklist`), `problem-solving`, `sequential-thinking`, `document-extraction` |
+| 2. Product decisions & ideation (conditional) | `ba-brainstormer` | `product-decision` (Batch Rule Confirmation Table `Bảng xác nhận rule`), `brainstorm-features`, `ba-checklist` (PO research checklist), `ba-templates` (`product-decision`, `feature-brief`) |
 | 3. SRS specification & modeling | `ba-spec-writer` | `specs` (Single-File Mobile SRS `docs/ba/srs/{app}_srs_v{N}.md` or Modular SRS `docs/project-srs.md`), `use-case-writer` (scoping + 16-item self-check `K1–K16`), `user-story-ac-writer`, `minipower`, `mermaidjs-v11`, `drawio-ai-kit`, `bpmn-generator`, `ba-templates` (`srs`, `use-case`) |
 | 4. SRS audit, Word `.docx` export & QA handoff | `ba-spec-writer` | `BA-audit-SRS` (Quick Mode & Full Mode), `srs-export` (`.md` → `.docx`), `BA-audit-QnA`, `global-impact-analyzer`, `global-executor`, `ba-consistency-inspector`, `test-cases`, `qc-*` suite |
 
@@ -38,7 +38,14 @@ Operates in two branches depending on device availability or user flags (`/ba-co
 2. **Branch 2: Static Mode (Code-Only without `mobilerun`)**
    Triggered via `--code-only`, `--no-device`, or when no device is connected: `code-scout` agents extract screen maps, layouts, field validation rules, error strings (`strings.xml`), and API contracts directly from decoded source (`jadx_src`). `competitor-analyst` synthesizes full BA docs (screen inventory, flow analysis with Mermaid diagrams, profile, and comparison) using `[Code]` (cites `file:line`) and `[Inferred]` evidence grades. Zero device interaction or `mobilerun` required.
 
-When decoded APK evidence documents (`profile`, `screens`, `flow` docs) are available, `apk-feature-extractor` (v1.3.0) normalizes them into the company's structured **Feature Checklist** (`docs/BA/competitor/{app-slug}/{app-slug}_checklist_{YYYYMMDD}_v1.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v1.md`, `/ba-checklist`), keeping English feature/screen/UI names without parenthesized Vietnamese translations, leaving `Mô tả tính năng` blank for `Onboarding`, and leaving `Link tham khảo` blank.
+When decoded APK evidence documents (`profile`, `screens`, `flow` docs) are generated, `apk-feature-extractor` (v1.3.0, run as part of `/ba-competitor` synthesis or standalone via `/apk-feature-extractor`) normalizes the competitor's reference features into `docs/BA/competitor/{app-slug}/{app-slug}_features_{YYYYMMDD}_v1.md` without guessing estimates or priorities, keeping English feature/screen/UI names without parenthesized Vietnamese translations, leaving `Mô tả tính năng` blank for `Onboarding`, and leaving `Link tham khảo` blank.
+
+Then, to create **our own product's real Feature Checklist**, run `ba-checklist` (`/ba-checklist`), which synthesizes competitor feature extractions, Figma design analyses, PRD/briefs, and PO requirements into `docs/BA/checklist/{slug}_checklist_{YYYYMMDD}_v1.md` (or `docs/ba/feature-checklist/{app}_feature-checklist_v1.md`).
+
+When our product reference is available, both branches produce the comparison / gap report; its `GAP-*` and `FR-CAND-*` items become inputs to Phase 2.
+
+Keep the detailed evidence (`screens`, `flow-*`) as a separate Phase 3 input: the checklist is a high-level
+inventory, not a substitute for the flows. Never promote an `[Inferred]` item to a confirmed target rule.
 
 ### Phase 0 — Design discovery
 

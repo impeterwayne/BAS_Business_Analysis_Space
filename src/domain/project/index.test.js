@@ -20,6 +20,7 @@ const {
   buildBenchmarkSlashCommand,
   buildTargetFlowSlashCommand,
   buildChecklistSlashCommand,
+  buildFeatureExtractorSlashCommand,
 } = require('./index');
 
 
@@ -425,18 +426,19 @@ test('buildBenchmarkSlashCommand generates correct /ba-competitor slash command'
   );
 });
 
-test('buildChecklistSlashCommand generates correct /ba-checklist slash command for apk-feature-extractor', () => {
+test('buildChecklistSlashCommand and buildFeatureExtractorSlashCommand generate detached product checklist and competitor extraction commands', () => {
+  assert.strictEqual(buildChecklistSlashCommand(), '/ba-checklist');
+  assert.strictEqual(buildChecklistSlashCommand(''), '/ba-checklist');
+  assert.strictEqual(buildChecklistSlashCommand('Camera & Beauty'), '/ba-checklist camera-beauty');
+  assert.strictEqual(buildChecklistSlashCommand(['Camera', 'AI Editor']), '/ba-checklist camera ai-editor');
   assert.strictEqual(
-    buildChecklistSlashCommand('MoMo'),
-    '/ba-checklist MoMo'
+    buildChecklistSlashCommand('Chuyển tiền', { from: ['momo', 'zalo'], figma: 'Transfer Flow' }),
+    '/ba-checklist chuyen-tien --from momo zalo --figma transfer-flow'
   );
-  assert.strictEqual(
-    buildChecklistSlashCommand('com.vnpay.wallet'),
-    '/ba-checklist com.vnpay.wallet'
-  );
-  assert.strictEqual(
-    buildChecklistSlashCommand(''),
-    '/ba-checklist app'
-  );
+  assert.strictEqual(buildFeatureExtractorSlashCommand('MoMo'), '/apk-feature-extractor MoMo');
+  assert.strictEqual(buildFeatureExtractorSlashCommand('MoMo', { codeOnly: true }), '/apk-feature-extractor MoMo --code-only');
+  assert.strictEqual(buildFeatureExtractorSlashCommand('com.vnpay.wallet'), '/apk-feature-extractor com.vnpay.wallet');
+  assert.strictEqual(buildFeatureExtractorSlashCommand(''), '/apk-feature-extractor app');
 });
+
 

@@ -13,6 +13,7 @@ tools:
 skills:
   - specs
   - srs-export
+  - ba-checklist
   - ba-templates
   - user-story-ac-writer
   - use-case-writer
@@ -52,7 +53,8 @@ Phases 3 and 4 of `ba-workflow`. You author requirement documents; you do not im
 
 ## Method
 
-1. Identify the deliverable and its skill:
+1. Identify the deliverable and its `ba-templates` catalog key. Use the skill that owns it:
+   - `ba-checklist` (`/ba-checklist`) for synthesizing our product's real Feature Checklist (`docs/BA/checklist/{slug}_checklist_{YYYYMMDD}_v{N}.md` or `docs/ba/feature-checklist/{app}_feature-checklist_v{N}.md`) from competitor extractions, Figma, PRD, and PO inputs;
    - `specs` for the SRS (`docs/ba/srs/{app}_srs_v{N}.md` in Single-File Mobile SRS Mode, or `docs/project-srs.md` + `docs/usecases/` in Modular Mode) and use cases (`use-case-writer` rules & 16-item self-check `K1–K16`), or the legacy FSD (`fsd`) when requested;
    - `srs-export` to export the single-file Markdown SRS (`docs/ba/srs/{app}_srs_v{N}.md`) into a formatted Word `.docx` for testers (`docs/ba/srs-word/{app}_srs_v{N}.docx`) with embedded design screenshots and rendered Mermaid diagrams;
    - `user-story-ac-writer` for INVEST User Stories and Given-When-Then Acceptance Criteria;

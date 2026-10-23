@@ -26,12 +26,12 @@ Communicate with the user in Vietnamese (see `ba-global-rules`).
 | Agent | Use it for | Parallel? |
 | :--- | :--- | :--- |
 | `code-scout` | One angle on a decoded APK: screen map, feature areas, or one flow in code | Yes — 2-3 per call |
-| `competitor-analyst` | WALK one flow on the device; SYNTHESIZE the profile, screens, comparison, checklist | WALK never; one device |
+| `competitor-analyst` | WALK one flow on the device; SYNTHESIZE the competitor profile, screens, feature extraction (`apk-feature-extractor`), and comparison | WALK never; one device |
 | `evidence-verifier` | Check finished competitor docs against captures and code | Alone, after writers |
 | `ba-figma` | Read one flow of a Figma design (figma-mcp-android) into a design analysis | One at a time; one Figma Desktop |
 | `ba-researcher` | Domain rules, regulations, prior art, URL extraction | Yes |
 | `ba-brainstormer` | Product decisions from competitor / Figma / checklist evidence (via Batch Rule Confirmation Table `Bảng xác nhận rule`) → decisions summary; Feature Checklist from PO research notes (when no APK); options and trade-offs for a new idea → feature brief | — |
-| `ba-spec-writer` | SRS (single-file `docs/ba/srs/{app}_srs_v{N}.md` or modular `docs/project-srs.md`), use cases, diagrams, Word `.docx` export (`srs-export`), user stories, SRS / UC audits (Quick & Full modes), test cases | Yes, one per deliverable |
+| `ba-spec-writer` | Our product's Feature Checklist (`/ba-checklist`), SRS (single-file `docs/ba/srs/{app}_srs_v{N}.md` or modular `docs/project-srs.md`), use cases, diagrams, Word `.docx` export (`srs-export`), user stories, SRS / UC audits (Quick & Full modes), test cases | Yes, one per deliverable |
 
 `invoke_subagent` takes an array, so N parallel spawns are one call:
 
@@ -46,9 +46,10 @@ invoke_subagent(Subagents=[
 
 | The user says | Phase (see `ba-workflow`) | You run |
 | :--- | :--- | :--- |
-| "phân tích app đối thủ X", "benchmark", "trích xuất checklist tính năng", `/ba-competitor`, `/ba-checklist` | 0 Competitor discovery | the competitor pipeline below |
+| "phân tích app đối thủ X", "benchmark", "trích xuất tính năng đối thủ", `/ba-competitor`, `/apk-feature-extractor` | 0 Competitor discovery | the competitor pipeline below |
 | a figma.com link, "viết SRS/PRD từ design", `/ba-figma` | 0 Design discovery | the Figma pipeline below |
 | "research X", a URL to extract, a tangled problem | 1 Research | `ba-researcher` |
+| "tạo checklist tính năng cho sản phẩm/dự án của mình", `/ba-checklist` | 1/2 Target Feature Checklist | `ba-spec-writer` (skill `ba-checklist`, writing `docs/BA/checklist/`) |
 | "I want a feature that…", unclear scope, trade-offs, "app đối thủ khác Figma", "lập bảng xác nhận rule", "giữ hay bỏ tính năng này", "đã đủ để viết SRS chưa" | 2 Product decisions / ideation | `ba-brainstormer` |
 | "write the SRS / use case / user stories / a template", "use-case-writer", "user-story-ac-writer", `/minipower`, `.drawio` / `.bpmn` diagrams, 3-persona FDD (`ba-auditor`/`ba-challenger`/`ba-architect`) | 3 Specification | `ba-spec-writer` |
 | "review UC", "audit the SRS", "kiểm tra SRS", "xuất Word", "xuất docx cho tester", `srs-export`, "global impact analyzer", "is this ready for Dev/QA", "design test scenarios", "generate test cases", "tc summary" (`qc-*`) | 4 Audit, Word export & handoff | `ba-spec-writer` |
@@ -75,7 +76,7 @@ Follow `competitor-app-analysis` (`.agents/skills/competitor-app-analysis/SKILL.
 | A. Code | 2-3 `code-scout` in **one** call: screen map + features, one per flow (max 3 per call) | `code-index/*.md` | Wait for all |
 | B. Plan | you | `exploration-plan.md` | Read every scout note first |
 | C. Device | `competitor-analyst` WALK, **one flow per dispatch, one at a time** | captures, flow docs | Each waits for the last |
-| D. Write | `competitor-analyst` SYNTHESIZE | profile, screens, comparison | — |
+| D. Write | `competitor-analyst` SYNTHESIZE | profile, screens, competitor feature extraction (`apk-feature-extractor`), comparison | — |
 | E. Verify | `evidence-verifier` alone | `<verdict>` | — |
 
 ### Branch 2 — Static / Code-Only (without `mobilerun`)
@@ -83,7 +84,7 @@ Follow `competitor-app-analysis` (`.agents/skills/competitor-app-analysis/SKILL.
 | Wave | Dispatch | Writes | Barrier |
 | :--- | :--- | :--- | :--- |
 | A. Code | 2-3 `code-scout` in **one** call: screen map + deep flow logic (layouts, validations, rules) | `code-index/*.md` | Wait for all |
-| B. Write | `competitor-analyst` SYNTHESIZE (mode="code-only") | profile, screens, flow docs, comparison | Synthesizes from code |
+| B. Write | `competitor-analyst` SYNTHESIZE (mode="code-only") | profile, screens, flow docs, competitor feature extraction (`apk-feature-extractor`), comparison | Synthesizes from code |
 | C. Verify | `evidence-verifier` alone | `<verdict>` | Strict `[Code]` & `[Inferred]` audit |
 
 - **Wave A is a barrier.** Fire the scouts together, wait for every one. In Branch 1, build the plan from what they wrote. In Branch 2, pass directly to synthesis.
