@@ -12,15 +12,14 @@
 
 | Category | Path | Produced by | Notes |
 | :--- | :--- | :--- | :--- |
-| Living SRS | `docs/project-srs.md` | `specs` | FR list, global BRs, module map, links to UCs and diagrams |
+| Living SRS | `docs/project-srs.md` | `specs` | One file: overview, feature tree, global BRs, every Use Case in full, diagrams inline |
 | Legacy FSD | `docs/project-fsd.md` | `specs` (legacy) | Accepted in place of the SRS |
-| Use cases | `docs/usecases/{module}/uc-{module}-{nnn}-{slug}.md` | `specs` | UI Specification before Main Flow; `Sơ đồ liên quan (Related Diagrams)`; Open Questions P0/P1/P2 |
-| Diagrams | `docs/diagrams/{module}/{diagram-id}.md` | `specs` + `mermaidjs-v11` | `UF-{MOD}-{NNN}` User Flow, `ACT-{MOD}-{NNN}` Activity, `SEQ-{MOD}-{NNN}` Sequence; header table, one `mermaid` block, `Use case liên quan (Covered use cases)` list |
+| Use cases | Use Case sections inside `docs/project-srs.md` | `specs`, `use-case-writer` | Trigger / Pre / Post; screen grid + element tables; User Flow; flows with linked references; one rule per row |
+| Diagrams | Mermaid blocks inside `docs/project-srs.md` (images in `docs/BA/diagrams/`) | `user-flow` + `mermaidjs-v11` | `feature-map`, `UF-{MOD}-{NNN}`, `ACT-{MOD}-{NNN}`, `SEQ-{MOD}-{NNN}`; "Xem ảnh lớn" line under each |
 | Product Decision Summary | `docs/BA/decisions/{feature-slug}_decisions_{YYYYMMDD}_v{N}.md` | `product-decision` | `PD-{NNN}` (stable across versions), KEEP / MODIFY / REMOVE / NEW / TBD, verdict READY FOR SRS / NOT READY FOR SRS |
-| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` | `apk-feature-extractor` | Scope and hierarchy, `PO note` column; not a full specification |
-| APK evidence | `docs/BA/competitor/{app-slug}/` — `*_profile_*`, `*_screens_*`, `*_flow-{flow}_*`, `screens/{flow}-{NN}-{slug}.png` / `.tree.txt` | `competitor-app-analysis` | Reference app only; observed / `[Code]` (`path:line`) / `[Inferred]` |
-| Comparison / gap report | `docs/BA/competitor/{topic}_comparison_*.md` | `competitor-app-analysis` | `CF-*`, `GAP-*`, `FR-CAND-*` candidates |
-| Figma analysis | `docs/BA/figma/{feature}/{feature}_figma_*.md`, `screens/{NN}-{slug}.png` | `figma-ba-analysis` | Target screens and states, `FR-DSN-*`, `BR-CAND-*` |
+| Feature Checklist | `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` (+ `.xlsx`) | `apk-feature-extractor`, `research-feature-checklist` | Scope and hierarchy from Home; not a full specification |
+| APK evidence | `docs/BA/competitor/{app-slug}/` — `*_profile_*`, `*_screens_*`, `*_flow-{flow}_*`, `screens/{flow}-{NN}-{slug}.png` / `.tree.txt` | APK decode tool (external) | Reference app only; observed / `[Code]` (`path:line`) / `[Inferred]` |
+| Figma analysis | `docs/BA/figma/{feature}/{feature}_figma_*.md`, `screens/{NN}-{slug}.png`, `elements/{NN}-{EE}-{slug}.png` | `figma-ba-analysis` | Target screens and states, `FR-DSN-*`, `BR-CAND-*` |
 | Briefs / research | `docs/BA/briefs/`, `docs/BA/research/` | `brainstorm-features`, research | Chosen approach; recommendations are not approvals |
 | PO notes | Chat, meeting notes, checklist `PO note` | PO | Confirmed target decisions |
 | Audit history | `docs/BA/SRS-report/srs/`, `docs/BA/SRS-report/{UC-ID}/` | this skill, `BA-audit-QnA` | `*_audited_*_v{N}.md`, `*_question-backlog.md` |

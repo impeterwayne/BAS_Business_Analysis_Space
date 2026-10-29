@@ -30,12 +30,12 @@ never edits the SRS, use cases, diagrams or decisions, and never generates test 
 
 | Type | Examples |
 | :--- | :--- |
-| SRS / Use Case | `docs/project-srs.md`, `docs/usecases/{module}/uc-*.md`, feature brief, user story |
+| SRS / Use Case | `docs/project-srs.md` (all Use Cases inside), feature brief, user story |
 | Product Decisions | `docs/BA/decisions/{feature-slug}_decisions_*.md` (`PD-*`), PO notes |
 | Scope inventory | Feature Checklist `docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md` |
 | UI Design | Figma analysis `docs/BA/figma/{feature}/`, Figma export, screenshot, mockup |
 | Reference evidence | APK `*_profile_*`, `*_screens_*`, `*_flow-*` in `docs/BA/competitor/{app-slug}/` |
-| Diagrams | `docs/diagrams/{module}/` — `UF-*`, `ACT-*`, `SEQ-*` |
+| Diagrams | Mermaid blocks in `docs/project-srs.md`, images in `docs/BA/diagrams/` — `feature-map`, `UF-*`, `ACT-*`, `SEQ-*` |
 | API / integration | REST doc, Swagger/OpenAPI, SDK spec (context only) |
 | Other | Data dictionary, message catalog, legacy common rules (`docs/BA/SRS-report/CMR/`) |
 
@@ -111,7 +111,8 @@ Working-note table (not the report):
 
 For each UI-bearing UC:
 
-- The UI Specification is embedded in the UC **before** the flows, cites the authentic Figma frame link, and **embeds the exported screenshot / reference image with Markdown image syntax** (`![{Screen ID} — {Screen name}](../../BA/figma/{feature}/screens/{NN}-{slug}.png)`, relative from the UC file) so it displays a preview directly — flag a plain backticked path or a broken shortened `screens/...` path without `![...](...)` preview as a formatting/traceability defect (or `Design Pending`, which is itself a gap when the screen is in scope).
+- The UI Specification is embedded in the UC **before** the flows and references the authentic Figma frame /
+  screenshot for each screen (or `Design Pending`, which is itself a gap when the screen is in scope).
 - The specified components match the supplied design and the screen purpose; labels are consistent between
   design and UC (verbatim, original language).
 - For each relevant component check: label, default value, visibility, enabled / disabled state, tap action,

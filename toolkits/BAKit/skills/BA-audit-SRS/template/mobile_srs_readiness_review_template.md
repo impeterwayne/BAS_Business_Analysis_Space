@@ -32,13 +32,13 @@
 
 | Nguồn (Source) | Trạng thái (Status) | Đường dẫn / Ghi chú (Reference / Notes) |
 | :--- | :--- | :--- |
-| SRS & Use Cases | {Provided / Not Provided / Not Applicable / Unavailable} | {`docs/project-srs.md`, `docs/usecases/{module}/…`} |
+| SRS & Use Cases | {Provided / Not Provided / Not Applicable / Unavailable} | {`docs/project-srs.md`} |
 | Feature Checklist | {Status} | {`docs/BA/competitor/{app-slug}/{app-slug}_checklist_*.md`} |
 | Product Decision Summary | {Status} | {`docs/BA/decisions/{feature-slug}_decisions_*_v{N}.md` + verdict} |
 | Figma / Screenshots | {Status} | {`docs/BA/figma/{feature}/…`} |
 | APK Reference Evidence | {Status} | {`docs/BA/competitor/{app-slug}/…` profile / screens / flow-*} |
-| User Flow Diagrams | {Status} | {`docs/diagrams/{module}/UF-…`} |
-| Activity Diagrams | {Status} | {`docs/diagrams/{module}/ACT-…`} |
+| User Flow Diagrams | {Status} | {`docs/project-srs.md` → `{N}.2 User Flow`} |
+| Activity Diagrams | {Status} | {`docs/project-srs.md` → `{N}.7 Activity Diagram`} |
 | Sequence Diagrams | {Provided / N/A / Required but missing} | {justification} |
 | Research / Briefs / PO notes | {Status} | {path} |
 

@@ -13,9 +13,9 @@ inspected, and never write requirements from a Figma link you could not open.
 
 | Request | Entry point |
 | :--- | :--- |
-| Read a design into BA input (screens, fields, states, messages, flows) | `ba-lead` → `ba-figma` → skill `figma-ba-analysis` |
-| SRS / use cases / user stories from a design | `figma-ba-analysis` first, then `specs analyze` (`use-case-writer`) or `user-story-ac-writer` (`ba-templates` `user-stories`) with the analysis as input |
-| Compare a new design version with an earlier analysis | `ba-figma` with skill `figma-ba-analysis` in `diff <previous analysis>` mode |
+| Read a design into BA input (screens, fields, states, messages, flows) | `/ba-figma` → `figma-analyst` → skill `figma-ba-analysis` |
+| SRS / use cases / user stories from a design | `/ba-figma` first, then `/ba-spec analyze` or `/ba-template user-stories` with the analysis as input |
+| Compare a new design version with an earlier analysis | `/ba-figma <url> diff <previous analysis>` |
 
 The steps, the MCP call budget and the output shape live in the `figma-ba-analysis` skill and the
 `figma-analysis` template in `ba-templates`. They are not restated here.
@@ -30,5 +30,11 @@ The steps, the MCP call budget and the output shape live in the `figma-ba-analys
    bounded `get_design_context` only.
 4. **`save_screenshots` takes absolute output paths** with forward slashes. The server's working directory is
    not the workspace.
-5. **Figma is read-only input.** The design is evidence, not a decision: a requirement drawn from it stays a
+5. **Element images.** Besides one image per screen / state (`screens/`), export one image per interactive
+   element (`elements/`, see `figma-ba-analysis` §3b). The SRS UI table shows them in the `Thành phần` column;
+   large containers (popup, bottom sheet, dialog, lists) are not exported separately.
+6. **The PO sends a Figma section link before every Use Case.** Reading it is the first step of
+   `/ba-spec analyze`; the PO rule confirmation (`product-decision`, batch table) comes right after, and no Use
+   Case is written before the PO answers.
+7. **Figma is read-only input.** The design is evidence, not a decision: a requirement drawn from it stays a
    candidate (`FR-DSN-*`) until the user confirms it.

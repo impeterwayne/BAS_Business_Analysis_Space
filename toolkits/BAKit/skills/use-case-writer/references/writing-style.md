@@ -1,73 +1,52 @@
-# Writing Style — Vietnamese Use Cases
+# Writing Style — Use Cases in this Workspace
 
-Supreme principle: **readability first**. A good Use Case lets the PO understand it, the developer build from it, and the tester test from it.
+The base style is defined by `ba-global-rules` and `ba-markdown-formatting`. This file adds the Use-Case-specific habits.
 
-## 1. Active voice, present tense, clear subject
+## 1. `Hành động > Kết quả`
 
-- ✅ "User bấm Button Save." / "App lưu ảnh vào Gallery."
-- ❌ "Button Save được bấm." / "Ảnh sẽ được lưu."
+Every flow step, UI interaction and rule is one short line: what happens `>` what the user sees.
 
-Every step starts with its subject: `User` or `App` (or a named external party such as `App Store`).
+- ✅ `Click button Save > Lưu ảnh vào Gallery và mở màn Result.`
+- ❌ `Khi người dùng nhấn vào nút Save thì hệ thống sẽ tiến hành lưu ảnh…`
 
-## 2. One step = one action
+## 2. One step = one action, with its actor
 
-- ✅ Step 1: "User bấm Button Edit." Step 2: "App mở màn Photo Editor."
-- ❌ "User bấm Edit, chọn Filter rồi bấm Save."
+- ✅ `BF-1 | User | Click Edit > Mở màn Select Photo.` / `BF-2 | User | Chọn 1 ảnh > Mở Photo Editor.`
+- ❌ `User click Edit, chọn ảnh rồi chỉnh filter.`
 
-In the Main Flow table, one row = one user action + the app response to it.
+## 3. UI names exactly as in the design
 
-## 3. Avoid vague verbs and words
+Backticks around the label in the UI table (`` `Save` ``, `` `Your Name` ``). Short labels, not descriptions (`Your Name`, not `Your Name Input Field`). No translation in parentheses.
 
-Avoid: "xử lý", "quản lý", "hỗ trợ", "thực hiện", "nhanh", "phù hợp", "một số", "v.v.".
-Say what the user sees: "App hiển thị loading và vô hiệu hoá Button Save cho đến khi lưu xong."
+## 4. Rules stay in Business Rules, one per row
 
-## 4. No implementation details
+Flows reference rules by link instead of restating them: `Nhập Your Name > Kiểm tra hợp lệ.` with `[BR-002](#br-002), [BR-003](#br-003)` in Note/References. If three conditions exist, write three rows.
 
-Do not write API names, class names, database tables, SDK internals or storage keys. Describe the visible result.
+## 5. No implementation details
 
-- ✅ "App hiển thị danh sách template mới nhất."
-- ❌ "App gọi GET /templates và lưu vào Room DB."
+No API, class, intent, SDK internals, Figma node ids, hex colors or pixel sizes. Describe the visible result.
 
-## 5. UI names
+## 6. Messages
 
-- Use the exact label/name from the design: `Button Save`, `Tab Trending`, `Bottom Sheet Share`.
-- Keep English UI names; do not add Vietnamese translations in parentheses.
-- Reference components by their UI ID from the UI Specification table when useful: "User bấm Button Save (UI-03)."
-- Screen names come with their screen ID the first time they appear: "màn SCR-EDIT-01 Photo Editor".
+Quote on-screen texts exactly as in the design, in their original language: `> Hiển thị error state ("You cannot enter more than 20 characters.")`. No text in the design → ask the PO; never invent one.
 
-## 6. Business rules stay out of steps
+## 7. Numbering and anchors
 
-Put conditions, limits and defaults in `Quy tắc nghiệp vụ` and reference them:
-
-- ✅ "App kiểm tra số lượng ảnh đã chọn (BR-005)."
-- ❌ "App kiểm tra nếu số ảnh lớn hơn 10 thì báo lỗi, nếu nhỏ hơn 2 thì …"
-
-## 7. Numbering
-
-| Item | Format | Example |
+| Item | Format | Anchor |
 |---|---|---|
-| Main Flow step | 1, 2, 3 | 3 |
-| Alternative flow | AF-NN | AF-01 |
-| Exception flow | EF-NN | EF-02 |
-| Business rule | BR-NNN (global numbering in the SRS) | BR-012 |
-| Open question | Q-NNN (global numbering in the SRS) | Q-004 |
-| UI component | UI-NN (per screen) | UI-03 |
+| Use Case | `UC-{MOD}-{NNN}` | `uc-{mod}-{nnn}` |
+| Basic Flow step | `BF-1` | — |
+| Alternative / Exceptional | `AF-1`, `EF-1` (per Use Case) | `uc-{mod}-{nnn}-af-1` |
+| Business rule | `BR-{NNN}` (global numbering) | `br-{nnn}` |
+| User Flow / Activity | `UF-{MOD}-{NNN}` / `ACT-{MOD}-{NNN}` | `uf-{mod}-{nnn}` / `act-{mod}-{nnn}` |
 
-Alternative and exception flows always state where they branch: "Tại bước 3 …".
+## 8. Most common mistakes
 
-## 8. Messages and texts
-
-Quote on-screen texts exactly as in the design (keep the original language). If the design has no text for a state (e.g. an error Toast), write `Chưa có text trong design` and raise an Open Question instead of inventing one.
-
-## 9. The 10 most common mistakes
-
-1. Repeating the UI table inside the Main Flow (UI details belong in the UI Specification).
-2. Mixing user and app actions in one step.
-3. A user action with no app response.
-4. if/else inside the Main Flow.
-5. A vague trigger ("User vào app").
-6. A postcondition written as an action instead of a resulting state.
-7. Two primary users in one Use Case.
-8. "App xử lý" without saying what the user sees.
-9. `Mục tiêu` repeated word-for-word as the Main Flow.
-10. Only the happy path; no failure cases.
+1. Several rules stacked in one cell with `<br>`.
+2. UI clicks repeated in Business Rules.
+3. A user action with no visible result.
+4. if/else inside the Basic Flow.
+5. Alternative / Exceptional Flow written as "Không có" instead of deleting the sub-section.
+6. A Trigger like "User vào app" (too vague).
+7. Post-condition written as an action instead of a resulting state.
+8. One Use Case per screen.

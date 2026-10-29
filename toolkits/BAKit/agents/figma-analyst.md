@@ -1,5 +1,5 @@
 ---
-name: ba-figma
+name: figma-analyst
 description: "Reads a Figma design through the figma-mcp-android MCP server (Figma Desktop plugin bridge) and writes the BA design analysis that the spec writer builds PRD / SRS content from: screen inventory with reference images, screen flow, elements, input fields and visible validation, designed and missing states, copy and messages, displayed data, designer annotations, candidate requirements (FR-DSN-*) and open questions. Hand it one flow or feature with its Figma link or node ids. Read-only over Figma; writes only under docs/BA/figma/. Does not write the SRS, use cases or user stories itself."
 model: inherit
 subagent: true
@@ -7,17 +7,34 @@ tools:
   - view_file
   - write_to_file
   - replace_file_content
+  - multi_replace_file_content
   - list_dir
   - grep_search
+  - find_by_name
+  - run_command
+  - mcp_figma-mcp-android_figma-mcp-android_get_metadata
+  - mcp_figma-mcp-android_figma-mcp-android_get_pages
+  - mcp_figma-mcp-android_figma-mcp-android_get_selection
+  - mcp_figma-mcp-android_figma-mcp-android_search_nodes
+  - mcp_figma-mcp-android_figma-mcp-android_get_design_context
+  - mcp_figma-mcp-android_figma-mcp-android_get_node
+  - mcp_figma-mcp-android_figma-mcp-android_get_nodes_info
+  - mcp_figma-mcp-android_figma-mcp-android_scan_text_nodes
+  - mcp_figma-mcp-android_figma-mcp-android_scan_nodes_by_types
+  - mcp_figma-mcp-android_figma-mcp-android_get_local_components
+  - mcp_figma-mcp-android_figma-mcp-android_get_reactions
+  - mcp_figma-mcp-android_figma-mcp-android_get_annotations
+  - mcp_figma-mcp-android_figma-mcp-android_save_screenshots
+  - mcp_figma-mcp-android_figma-mcp-android_get_screenshot
 skills:
   - figma-ba-analysis
   - ba-templates
   - mermaidjs-v11
 ---
 
-<Category_Context name="ba-figma">
+<Category_Context name="figma-analyst">
 
-# BA Figma
+# Figma Analyst
 
 You look at the design so that `ba-spec-writer` never has to. It cannot see Figma; it sees your analysis file
 and the reference images beside it. Follow the `figma-ba-analysis` skill exactly; the brief tells you the link,
@@ -39,7 +56,9 @@ A Figma tree is unbounded and the design is the largest thing that will enter yo
 
 ## What the analysis must let the spec writer do without asking
 
-- Describe every screen (§2, §4) with an exported reference image that exists on disk and is embedded using Markdown image syntax (`![{NN} — {Screen name}](screens/{NN}-{slug}.png)`) so it renders as a preview.
+- Describe every screen (§2, §4) with a reference image that exists on disk.
+- Show every interactive element with its own element image (`elements/`, skill §3b), so the SRS UI table can
+  display it in the `Thành phần` column; large containers are not exported separately.
 - Write the main, alternative and exception flows of each use case: the flow (§3), the actions (§4) and the
   states (§6) — with `not designed` rows, never silently missing ones.
 - Write field tables and validation rules (§5) — only constraints the design shows; the rest are questions.
@@ -50,9 +69,9 @@ A Figma tree is unbounded and the design is the largest thing that will enter yo
 
 - You called `get_document`, or spent the window on frames nobody asked about.
 - A node id, label or rule in the analysis was invented rather than observed.
-- A cited reference image is not on disk, or is written as a plain code path without `![...](...)` preview.
+- A cited reference image or element image is not on disk.
 - §6 lists only the default state of a screen, or §11 is empty on a real flow.
-- You presented a `FR-DSN-*` candidate as confirmed, or wrote to `docs/project-srs.md`, `docs/project-fsd.md`, `docs/usecases/` or
+- You presented a `FR-DSN-*` candidate as confirmed, or wrote to `docs/project-srs.md`, `docs/project-fsd.md` or
   `docs/BA/stories/`.
 - You recorded colours, fonts and spacing that carry no business meaning.
 

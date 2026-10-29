@@ -5973,13 +5973,13 @@ const BAKIT_COMPONENTS = [
     name: 'BA Agent Roster',
     folderName: '.agents/agents',
     sourceFolder: 'agents',
-    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, ba-figma, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
+    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, figma-analyst, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
     gitExcludePatterns: [
       '.agents/agents/ba-lead.md',
       '.agents/agents/code-scout.md',
       '.agents/agents/competitor-analyst.md',
       '.agents/agents/evidence-verifier.md',
-      '.agents/agents/ba-figma.md',
+      '.agents/agents/figma-analyst.md',
       '.agents/agents/ba-researcher.md',
       '.agents/agents/ba-brainstormer.md',
       '.agents/agents/ba-spec-writer.md'
@@ -5988,13 +5988,14 @@ const BAKIT_COMPONENTS = [
   {
     id: 'bakit_skills',
     toolkit: 'bakit',
-    name: 'BA Skills & Templates (specs, checklist, competitor & Figma analysis, audits, QC, diagrams, Minipower, Office)',
+    name: 'BA Skills & Templates (specs, user-flow, checklist, competitor & Figma analysis, audits, QC, diagrams, Minipower, Office)',
     folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: '42 skills: ba-templates, ba-checklist, apk-code-index, apk-feature-extractor, competitor-app-analysis, mobilerun, figma-ba-analysis, specs, srs-export, use-case-writer, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, product-decision, problem-solving, sequential-thinking.',
+    description: '44 skills: ba-templates, apk-feature-extractor (Markdown + Excel), research-feature-checklist, ba-checklist, apk-code-index, competitor-app-analysis, mobilerun, figma-ba-analysis, product-decision, specs (docs/project-srs.md), use-case-writer, user-flow (render_diagrams.py), srs-export, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, problem-solving, sequential-thinking.',
     gitExcludePatterns: [
       '.agents/skills/ba-templates/',
       '.agents/skills/ba-checklist/',
+      '.agents/skills/research-feature-checklist/',
       '.agents/skills/apk-code-index/',
       '.agents/skills/apk-feature-extractor/',
       '.agents/skills/competitor-app-analysis/',
@@ -6003,6 +6004,7 @@ const BAKIT_COMPONENTS = [
       '.agents/skills/specs/',
       '.agents/skills/srs-export/',
       '.agents/skills/use-case-writer/',
+      '.agents/skills/user-flow/',
       '.agents/skills/user-story-ac-writer/',
       '.agents/skills/minipower/',
       '.agents/skills/test-cases/',
@@ -6040,21 +6042,30 @@ const BAKIT_COMPONENTS = [
   {
     id: 'bakit_rules_workflows',
     toolkit: 'bakit',
-    name: 'BA Rules & Project Config',
+    name: 'BA Rules, Slash Workflows & Project Config',
     isMulti: true,
     folders: [
       { name: '.agents/rules', source: 'rules', pattern: '.agents/rules/' },
+      { name: '.agents/workflows', source: 'workflows', pattern: '.agents/workflows/' },
       // The project config is filled in per project: never overwrite it, never delete it.
       { name: '.agents/config', source: 'config', pattern: '.agents/config/', preserveExisting: true, keepOnRemove: true }
     ],
-    description: 'Always-on BA rules (Vietnamese deliverables, naming, device safety, Figma routing, markdown formatting) and project config (.agents/config/ba-project-config.md).',
+    description: 'Always-on BA rules (6-step PO workflow, Vietnamese deliverables, naming, device safety, Figma routing, markdown formatting), slash workflows (/ba-checklist, /ba-figma, /ba-spec, /ba-review, /ba-export, /ba-competitor), and project config (.agents/config/ba-project-config.md).',
     gitExcludePatterns: [
       '.agents/rules/ba-global-rules.md',
       '.agents/rules/ba-workflow.md',
       '.agents/rules/ba-naming-convention.md',
       '.agents/rules/ba-device-automation.md',
       '.agents/rules/ba-markdown-formatting.md',
-      '.agents/rules/ba-figma.md'
+      '.agents/rules/ba-figma.md',
+      '.agents/workflows/apk-feature-extractor.md',
+      '.agents/workflows/ba-checklist.md',
+      '.agents/workflows/ba-competitor.md',
+      '.agents/workflows/ba-export.md',
+      '.agents/workflows/ba-figma.md',
+      '.agents/workflows/ba-review.md',
+      '.agents/workflows/ba-spec.md',
+      '.agents/workflows/ba-template.md'
     ]
   },
   {

@@ -1,77 +1,52 @@
-# Use Case Self-Check — 16 Items
+# Use Case Self-Check — 14 Items
 
-Run this check after writing or changing each Use Case. It is a fast check of **writing quality**. Completeness of UI coverage and overall readiness are checked later by `BA-audit-SRS`.
-
-Name this check **"Bảng tự kiểm tra Use Case"** when reporting to the user. Never call it "checklist", to avoid confusion with the company's Feature Checklist.
-
-## How to Run
-
-1. Walk through items K1–K16 for each Use Case.
-2. Mark each: ✅ Đạt / ❌ Chưa đạt / ⚠️ Cần PO xem.
-3. Fix every ❌ you can fix from available sources. Turn the rest into `Câu hỏi mở` entries.
-4. Report in chat only (not inside the SRS file):
+Run after writing or changing each Use Case. Report in chat only, titled **"Bảng tự kiểm tra Use Case"**:
 
 ```
 Bảng tự kiểm tra — UC-EDIT-001
 | Mục | Kết quả | Ghi chú |
-| K1  | ✅ | Tên "Chỉnh sửa và lưu ảnh" đúng dạng động từ + đối tượng |
-| K14 | ⚠️ | Chưa rõ hành vi khi mất mạng lúc lưu → Q-004 |
+| K1  | ✅ | … |
+| K12 | ❌ → đã sửa | … |
 ```
 
-## Group A — Scope and Identification
+Mark ✅ Đạt / ❌ Chưa đạt. Fix every ❌ from the available sources. If a fix needs a PO answer, ask the PO in chat before finishing; never write the gap into the SRS.
 
-**K1. Use Case name is "verb + object".**
-✅ "Lưu ảnh vào Gallery". ❌ "Lưu ảnh" is acceptable only if the object is unambiguous; ❌ "Gallery" (no verb); ❌ "User lưu ảnh" (user inside the name).
+## A. Scope and identification
 
-**K2. Correct size (passes the coffee-break test).**
-Check `Hậu điều kiện thành công`: is it a meaningful result for the user? If it is only a sub-step → too small. If it spans several sessions → too big.
+**K1. Name is "verb + object".** ✅ "Lưu ảnh vào Gallery". ❌ "Gallery", ❌ "User lưu ảnh".
 
-**K3. Use Case ID is unique and follows `UC-{MOD}-{NNN}`.**
-Check against the Use Case list in the SRS.
+**K2. Correct size.** The Post-condition is a meaningful result for the user (coffee-break test). Only a sub-step → merge into its parent. Several sessions → split.
 
-**K4. Exactly one primary user and one clear goal.**
-If two user types start the same Use Case with different goals, split it.
+**K3. Unique id `UC-{MOD}-{NNN}`,** and the anchors use it (`uc-edit-001`, `uf-edit-001`, `uc-edit-001-af-1`).
 
-**K5. System boundary is clear.**
-All "App …" steps refer to the target app. Third-party services (payment store, social login, push service) appear as named external parties, not as part of the app.
+**K4. One user, one goal.** Different goals for different user types → split.
 
-## Group B — User and Context
+## B. Attribute table
 
-**K6. The user type is specific when it matters.**
-"User" is acceptable when the app has only one user type. If behavior differs by user type (Free user / Premium user, logged-in / guest), name the type explicitly.
+**K5. Trigger, Pre-condition, Post-condition are one short sentence each and verifiable.** ✅ Pre-condition "User đã cấp quyền truy cập Photos." ❌ "User muốn chỉnh ảnh."
 
-**K7. `Mục tiêu` answers why, what, and the result.**
-✅ "User áp dụng Filter cho ảnh và lưu ảnh kết quả vào thiết bị." ❌ "Chỉnh sửa ảnh."
+## C. UI specification
 
-## Group C — Conditions
+**K6. Screen grid** has every screen / state used by the Use Case, 3 per row, each with a "Hình N" caption, and every image path exists on disk.
 
-**K8. `Tiền điều kiện` is verifiable.**
-✅ "User đã cấp quyền truy cập Photos." ❌ "User muốn chỉnh sửa ảnh."
+**K7. Element tables** list only interactive elements, use the exact UI label in backticks, carry the element image when one was exported (large containers say "Xem Hình N"), and do not repeat shared elements from earlier screens.
 
-**K9. `Hậu điều kiện` covers the success state and all visible changes.**
-✅ "Ảnh được lưu vào Gallery; App hiển thị màn Result." ❌ "User hài lòng."
+## D. Flows
 
-## Group D — Main Flow
+**K8. Basic Flow is numbered, one action per step, each step with its actor** (`User` / `System`), written as `Hành động > Kết quả`, from the Trigger to the Post-condition.
 
-**K10. Numbered, one action per step.**
-Each row of `Luồng chính` is one user action and the app's response to it.
+**K9. No if/else inside the Basic Flow.** Branches go to Alternative / Exceptional Flow, conditions to Business Rules.
 
-**K11. Clear subject in every step.**
-Each step says who acts: "User …" or "App …". No passive sentences without a subject.
+**K10. Every Alternative / Exceptional step states where it branches** (`Tại BF-2: …`) and how it ends (return step or end state). Error messages are quoted exactly from the design.
 
-**K12. No if/else or loops inside the Main Flow.**
-Conditions go to `Luồng thay thế`, `Luồng ngoại lệ` or `Quy tắc nghiệp vụ`.
+**K11. Common mobile failure cases are considered** when relevant (permission denied, no network, empty data, invalid input, Back with unsaved changes) — only documented when confirmed by the PO.
 
-**K13. The flow runs from the trigger to the success postcondition.**
-The first step matches the trigger in `Tổng quan`; the last step reaches `Hậu điều kiện thành công`.
+## E. Rules and references
 
-## Group E — Alternative and Exception Flows
+**K12. One rule per row** in Business Rules; no `<br>`-stacked rules; no UI clicks or navigation repeated from the UI table or flows.
 
-**K14. Each alternative/exception flow states the step and the condition.**
-✅ "Tại bước 3, nếu User bấm Back khi chưa lưu …" ❌ "Nếu có lỗi …"
+**K13. Note/References are clickable links on one line** (`[BR-002](#br-002), [AF-1](#uc-edit-001-af-1)`) and every link target anchor exists.
 
-**K15. Each exception has a cause, the app's response, and the final state.**
-✅ "Mất mạng khi tải template → App hiển thị Toast 'No internet connection' → User ở lại màn Template, có thể thử lại."
+## F. Diagrams
 
-**K16. Common mobile failure cases are considered.**
-Where relevant: permission denied, no network, empty data, invalid input, interruption (incoming call, app sent to background), repeated taps, Back/Close with unsaved changes. Only document handling that is confirmed; otherwise raise an Open Question.
+**K14. User Flow present** (user action → UI response, `flowchart TD`, ≤ ~15 nodes), **Activity Diagram present only for a large feature**, and the render script has added the "Xem ảnh lớn" line under each diagram.

@@ -39,7 +39,7 @@ Every feature goes through this process. A todo list, a single-function utility,
 ## Collaboration Tools
 
 - Dispatch `ba-researcher` for prior art, domain rules and industry practice
-- Read competitor evidence in `docs/BA/competitor/` (from `competitor-app-analysis`) before proposing approaches — cite GAP-IDs
+- Read competitor evidence in `docs/BA/competitor/` (from the APK decode tool and the Feature Checklist) before proposing approaches — cite the checklist rows
 - Use web search for efficient approaches and prior art
 - Use `sequential-thinking` skill for complex multi-step analysis
 - Use `mermaidjs-v11` skill to sketch flows while presenting the design

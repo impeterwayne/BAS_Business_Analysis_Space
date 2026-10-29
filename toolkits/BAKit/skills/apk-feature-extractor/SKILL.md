@@ -1,17 +1,13 @@
 ---
 name: apk-feature-extractor
-description: "Read APK-decoder evidence documents (profile, screen inventory, flow analysis) for a competitor/reference app and normalize them into a structured Competitor Feature Extraction document. Use when decoded APK documentation is provided, when running /ba-competitor synthesis, or when the user runs /apk-feature-extractor, before feeding into /ba-checklist (our product checklist), product-decision, or SRS writing."
-version: 1.3.0
-argument-hint: "[app-slug or decoded-apk-docs-path] [--code-only] [optional-output-path]"
+description: "Read APK-decoder evidence documents (profile, screen inventory, flow analysis) and normalize them into the company's Feature Checklist format. Use when decoded APK documentation is provided and the goal is to identify, group, and describe reference-app features before research, product decision, SRS writing, or technical estimation."
+version: 1.4.0
+argument-hint: "[decoded-apk-docs-path] [optional-output-path]"
 ---
 
-# APK Feature Extractor (Competitor Feature Extraction)
+# APK Feature Extractor
 
-Convert APK-decoder evidence for a competitor/reference app into a structured **Competitor Feature Extraction** document (`docs/BA/competitor/<app-slug>/<app-slug>_features_<YYYYMMDD>_v1.md`) that matches the company's 12-column feature table.
-
-> **Boundary vs `ba-checklist` (`/ba-checklist`):**
-> - **`apk-feature-extractor` (`/apk-feature-extractor` or part of `/ba-competitor`)**: Extracts and normalizes features of a **single reference/competitor app** from its decoded APK evidence (`profile`, `screens`, `flow-*`) into `docs/BA/competitor/<app-slug>/<app-slug>_features_<YYYYMMDD>_v1.md`.
-> - **`ba-checklist` (`/ba-checklist`)**: Synthesizes competitor extractions, Figma designs, PRD, and PO inputs into the **real Feature Checklist for OUR target product** (`docs/BA/checklist/<slug>_checklist_<YYYYMMDD>_v1.md` or `docs/ba/feature-checklist/<app>_feature-checklist_v1.md`).
+Convert APK-decoder evidence into a structured **Feature Checklist** that matches the company's working template.
 
 This skill is an **evidence extraction and normalization skill**.
 It is not a research skill, not a product-decision skill, and not a technical estimation skill.
@@ -31,6 +27,13 @@ Those decisions belong to Product/PO/Tech/Brainstorm or later planning stages.
 ## 1. Purpose
 
 Use decoded APK documents to create or update the company's Feature Checklist.
+
+**Project rules (v1.4.0, override anything below that conflicts):**
+
+1. **Input location.** The APK decode tool writes its output to `docs/BA/competitor/{app-slug}/` (`*_profile*.md`, `*_screens*.md`, `*_flow-*.md`, `screens/`). Read from there. The decode tool itself is not part of this workspace.
+2. **Start from Home.** The checklist covers the app from the Home screen onward. Do not create any row for what appears before Home on first launch: Splash, Language selection, Onboarding / intro slides, first-launch permission requests, app-open ads, first-launch paywall.
+3. **Fill only five columns:** `STT`, `Group of feature`, `Tính năng`, `Tính năng nhỏ`, `Mô tả tính năng`. Leave **every** other column empty: `Link tham khảo`, `Khả thi`, `Mức độ`, `Thời gian (about)`, `PO note`, `Ưu tiên`, `Technology notes`.
+4. **Output.** Markdown `docs/BA/competitor/{app-slug}/{app-slug}_checklist_{YYYYMMDD}_v{N}.md` from the `feature-checklist` template in `ba-templates`, then the Excel file with the same name (`.xlsx`) produced by `scripts/export_checklist_xlsx.py`.
 
 The checklist is used as an intermediate BA artifact for:
 
@@ -54,27 +57,19 @@ Typical inputs:
 
 | Input | Primary purpose |
 |---|---|
-| `*_profile*.md` | App overview, module map, high-level feature map, technical profile |
-| `*_screens*.md` | Screen inventory, purpose, entry points, UI components, actions |
+| `*_profile.md` | App overview, module map, high-level feature map, technical profile |
+| `*_screens.md` | Screen inventory, purpose, entry points, UI components, actions |
 | `*_flow-*.md` | User flows, interactions, system responses, observed rules, validations, state transitions |
 | Other decoded `.md` files | Permissions, monetization, technical constraints, configuration, ads, purchase flows, etc. |
 
 The skill must work even if only part of this set is available.
 
-### Input completeness & Mobilerun mode (`--code-only` vs Hybrid)
+### Input completeness rule
 
-- **Mobilerun On (default — Live Device + Decoded Code)**:
-  - Reads existing `*_profile.md`, `*_screens.md`, `*_flow-*.md`, and `code-index/` under `docs/BA/competitor/<app-slug>/`.
-  - If decoded docs are missing or incomplete and a device is connected via `mobilerun`, may drive/inspect the competitor app on device + `apk-code-index` (via `competitor-app-analysis`) to capture `[Observed]` screen/flow evidence before normalizing the feature extraction table.
-- **Mobilerun Off (`--code-only` — Static Code-Only)**:
-  - **Never** calls `mobilerun` tools or pings any Android device.
-  - Extracts and normalizes features strictly from decompiled JADX code (`apk-code-index` at `docs/BA/competitor/<app-slug>/code-index/`) and any existing static markdown files.
-  - All extracted items must carry `[Code]` or `[Inferred]` evidence grades (never `[Observed]` unless citing an already-captured screenshot file).
-
-1. Read all provided decoded documents (and `code-index/` when available).
+1. Read all provided decoded documents.
 2. Identify available evidence.
 3. Extract only supported features and behavior.
-4. Mark missing or unverified areas in notes when needed.
+4. Mark missing or unverified areas in a separate verification note when needed.
 5. Never invent missing features or behavior.
 
 ---
@@ -128,7 +123,7 @@ Technical details such as:
 
 must not dominate the feature description.
 
-Only copy technical details into `Technology notes` when they are genuinely useful for later Dev/Tech discussion.
+Never copy technical details into `Technology notes`; that column always stays blank. Keep useful technical facts in the Coverage / Verification Notes.
 
 ---
 
@@ -170,14 +165,14 @@ The default checklist must use the following columns:
 | `Group of feature` | Feature group/module | Auto-fill |
 | `Tính năng` | Major feature | Auto-fill |
 | `Tính năng nhỏ` | Sub-feature | Auto-fill when applicable |
-| `Mô tả tính năng` | Description of what the feature/sub-feature does and its important reference behavior | Auto-fill (except `Onboarding`, which must stay blank) |
-| `Link tham khảo` | Reference link provided by PO/BA | Always leave blank |
-| `Khả thi` | Technical feasibility | Leave blank unless explicitly provided by Tech/Dev |
-| `Mức độ` | Difficulty level, e.g. Dễ / Bình thường / Khó | Leave blank unless explicitly provided |
-| `Thời gian (about)` | Estimated development time | Leave blank unless explicitly provided |
-| `PO note` | Product Owner decision/note | Only fill from explicit PO input |
-| `Ưu tiên` | Product priority | Leave blank unless explicitly provided |
-| `Technology notes` | Technical notes/constraints useful for Dev/Tech | Fill only when evidence provides a meaningful technical constraint |
+| `Mô tả tính năng` | Natural Vietnamese BA description of purpose, user flow, triggers, and relevant behavior | Auto-fill |
+| `Link tham khảo` | Reserved for the PO | **Always leave blank** |
+| `Khả thi` | Technical feasibility | **Always leave blank** |
+| `Mức độ` | Difficulty level | **Always leave blank** |
+| `Thời gian (about)` | Estimated development time | **Always leave blank** |
+| `PO note` | Product Owner decision/note | **Always leave blank** |
+| `Ưu tiên` | Product priority | **Always leave blank** |
+| `Technology notes` | Technical notes for Dev/Tech | **Always leave blank** |
 
 ### Ownership rule
 
@@ -195,9 +190,8 @@ These fields remain empty until an authorized person or later workflow stage pro
 
 ## 6. Scope of Extraction
 
-Extract user-facing or product-relevant capabilities such as:
+Extract user-facing or product-relevant capabilities **reachable from Home onward**, such as:
 
-- onboarding and app launch;
 - home/navigation;
 - core product features;
 - content creation/editing tools;
@@ -289,102 +283,106 @@ Do not create duplicates merely because:
 - the same feature appears in several decoded files;
 - multiple classes implement one feature.
 
-If a feature has multiple entry points, mention that briefly in `Mô tả tính năng` only if it is useful, otherwise keep it in the evidence link/source.
+If a feature has multiple entry points, mention the relevant triggers in `Mô tả tính năng` when useful; retain detailed evidence references in internal verification notes rather than in the `Link tham khảo` column.
 
 ---
 
-## 9. `Mô tả tính năng` Rule
+## 9. `Mô tả tính năng` — PO/BA Writing Standard
 
-`Mô tả tính năng` replaces the old `Basic Description` + `Reference Behavior Summary` concept.
+This column is the primary working description in the company's Feature Checklist. It **replaces** any separate `Reference Behavior Summary` column.
 
-It should answer:
+Use **English-first feature, screen, and UI element names**, combined with **natural Vietnamese business descriptions**. English UI/product terminology is not an optional style flourish: it is the default naming convention for `Group of feature`, `Tính năng`, `Tính năng nhỏ`, and all UI elements mentioned inside descriptions.
 
-1. What does the feature/sub-feature allow the user or system to do?
-2. What is the main functional purpose?
-3. What important reference behavior should be carried forward for Product/BA understanding?
+Use concise established names such as `Home`, `Quick Actions`, `Effect Carousel`, `Refresh Effects`, `Camera Preview`, `Photo Editor`, `Edit Image`, `Filter`, `Sticker`, `Beauty`, `Makeup`, `Settings`, `Save`, `Share`, `Result`, `Button`, `Tab`, `Bottom Sheet`, `Popup`, `Dialog`, and `Gallery`. Prefer the exact English label used in reference UI/Figma when it is appropriate. Do not coin new labels when the existing UI uses a clear name.
 
-### Writing style (PO/BA readable)
+**Never append Vietnamese translations in parentheses after an English label**, e.g. never write `Home (Trang chủ)`, `Filter (bộ lọc màu)`, `Makeup (trang điểm)`, `Carousel (dải quay vòng)`, `Preview (xem trước)`, or `Video (quay phim ngắn)`. Conversely, do not write an awkward Vietnamese phrase followed by its English translation. Choose one English term and use it consistently.
 
-- Write in **clear, natural Vietnamese** from the **user and product perspective**, as a PO or BA would describe the feature in a scope checklist.
-- **Keep feature names, screen names, and common UI component names in English** when English is the clearer or standard product term, for example: `Splash`, `Onboarding`, `Home`, `Settings`, `Gallery`, `Photo Editor`, `Collage`, `Template`, `Filter`, `Sticker`, `Save`, `Share`, `Permission`, `Popup`, `Dialog`, `Bottom Sheet`, `Tab`, `Banner`, `Slider`, `Toggle`, `Button`, `Toast`.
-- Use Vietnamese for actions, user goals, conditions, and flow explanation around those English names, for example: `Cho phép người dùng mở màn Photo Editor từ Home, chọn Filter và lưu ảnh về Gallery.`
-- **Do not add Vietnamese translations in parentheses after English names.** Write `Home`, `Photo Editor`, `Bottom Sheet`, `Permission` directly; do not write `Home (Màn hình chính)`, `Photo Editor (Trình chỉnh sửa ảnh)`, `Bottom Sheet (Bảng chọn dưới)`, or `Gallery (Thư viện)`.
-- Keep `Group of feature`, `Tính năng`, and `Tính năng nhỏ` in clean English product naming when the reference app or company template uses English (`Onboarding`, `Home`, `Edit Image`, `Save & Share`, `Settings`).
-- Avoid developer jargon, decoded-code phrasing, resource IDs, class/method names, flag names, and raw implementation terms (`Activity`, `Fragment`, `ViewModel`, `SharedPreferences`, `Intent`, `RecyclerView`, `boolean`, `callback`, `null`, etc.).
-- Keep each row concise (typically 1–2 sentences) so the table is easy to scan in a spreadsheet or review meeting.
+Business sentences remain concise and natural Vietnamese: `Tại Home, user click Beauty → mở Camera ở mode Beauty.`; `User click Next → cập nhật danh sách effect của carousel tương ứng.` Avoid verbose, academic or marketing-style phrases such as `bảng điều khiển trung tâm`, `dải quay vòng hiệu ứng xu hướng`, `lối tắt chế độ máy ảnh chuyên biệt`, `khung ngắm thời gian thực`, `cung cấp trung tâm điều khiển`, and `luân chuyển tức thì`. In particular, use `Home` for the Home screen instead of treating its entire layout as a standalone feature unless concrete Home functionality must be documented.
 
-### Onboarding exception (mandatory)
+Do not add internal mode numbers, Java method names, IDs or internal classes to checklist descriptions. Describe the visible outcome: `mở Camera ở mode Beauty`, not `Mode 10`. Avoid translating English names from APK/UI even when the translation is linguistically correct.
 
-For any row where `Group of feature`, `Tính năng`, or `Tính năng nhỏ` is **`Onboarding`**, **always leave `Mô tả tính năng` completely blank**. Do not summarize onboarding slides, steps, skip/next buttons, or first-launch flow in `Mô tả tính năng`.
+Examples of required terminology normalization:
 
-### Include (for all non-Onboarding features)
+| Avoid | Preferred |
+|---|---|
+| Trang chủ (Home) / Bảng điều khiển trung tâm | Home |
+| Lối tắt chế độ máy ảnh chuyên biệt | Quick Actions |
+| Dải quay vòng hiệu ứng xu hướng | Effect Carousel |
+| Làm mới & Xáo trộn hiệu ứng | Refresh Effects |
+| Khung ngắm thời gian thực | Camera Preview |
+| Biên tập ảnh đồ họa | Edit Image |
+| Bộ lọc màu / Nhãn dán | Filter / Sticker |
+| Cài đặt máy ảnh | Camera Settings |
+| Nút chụp | Capture Button |
+| Thanh điều hướng | Navigation Bar |
 
-- capability;
-- main behavior;
-- key options;
-- meaningful limits/gates;
-- important persistent behavior;
-- important reference branching when relevant.
+Apply this naming convention throughout the output, including headings, row names, descriptions, examples and verification notes where applicable.
 
-### Do not include
+### Content priorities
 
-- full use case;
-- every validation/error case;
-- full code implementation;
-- speculative recommendation;
-- target-product decisions not yet approved;
-- any description text for `Onboarding` rows.
+For each meaningful feature/sub-feature, describe **as applicable**:
 
-### Example
+1. **Purpose** — what this feature is for, or what it allows the user to achieve.
+2. **User Flow** — the relevant journey/screens in short form when it helps explain the scope.
+3. **Trigger** — where the user starts the action or what event triggers the behavior.
+4. **Key behavior / rules** — the supported response, relevant options, conditions, and important limits.
 
-Good:
+Do not force four separate headings in every cell. Write concise natural prose or short bullets, with line breaks when they improve readability. Use `Flow:` or `Trigger:` labels only if helpful for a multi-step feature.
 
-> Cho phép người dùng chọn tỷ lệ khung hình trước khi chụp trên màn Camera (1:1, 4:3, 16:9, Full); lựa chọn được giữ lại cho lần mở Camera tiếp theo.
+**Adjust detail to feature complexity:** a simple `Frame` or `Background` sub-feature may need only one short sentence; a major `Edit Image` or `Force 4G/5G Network` feature may need purpose, flow, trigger, and important branches. Avoid repeating the same parent flow in all child rows.
 
-Too technical:
+### Pre-Home exclusion — strict
 
-> Tap `camera_resize`; `PopupCameraResize` đọc SharedPreferences `resize1`, map 0/1/2/3 và ẩn Full khi tỷ lệ màn hình <= 1.778.
+- Never create rows for Splash, Language selection, Onboarding / intro slides, first-launch permission requests, app-open ads or the first-launch paywall.
+- A capability that is also reachable later from Home or Settings (e.g. `Language` inside Settings, a paywall opened from a Premium button) is described where it is reached from Home, not as part of first launch.
 
-The detailed technical rule stays in APK Evidence and may later be used when writing SRS.
+### Example — major feature
+
+`Group of feature`: `Edit Image`  
+`Tính năng`: `Photo Editor`  
+`Tính năng nhỏ`: (blank)  
+`Mô tả tính năng`:
+
+> Cho phép user chọn ảnh từ Gallery để edit bằng các công cụ Crop, Filter, Adjust, Text, Sticker, Frame...  
+> Flow: Home → Edit → Select Photo → Photo Editor → Save → Result.  
+> Trigger: User click Edit tại Home.  
+> Trong quá trình edit, user có thể Undo/Redo; click Save để lưu ảnh.
+
+Only include a path or behavior when supported by the decoded evidence. The example is illustrative, not a requirement to infer missing screens.
+
+### Example — simple sub-feature
+
+`Tính năng nhỏ`: `Frame`  
+`Mô tả tính năng`:
+
+> Cho phép user chọn và áp dụng Frame cho ảnh đang edit.
+
+### Avoid
+
+- Overlong feature names such as "Bộ lọc màu biên tập chuyên sâu" when `Filter` is sufficient.
+- Reverse-engineering reporting style ("App reference sử dụng Activity X, GPU shader Y...") in the description.
+- Implementation-level class names, SDK internals, preference keys, or raw source paths.
+- A full SRS-style Main Flow, every edge case, or test case.
+- Making up target product decisions from reference behavior.
+- Repetitive boilerplate such as starting every line with "Cho phép người dùng..." if a more direct and natural expression is clearer.
 
 ---
 
 ## 10. `Link tham khảo` Rule
 
-**Always leave `Link tham khảo` blank** in the generated Feature Checklist.
+**Keep the column because it is part of the approved company template, but leave every cell blank by default.**
 
-Do not fill `Link tham khảo` with decoded file names (`profile.md`, `screens.md`, `flow-*.md`), code paths, or screenshot paths. This column is reserved for the PO/BA to attach external reference links (competitor store links, benchmark videos, Figma links, etc.) when needed. Traceability to APK evidence files is recorded in `## 1. Source Summary` instead.
+- Do not insert APK evidence filenames, section citations, image paths, Google Play URLs, or other links into this column.
+- Do not create synthetic or placeholder URLs.
+- Do not repurpose the column for provenance or uncertainty notes.
+- Keep internal traceability separately through a concise verification/coverage section or working evidence map when needed for audit or future SRS creation.
+- A later explicit PO instruction may populate the column; this extractor must not auto-fill it.
 
 ---
 
 ## 11. `Technology notes` Rule
 
-`Technology notes` is optional and should stay concise.
-
-Use it only for technical facts that may materially affect implementation or design discussion, for example:
-
-- feature disabled on low-RAM devices;
-- specific OS/API dependency;
-- feature requires camera/location/storage permission;
-- online assets/CDN dependency;
-- special hardware requirement;
-- third-party SDK dependency;
-- meaningful performance/codec constraint.
-
-Do not fill it with:
-
-- obfuscated class names;
-- every SDK/library;
-- implementation trivia;
-- low-level constants that are irrelevant to planning.
-
-Example:
-
-> Hand-tracking feature is disabled on low-RAM devices in the reference app.
-
-Not recommended:
-
-> Implemented in `AbstractC10835b.java:55-59` using `f22799c = 2`.
+**Always leave `Technology notes` blank.** Technical constraints found in the evidence (low-RAM limits, OS dependencies, SDKs) stay in the Coverage / Verification Notes section of the Markdown file, never in the checklist columns.
 
 ---
 
@@ -416,8 +414,8 @@ When decoded documents conflict:
 1. do not silently reconcile;
 2. keep the feature in the checklist if its existence is clear;
 3. describe only the common confirmed behavior in `Mô tả tính năng`;
-4. add a short conflict note in `Technology notes` or `PO note` only if needed;
-5. keep evidence links to both conflicting sources;
+4. add a short conflict note to the Coverage / Verification Notes; never to `Technology notes` or `PO note`;
+5. preserve the conflicting evidence in internal traceability notes, not the `Link tham khảo` column;
 6. do not choose a target behavior.
 
 Example:
@@ -428,7 +426,7 @@ Checklist description:
 
 > Cho phép người dùng chọn preset theo nhiều nhóm category.
 
-Technology notes:
+Coverage / Verification Notes:
 
 > Reference evidence is inconsistent on the exact category count; verify before reuse.
 
@@ -470,18 +468,21 @@ For each candidate:
 
 For each row:
 
-- if the feature is `Onboarding`, leave `Mô tả tính năng` blank;
-- otherwise, write in clear PO/BA language (natural Vietnamese with English screen/feature/UI names, without parenthesized Vietnamese translations) describing what the user can do and the key reference behavior;
-- include key options/limits only when useful;
-- keep detailed logic in APK Evidence.
+- use natural Vietnamese and familiar English product/UI keywords;
+- explain purpose, relevant user flow, trigger, and main behavior as applicable;
+- keep descriptions concise and scaled to feature complexity;
+- create no row for anything shown before Home (Splash, Language, Onboarding, first-launch permission, app-open ads, first-launch paywall);
+- retain supported key options/limits only when useful;
+- keep implementation details and deep rules in APK Evidence.
 
-### Phase 5 — Add Technical Notes & Leave Reserved Columns Blank
+### Phase 5 — Maintain Evidence & Technical Notes
 
-- leave `Link tham khảo` blank;
-- add meaningful technical constraints to `Technology notes`;
-- leave planning/estimation columns blank.
+- **leave `Link tham khảo` blank for every row**;
+- retain evidence traceability separately in verification notes;
+- leave `Technology notes`, `PO note`, `Ưu tiên` and all planning/estimation columns blank;
+- keep meaningful technical constraints in the Coverage / Verification Notes.
 
-### Phase 6 — Coverage Check
+### Phase 6 — Coverage & Editorial Check
 
 Check that:
 
@@ -489,7 +490,15 @@ Check that:
 - important user-facing flows are represented;
 - monetization/settings/support features are not missed;
 - duplicate entry points are merged;
-- unvisited branches are not stated as confirmed behavior.
+- unvisited branches are not stated as confirmed behavior;
+- all `Link tham khảo` cells are empty;
+- no row describes Splash, Language, Onboarding or other pre-Home screens;
+- only `STT`, `Group of feature`, `Tính năng`, `Tính năng nhỏ`, `Mô tả tính năng` are filled;
+- feature names are short and readable;
+- Group/Feature/Sub-feature names and UI elements use English terminology consistently, with no parenthesized Vietnamese translations;
+- business descriptions use natural Vietnamese without verbose or literal translations;
+- meaningful features explain purpose, flow, and trigger when supported;
+- details are not overloaded with implementation trivia.
 
 ### Phase 7 — Output
 
@@ -499,14 +508,22 @@ Produce:
 2. Feature Checklist;
 3. Coverage / Verification Notes if needed.
 
+Read the APK decode tool output from `docs/BA/competitor/{app-slug}/`. Save the result as `docs/BA/competitor/{app-slug}/{app-slug}_checklist_{YYYYMMDD}_v{N}.md` using the `feature-checklist` template in `ba-templates`. Never overwrite an earlier version.
+
+Then export the Excel file:
+
+```bash
+python .agents/skills/apk-feature-extractor/scripts/export_checklist_xlsx.py docs/BA/competitor/{app-slug}/{app-slug}_checklist_{YYYYMMDD}_v{N}.md
+```
+
+The `.xlsx` is written beside the Markdown with the same name. Report both paths to the user.
+
 ---
 
 ## 15. Default Output Template
 
-Template also available in `.agents/skills/ba-templates/templates/competitor-feature-extraction.md` (`competitor-features` catalog key). Output path: `docs/BA/competitor/<app-slug>/<app-slug>_features_<YYYYMMDD>_v1.md`.
-
 ```markdown
-# Trích xuất tính năng đối thủ (Competitor Feature Extraction) — [App Name]
+# Feature Checklist — [App Name]
 
 ## 1. Source Summary
 
@@ -522,10 +539,9 @@ Template also available in `.agents/skills/ba-templates/templates/competitor-fea
 
 | STT | Group of feature | Tính năng | Tính năng nhỏ | Mô tả tính năng | Link tham khảo | Khả thi | Mức độ | Thời gian (about) | PO note | Ưu tiên | Technology notes |
 |---:|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Onboarding | Onboarding |  |  |  |  |  |  |  |  |  |
-| 2 | Camera | Beauty | Skin Beauty | Cho phép người dùng làm đẹp da trực tiếp trên màn Camera trước khi chụp với các tuỳ chọn như Smooth, Whiten, Clear, Ruddy và Slider điều chỉnh mức độ. |  |  |  |  |  |  |  |
-|   | Camera | Beauty | Facial Retouch | Cho phép chỉnh dáng khuôn mặt trực tiếp trên màn Camera với các tuỳ chọn retouch và Slider chỉnh mức độ cho từng vùng. |  |  |  |  |  |  |  |
-| 3 | Camera | Video | Recording Duration | Cho phép chọn thời lượng quay video trên màn Camera gồm 15s, 30s, 3 phút hoặc quay không giới hạn. |  |  |  |  |  |  |  |
+| 1 | Camera | Beauty | Skin Beauty | Cho phép user chỉnh mức làm đẹp da trực tiếp trên Camera Preview, gồm Smooth, Whiten, Clear, Ruddy... |  |  |  |  |  |  |  |
+|   | Camera | Beauty | Facial Retouch | Cho phép user điều chỉnh các thông số Facial Retouch bằng slider trước khi chụp. |  |  |  |  |  |  |  |
+| 2 | Camera | Video | Recording Duration | Cho phép user chọn thời lượng quay: 15s, 30s, 3 phút hoặc Infinite. |  |  |  |  |  |  |  |
 
 ## 3. Coverage / Verification Notes
 
@@ -543,7 +559,7 @@ If a checklist already exists:
 
 1. preserve existing `STT`, grouping, and naming where possible;
 2. match APK-extracted features to existing rows;
-3. enrich `Mô tả tính năng` from APK evidence (except `Onboarding`, which stays blank) while preserving any existing user-provided `Link tham khảo`;
+3. enrich `Mô tả tính năng` from APK evidence using the approved writing style; never write into `Link tham khảo`, `PO note`, `Ưu tiên`, `Technology notes` or the estimation columns (keep any value the PO already entered);
 4. add newly discovered reference features as new rows;
 5. never overwrite explicit PO notes, feasibility, difficulty, estimate, or priority;
 6. never delete target-only features just because they are absent from the APK reference.
@@ -573,21 +589,20 @@ This skill MAY:
 - identify contradictions;
 - flag missing coverage;
 - summarize important reference behavior inside `Mô tả tính năng`;
-- capture meaningful technical constraints in `Technology notes`;
+- capture meaningful technical constraints in the Coverage / Verification Notes;
 - prepare traceable input for Research, Brainstorm, Business Analyst, and SRS stages.
 
 ---
 
 ## 18. Handoff to Next Stage
 
-After extraction, the Competitor Feature Extraction document becomes an input artifact for later stages.
+After extraction, the Feature Checklist becomes an input artifact for later stages.
 
 Recommended routing:
 
-- Synthesize into our product's real Feature Checklist → `ba-checklist` (`/ba-checklist`)
 - Need additional market/feature knowledge → `ba-researcher`
-- Need product choice or unresolved behavior → `ba-brainstormer` / `product-decision` / `brainstorm-features`
-- Target decisions and Figma are ready → `ba-spec-writer` / `specs`
+- Need product choice or unresolved behavior → `ba-brainstormer` / `product-decision`
+- Figma section is ready → `/ba-figma`, then the PO rule confirmation, then `ba-spec-writer` / `specs`
 - Need feasibility/difficulty/time estimation → Dev/Tech review
 
 Do not automatically invoke the next stage unless the workflow or user explicitly requests it.
@@ -599,14 +614,17 @@ Do not automatically invoke the next stage unless the workflow or user explicitl
 1. **APK Evidence describes the reference app, not the target product.**
 2. **Feature Checklist defines feature scope, not full requirements.**
 3. **Use the company's exact checklist columns.**
-4. **`Mô tả tính năng` includes both basic purpose and important reference behavior, written in clear PO/BA language (English feature/screen/UI names without parenthesized Vietnamese translations); for `Onboarding` rows, `Mô tả tính năng` must always be left blank.**
+4. **Use English-first feature/UI labels and natural Vietnamese business sentences; never append Vietnamese translations in parentheses after English labels. Describe purpose, flow, triggers, and relevant behavior when applicable.**
 5. **Do not create a separate `Reference Behavior Summary` column.**
-6. **Always leave `Link tham khảo` blank in extractor output, and do not auto-fill Khả thi / Mức độ / Thời gian / Ưu tiên.**
-7. **Only fill PO note from explicit PO input.**
-8. **Only fill Technology notes with meaningful technical constraints.**
+6. **Fill only STT, Group of feature, Tính năng, Tính năng nhỏ, Mô tả tính năng.**
+7. **Leave Link tham khảo, Khả thi, Mức độ, Thời gian, PO note, Ưu tiên and Technology notes blank.**
+8. **Start from Home; no pre-Home rows (Splash, Language, Onboarding, first-launch permission, app-open ads).**
 9. **Never convert `[Inferred]` content into confirmed facts.**
 10. **Merge duplicate features across profile/screens/flows.**
 11. **Never silently resolve conflicting evidence.**
 12. **Do not research outside the provided APK evidence in this skill.**
 13. **Do not write SRS or implementation instructions here.**
-14. **Maintain traceability from every extracted feature back to evidence.**
+14. **Maintain traceability separately from the checklist `Link tham khảo` column.**
+15. **Always leave `Link tham khảo` blank in extractor-generated output.**
+16. **Export the Excel file with `scripts/export_checklist_xlsx.py` after writing the Markdown.**
+17. **Perform a mandatory editorial review: remove translated UI labels, English–Vietnamese parenthetical duplicates, unnatural phrases, and excessive descriptions.**

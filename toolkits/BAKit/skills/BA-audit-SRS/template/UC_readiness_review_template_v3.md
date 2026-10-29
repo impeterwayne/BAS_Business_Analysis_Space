@@ -192,8 +192,8 @@
 | Hạng mục (Item) | Nguồn (Source) | Trạng thái (Status) | Ghi chú (Notes) |
 |-----------------|----------------|---------------------|-----------------|
 | *(e.g., PD-003 MODIFY — OTP resend limit)* | *(e.g., `docs/BA/decisions/dang-nhap-otp_decisions_20261010_v2.md`)* | *(✅ Reflected / ⚡ Partial / ⚠️ Missing / 🔴 Conflict)* | *(e.g., UC still shows the reference limit of 3 resends.)* |
-| *(e.g., User Flow UF-AUTH-001)* | *(e.g., `docs/diagrams/auth/uf-auth-001.md`)* | *(✅ Covers UC / ⚠️ Journey missing)* | *(e.g., Entry from deep link not shown.)* |
-| *(e.g., Activity ACT-AUTH-002)* | *(e.g., `docs/diagrams/auth/act-auth-002.md`)* | *(✅ / ⚠️ Branch missing)* | *(e.g., OTP expired branch absent.)* |
+| *(e.g., User Flow UF-AUTH-001)* | *(e.g., `docs/project-srs.md#uf-auth-001`)* | *(✅ Covers UC / ⚠️ Journey missing)* | *(e.g., Entry from deep link not shown.)* |
+| *(e.g., Activity ACT-AUTH-002)* | *(e.g., `docs/project-srs.md#act-auth-002`)* | *(✅ / ⚠️ Branch missing)* | *(e.g., OTP expired branch absent.)* |
 | *(e.g., Sequence)* | *(—)* | *(N/A — simple UC, not required)* | |
 
 ---

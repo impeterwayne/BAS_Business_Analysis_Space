@@ -1,77 +1,52 @@
 ---
 name: use-case-writer
-description: "Quality rules for scoping, writing and self-checking Use Cases. Supports two modes: (1) Vietnamese Mobile SRS Use Case mode (default inside specs — writes the full Use Case in one pass with embedded UI Specification, Main/Alternative/Exception flows, Business Rules, Acceptance Criteria, and runs the 16-item self-check K1–K16), and (2) Standalone 13-field English Cockburn/Wiegers mode (assets/uc-template.md + 20-point checklist) when explicitly requested."
-author: Phúc NT @ BA Zone (adapted for BAKit Mobile SRS)
-source: https://github.com/ba-zone
+description: "Scope and write the Use Cases of the mobile SRS in Vietnamese, inside docs/project-srs.md, with the ba-templates use-case block (Trigger / Pre-condition / Post-condition, UI specification with screen grid and element images, User Flow, flows, business rules, Activity Diagram when needed). Use when ba-spec-writer or the user needs to split a feature into Use Cases, write or revise a Use Case, or check one ('viết use case', 'viết UC', 'tách UC', 'review UC'). Runs the Use Case self-check before handover. Does not write the Feature Checklist or decide product rules."
+author: "Adapted from Phúc NT @ BA Zone (MIT) for this BAKit workspace"
 ---
 
-# Use Case Writer — Scoping, Writing & Self-Check Rules
+# Use Case Writer
 
-This skill provides the **Use Case scoping, writing-style, and quality self-check rules** for `ba-spec-writer` (`specs`), as well as standalone Use Case authoring.
+Writing-quality layer for Use Cases. The document format belongs to `ba-templates` (`use-case.md`, inside `srs.md`); the process belongs to `specs`. This skill decides **how big** each Use Case is, **how** it is written, and **checks** it.
 
-## Mode Selection
+## 1. Output Rules
 
-| Mode | When to Use | Language & Template | Validation |
-| :--- | :--- | :--- | :--- |
-| **Mode 1: Mobile SRS Use Case (Default)** | Writing Use Cases inside the SRS (`docs/ba/srs/{app}_srs_v{N}.md` Section 6 or `docs/usecases/{module}/uc-*.md`) | **Vietnamese** with English UI/feature terms (`specs/references/templates/use-case-template.md` or `ba-templates/templates/use-case.md`). **Write the full Use Case in one pass** (no section-by-section pauses). | **16-item self-check (`references/self-check.md`, `K1–K16`)** |
-| **Mode 2: Standalone 13-Field Wiegers UC** | User explicitly asks for the 13-field English BA Zone / Wiegers template | **English** 2-column table (`assets/uc-template.md`, `references/template-guide.md`, `references/writing-style-en.md`) | **20-point checklist (`references/quality-checklist.md`, `C1–C20`)** |
+1. **Template.** Always `.agents/skills/ba-templates/templates/use-case.md`, written inside `docs/project-srs.md`. Never another layout, never one file per Use Case.
+2. **Language and style.** Follow `ba-global-rules` and `ba-markdown-formatting`: Vietnamese sentences, English UI / product terms, no `Tiếng Việt (English)` glosses, `Điều kiện / Hành động > Kết quả` syntax, no meta notes.
+3. **Write in one pass.** Write the whole Use Case at once; do not stop between sub-sections.
+4. **Only confirmed rules.** Write only after the PO rule confirmation (`product-decision`, batch mode) for the Use Case's screens. Never invent a value, limit, text or state. If something turns out to be missing while writing, stop and ask the PO in chat; do not write placeholders or open questions into the SRS.
 
----
+## 2. Workflow
 
-## Mode 1: Vietnamese Mobile SRS Use Case (Default)
+```
+Step 1: SCOPE      → apply references/scoping-rules.md; for a feature group, list the Use Cases first
+Step 2: WRITE      → fill the use-case block in one pass
+Step 3: DIAGRAMS   → User Flow (user-flow skill); Activity Diagram only for a large feature; run the render script
+Step 4: SELF-CHECK → references/self-check.md (14 items); fix failures
+```
 
-When `specs` writes or updates Section 6 of the SRS (or `docs/usecases/`):
+### Step 1 — Scope
 
-1. **Write the full Use Case in one pass** — do not stop after each section when generating the SRS.
-2. **Language**: Vietnamese with English product/UI terms (see `ba-global-rules` and `references/writing-style.md`). Never add Vietnamese translations in parentheses after English UI/screen/feature names (`Home`, `Photo Editor`, `Button Save`, `Bottom Sheet` — not `Home (Trang chủ)`).
-3. **Structure**: Follow `.agents/skills/specs/references/templates/use-case-template.md` (for single-file SRS) or `.agents/skills/ba-templates/templates/use-case.md` (for modular SRS).
+- One Use Case = one complete user goal in one session (coffee-break test). It usually covers several screens; never one Use Case per screen by default.
+- For a feature group, show the Use Case list in chat first (Mã UC | Tên UC | Mục tiêu | Màn hình), then write them in order.
 
-### Step 1 — Scope the Use Cases (`references/scoping-rules.md`)
+### Step 2 — Write
 
-Before writing Section 6 of the SRS, build the Use Case list for each feature group using `references/scoping-rules.md`:
+Fill, in order: the attribute table (Mã UC, Trigger, Pre-condition, Post-condition — one short sentence each), `{N}.1 Đặc tả giao diện` (screen grid, then one element table per image), `{N}.3 Basic Flow`, `{N}.4 Alternative Flow` and `{N}.5 Exceptional Flow` only when they exist, `{N}.6 Business Rules`. Follow `references/writing-style.md`.
 
-- **Coffee-break test**: after finishing the Use Case, can the user pause and feel they accomplished something meaningful? If no, merge it into the parent Use Case.
-- **One primary user, one goal, one continuous session**.
-- **Group by user goal, not one Use Case per screen** (a 3-step wizard is 1 Use Case; a screen with two unrelated goals may be 2 Use Cases).
-- **Name format**: `Động từ + Đối tượng` (active verb + object), e.g. `Chỉnh sửa ảnh bằng Filter`, `Ghép nhiều ảnh theo Layout`, `Lưu ảnh về Gallery`. Never use vague verbs (`Quản lý`, `Xử lý`, `Thực hiện`).
+### Step 3 — Diagrams
 
-### Step 2 — Write Each Use Case (`references/writing-style.md`)
+- `{N}.2 User Flow`: required, drawn with the `user-flow` skill.
+- `{N}.7 Activity Diagram`: only for a large feature (3+ screens, several conditional branches, or payment / IAP / subscription / permissions); otherwise delete the sub-section.
+- Run `python .agents/skills/user-flow/scripts/render_diagrams.py docs/project-srs.md`.
 
-Follow `references/writing-style.md` and the template:
+### Step 4 — Self-check
 
-- **Overview table**: actor (`Người dùng` / `Người dùng chưa cấp quyền Camera`, never generic `User`), clear 1-sentence goal, specific trigger (which screen + which button), verifiable preconditions, verifiable postconditions (success and failure/cancel states).
-- **UI Specification (before Main Flow)**:
-  - One subsection per screen used by the Use Case.
-  - **Place the Design image block right at the top of each screen subsection**, using Markdown image syntax `![{Screen ID} — {Screen name}](<relative-path>.png)` (e.g. `![SCR-EDIT-01 — Photo Editor](../../inputs/design/01-photo-editor.png)` or `![01 — Photo Editor](../../BA/figma/{feature}/screens/01-photo-editor.png)`) so it renders as an inline preview. If no design image exists, write `Chưa có thiết kế (Design Pending)` and add an Open Question `Q-{NNN}`.
-  - Component table: `UI ID | Thành phần | Nội dung hiển thị | Thao tác & Phản hồi của App | Trạng thái / Kiểm tra dữ liệu`.
-  - Document UI states (Default, Loading, Empty, Error, Disabled, Permission) and Popups / Dialogs / Bottom Sheets.
-- **Main Flow (Happy Path)**:
-  - Table: `Bước | Hành động của User | Phản hồi của App | Màn hình / Trạng thái`.
-  - One action per step, active voice, present tense.
-  - **No `if/else` or error branches inside Main Flow** — those belong in Alternative or Exception Flows.
-  - Put limits/defaults/formulas in **Quy tắc nghiệp vụ (`BR-{NNN}`)** and reference the `BR-*` ID from the step.
-- **Alternative Flows (`AF-01`, `AF-02`, …)**:
-  - Different paths that still achieve the goal (or valid user cancel/back). Must state the exact branch step (`Tại bước N của Luồng chính, khi ...`) and where it returns or ends.
-- **Exception / Error Flows (`EF-01`, `EF-02`, …)**:
-  - Paths where the goal fails. Must state the branch step + condition, exact App response/message (do not invent error copy not in Design/decisions — flag `Chưa có text trong design` + `Q-{NNN}`), and final recovery state.
-  - Cover relevant mobile failure modes: permission denied, invalid/corrupted photo/file, storage full, network error/timeout (for online features), interrupted process (app backgrounded/call), repeated tap, back/cancel with unsaved edits.
-- **Navigation / Result** and **Acceptance Criteria (`AC-01`, Given / When / Then)**.
+Run `references/self-check.md` on every Use Case written or changed. Report the result in chat as **"Bảng tự kiểm tra Use Case"** (never call it "checklist", to avoid confusion with the Feature Checklist). Nothing from the self-check is written into the SRS.
 
-### Step 3 — Self-Check Before Saving (`references/self-check.md`)
+## 3. Boundaries
 
-Run all **16 checks (`K1–K16`)** in `references/self-check.md` on every Use Case. Fix any violation before writing the SRS file, or record genuine product gaps in `Câu hỏi mở (Q-{NNN})`.
+Does not write the Feature Checklist (`apk-feature-extractor`, `research-feature-checklist`), does not make product decisions (`product-decision`), does not call Figma tools (`figma-ba-analysis`), does not export Word (`srs-export`).
 
----
+## 4. Credits
 
-## Mode 2: Standalone 13-Field English UC (When Requested)
-
-If the user explicitly requests a standalone English 13-field Use Case (Karl Wiegers / IIBA style):
-- Load `assets/uc-template.md`, `references/template-guide.md`, `references/writing-style-en.md`, and `references/quality-checklist.md` (20-point checklist `C1–C20`).
-
-## References
-
-- `references/scoping-rules.md` — 4 scoping rules + 3 splitting techniques (Vietnamese mobile examples)
-- `references/writing-style.md` — Active voice, UI naming, numbering, 10 common mistakes (Vietnamese mobile SRS)
-- `references/self-check.md` — 16-item Use Case self-check (`K1–K16`)
-- `references/template-guide.md` & `references/writing-style-en.md` & `references/quality-checklist.md` — 13-field English Wiegers reference suite
-- `assets/uc-template.md` — 13-field English template
+Scoping rules and the self-check are adapted from *Use Case Writer* by Phúc NT (BA Zone, MIT License, see `LICENSE`), based on Alistair Cockburn's *Writing Effective Use Cases* and the IIBA BABOK Guide.

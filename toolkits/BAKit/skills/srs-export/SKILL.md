@@ -1,61 +1,45 @@
 ---
 name: srs-export
-description: "Export the single-file SRS Markdown (docs/ba/srs/{app}_srs_v{N}.md) to a Word file for testers (docs/ba/srs-word/{app}_srs_v{N}.docx), with design images embedded and Mermaid diagrams rendered as images. Use after the SRS passes the quick audit, or when the user asks 'xuất Word', 'xuất docx cho tester', 'export SRS'."
+description: "Exports docs/project-srs.md to Word (docs/project-srs.docx) with the workspace Word rules: Mulish 12pt, native Heading 1/2/3, fixed proportional column widths, real line breaks, screen grid and element images embedded, Mermaid diagrams as images, internal links kept. Run ONLY when the user explicitly asks for a Word file ('xuất Word', 'export docx', '/ba-export'). The SRS is always written in Markdown first."
 ---
 
-# SRS Export — Markdown → Word for Testers
+# SRS Export — Markdown → Word
 
-The Markdown SRS is the **only source**. The Word file is generated from it and is never edited by hand, so the developer and tester versions always have the same content.
+The Markdown SRS is the only source. The Word file is generated from it, never edited by hand, and **only produced when the user asks**.
 
-## When to Run
+## When
 
-- After `BA-audit-SRS` (quick mode) returns **Ready** or **Conditionally Ready**.
-- After every new SRS version (`v{N+1}`).
-- Do not export a version whose audit is **Not Ready** unless the user explicitly asks; if so, tell them the Word file contains open P0 items.
+- The user asks for Word (`/ba-export`, "xuất Word", "gửi bản Word cho tester").
+- Never automatically after writing or updating the SRS.
+- If the SRS has unfinished Use Cases (a Figma section still waiting for PO answers), say so in chat and ask whether to export anyway.
 
-## How to Run
-
-From the project root:
+## How
 
 ```bash
-python .agents/skills/srs-export/scripts/export_docx.py docs/ba/srs/{app}_srs_v{N}.md
+python .agents/skills/user-flow/scripts/render_diagrams.py docs/project-srs.md   # make sure diagrams are current
+python .agents/skills/srs-export/scripts/export_docx.py docs/project-srs.md
 ```
 
-Output: `docs/ba/srs-word/{app}_srs_v{N}.docx` (same version number as the Markdown).
+Output: `docs/project-srs.docx`, overwritten each time (the PO sends the tester one file).
 
-Options:
+Options: `-o path.docx`; `--reference-doc company.docx` to use a company Word template (default `assets/reference.docx`: Mulish 12pt, black bold headings, bordered tables).
 
-- `-o path.docx` — custom output path.
-- `--reference-doc path.docx` — use the company Word template for fonts, colors and heading styles. Without it, `assets/reference.docx` is used (Arial, bordered tables).
+## What the script applies
 
-The script:
+| Rule (`ba-markdown-formatting`) | How |
+| :--- | :--- |
+| Font Mulish 12pt everywhere | reference styles + every run |
+| Native Heading 1/2/3, bold, black | pandoc heading styles from the reference doc |
+| Fixed proportional column widths (6.5") | by table header: Thuộc tính/Giá trị · STT/Rule ID/Tên rule/Mô tả · ID/Thành phần/Loại/Mô tả tương tác · Step/Actor/Action/Note/References · screen grid 3 × 2.17" |
+| `<br>` in cells → real line break | post-processing |
+| Screens, element images, diagrams embedded | `<img>` and Mermaid converted to embedded pictures |
+| Clickable references (`#br-002`, `#uc-…-af-1`) | anchors become Word bookmarks |
+| "Xem ảnh lớn" line | the local SVG link is dropped (the image is embedded); the mermaid.live link is kept |
 
-1. removes template comments (`<!-- … -->`);
-2. renders every Mermaid block to an image (needs `mmdc`);
-3. keeps internal links (anchors such as `#uc-edit-001`) working in Word;
-4. fits phone screenshots and diagrams on an A4 page;
-5. embeds every image into the .docx.
+## Requirements (one-time, on the PO's machine)
 
-## Requirements (one-time setup on the PO's machine)
+Python 3 with `python-docx` (`pip install python-docx`), [pandoc](https://pandoc.org/installing.html), and mermaid-cli (`npm i -g @mermaid-js/mermaid-cli`) for diagrams. Without mermaid-cli the script reuses `docs/BA/diagrams/<id>.png` when it exists, otherwise leaves the diagram as code and warns. If mmdc cannot find a browser, set `PUPPETEER_EXECUTABLE_PATH` to Chrome / Edge.
 
-| Tool | Needed for | Install |
-|---|---|---|
-| Python 3 | running the script | https://www.python.org/downloads/ |
-| pandoc | Markdown → Word (required) | https://pandoc.org/installing.html |
-| Node.js + mermaid-cli | diagrams as images (recommended) | install Node.js, then `npm i -g @mermaid-js/mermaid-cli` |
+## After export
 
-Without mermaid-cli the export still works, but diagrams stay as code text in Word; the script prints a warning.
-
-If mermaid-cli cannot find a browser, set `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome/Edge executable before running the script.
-
-## After Export — Report to the User (Vietnamese)
-
-- Path of the Word file.
-- Number of diagrams rendered; any diagram left as code (and why).
-- Any image the script could not find (pandoc prints `Could not fetch resource …`): this means a broken path in the SRS — fix the SRS, never the Word file.
-
-## Rules
-
-- Never edit the .docx by hand or with the `docx` skill to change content. Change the Markdown, then export again.
-- The `docx` skill may be used only for layout-level tasks the user explicitly asks for on an exported file (e.g., adding a company cover page), and those changes must be repeated after each export.
-- Never overwrite an exported version that was already sent to testers; export the new SRS version instead.
+Report in chat: the Word path, number of diagrams embedded, any diagram left as code, any missing image (`[pandoc] Could not fetch resource …` means a wrong path in the SRS: fix the Markdown, never the Word file).

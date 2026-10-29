@@ -6,7 +6,7 @@
 | Ngày tạo (Created) | {YYYY-MM-DD} |
 | Tác giả / Agent (Author) | {name / agent} |
 | Phiên bản (Version) | v1 |
-| Nguồn (Sources) | {FSD mục …, Feature Brief …, GAP-ID …} |
+| Nguồn (Sources) | {FSD mục …, Feature Brief …, Feature Checklist …} |
 
 ## Tổng quan (Overview)
 
@@ -18,7 +18,7 @@
 
 **Câu chuyện (Story):** Là **{vai trò}**, tôi muốn **{chức năng}**, để **{lợi ích}**.
 
-**Truy vết (Traceability):** FR-{MOD}-{NNN} · UC-{MOD}-{NNN} · {GAP-ID nếu xuất phát từ phân tích đối thủ}
+**Truy vết (Traceability):** FR-{MOD}-{NNN} · UC-{MOD}-{NNN} · {dòng Feature Checklist nếu xuất phát từ phân tích đối thủ}
 
 **Tiêu chí chấp nhận (Acceptance Criteria):**
 

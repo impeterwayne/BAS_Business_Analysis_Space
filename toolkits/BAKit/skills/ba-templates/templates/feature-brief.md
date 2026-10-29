@@ -7,7 +7,7 @@
 | Tác giả / Agent (Author) | {name / agent} |
 | Phiên bản (Version) | v1 |
 | Trạng thái (Status) | Draft / In Review / Approved |
-| Nguồn (Sources) | {yêu cầu gốc, biên bản, GAP-ID từ phân tích đối thủ} |
+| Nguồn (Sources) | {yêu cầu gốc, biên bản, dòng Feature Checklist liên quan} |
 
 ## 1. Phát biểu vấn đề (Problem Statement)
 
