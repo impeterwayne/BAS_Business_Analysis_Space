@@ -945,11 +945,14 @@ function bindMenuActions(menu, handlers, onFinally) {
 }
 
 function bindWorktreeQuickAction(buttonEl, openFn, toastMessage) {
-  buttonEl.addEventListener('click', () => {
+  buttonEl.addEventListener('click', async () => {
     const wtPath = getRequiredActiveWorktreePath();
     if (!wtPath) return;
-    openFn(wtPath);
     showToast(toastMessage, 'info');
+    const res = await openFn(wtPath);
+    if (res && res.success === false) {
+      showToast(res.error || 'Failed to launch application', 'error');
+    }
   });
 }
 
@@ -5068,18 +5071,24 @@ function attachSelectedProjectEvents(project) {
       }
     });
 
-    wtEl.querySelector('[data-action="android-studio"]')?.addEventListener('click', (e) => {
+    wtEl.querySelector('[data-action="android-studio"]')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       const currentTarget = e.currentTarget;
-      if (currentTarget instanceof HTMLElement) window.api.openInAndroidStudio(currentTarget.dataset.path || '');
       showToast('Opening Android Studio...', 'info');
+      if (currentTarget instanceof HTMLElement) {
+        const res = await window.api.openInAndroidStudio(currentTarget.dataset.path || '');
+        if (res && res.success === false) showToast(res.error || 'Failed to open Android Studio', 'error');
+      }
     });
 
-    wtEl.querySelector('[data-action="antigravity"]')?.addEventListener('click', (e) => {
+    wtEl.querySelector('[data-action="antigravity"]')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       const currentTarget = e.currentTarget;
-      if (currentTarget instanceof HTMLElement) window.api.openInAntigravity(currentTarget.dataset.path || '');
       showToast('Opening Antigravity...', 'info');
+      if (currentTarget instanceof HTMLElement) {
+        const res = await window.api.openInAntigravity(currentTarget.dataset.path || '');
+        if (res && res.success === false) showToast(res.error || 'Failed to open Antigravity IDE', 'error');
+      }
     });
 
     wtEl.querySelector('[data-action="obsidian"]')?.addEventListener('click', (e) => {

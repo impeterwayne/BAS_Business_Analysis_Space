@@ -1010,27 +1010,38 @@ app.whenReady().then(() => {
 
   // ── Launch tool actions ──────────────────────────────
 
-  ipcMain.handle('open-in-android-studio', (_, dirPath) => {
+  function spawnDetached(file: string, args: string[], options: Record<string, any> = {}): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(file, args, { ...options, detached: true, stdio: 'ignore' });
+      child.once('error', reject);
+      child.once('spawn', () => {
+        child.on('error', () => {});
+        child.unref();
+        resolve();
+      });
+    });
+  }
+
+  ipcMain.handle('open-in-android-studio', async (_, dirPath) => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.androidStudioPath || findAndroidStudioExecutable();
       const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
       const useShell = !path.isAbsolute(exe);
-      spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
+      await spawnDetached(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, windowsVerbatimArguments });
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
     }
   });
 
-  function openVsCode(dirPath: string) {
+  async function openVsCode(dirPath: string) {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.vscodePath || findVsCodeExecutable();
       const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
       const useShell = isWin && !path.isAbsolute(exe);
-      const child = spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
-      child.unref();
+      await spawnDetached(spawnFile, spawnArgs, { cwd: dirPath, shell: useShell, windowsVerbatimArguments });
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -1059,13 +1070,28 @@ app.whenReady().then(() => {
       ];
     }
     if (isMac) return macApps('Antigravity IDE.app');
-    return ['/usr/bin/antigravity-ide', '/usr/share/antigravity-ide/antigravity-ide', '/opt/Antigravity IDE/antigravity-ide'];
+    return [
+      path.join(localDataDir(), 'antigravity-ide', 'bin', 'antigravity-ide'),
+      path.join(localDataDir(), 'antigravity-ide', 'antigravity-ide'),
+      path.join(os.homedir(), '.local', 'bin', 'antigravity-ide'),
+      '/usr/bin/antigravity-ide',
+      '/usr/share/antigravity-ide/bin/antigravity-ide',
+      '/usr/share/antigravity-ide/antigravity-ide',
+      '/opt/Antigravity IDE/antigravity-ide',
+    ];
   }
 
   function antigravityAgentCandidates() {
     if (isWin) return [path.join(localDataDir(), 'Programs', 'antigravity', 'Antigravity.exe')];
     if (isMac) return macApps('Antigravity.app');
-    return ['/usr/bin/antigravity', '/usr/share/antigravity/antigravity', '/opt/Antigravity/antigravity'];
+    return [
+      path.join(os.homedir(), '.local', 'bin', 'antigravity'),
+      path.join(localDataDir(), 'antigravity', 'antigravity'),
+      path.join(os.homedir(), 'Tools', 'Antigravity', 'Antigravity-x64', 'antigravity'),
+      '/usr/bin/antigravity',
+      '/usr/share/antigravity/antigravity',
+      '/opt/Antigravity/antigravity',
+    ];
   }
 
   // `studio64` on Windows; JetBrains Toolbox and the Linux packages put `studio` / `android-studio` on PATH.
@@ -1414,21 +1440,21 @@ app.whenReady().then(() => {
     }
   }
 
-  ipcMain.handle('open-in-antigravity', (_, dirPath) => {
+  ipcMain.handle('open-in-antigravity', async (_, dirPath) => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.antigravityPath || findAntigravityExecutable();
       const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
 
       // Launch Antigravity IDE in the worktree directory safely (no shell-escaping issues)
-      spawn(spawnFile, spawnArgs, { cwd: dirPath, shell: false, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
+      await spawnDetached(spawnFile, spawnArgs, { cwd: dirPath, shell: false, windowsVerbatimArguments });
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
     }
   });
 
-  ipcMain.handle('open-in-antigravity-agent', (_, dirPath) => {
+  ipcMain.handle('open-in-antigravity-agent', async (_, dirPath) => {
     try {
       const settings = workspaceService.getSettings();
       const exe = settings.antigravityAgentPath || findAntigravityAgentExecutable();
@@ -1436,7 +1462,7 @@ app.whenReady().then(() => {
 
       // Launch Antigravity Agent Manager independently
       const cwd = path.isAbsolute(exe) ? path.dirname(exe) : undefined;
-      spawn(spawnFile, spawnArgs, { cwd, shell: false, windowsVerbatimArguments, detached: true, stdio: 'ignore' });
+      await spawnDetached(spawnFile, spawnArgs, { cwd, shell: false, windowsVerbatimArguments });
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -1516,8 +1542,7 @@ app.whenReady().then(() => {
       const exe = settings.figmaPath || findFigmaExecutable();
       if (exe && fs.existsSync(exe)) {
         const launch = buildLaunch(exe, target ? [target] : []);
-        const child = spawn(launch.file, launch.args, { windowsVerbatimArguments: launch.windowsVerbatimArguments, detached: true, stdio: 'ignore' });
-        child.unref();
+        await spawnDetached(launch.file, launch.args, { windowsVerbatimArguments: launch.windowsVerbatimArguments });
         return { success: true, method: 'desktop', path: exe };
       }
 
@@ -1592,11 +1617,9 @@ app.whenReady().then(() => {
         }
 
         const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, uriArgs);
-        spawn(spawnFile, spawnArgs, {
+        await spawnDetached(spawnFile, spawnArgs, {
           shell: !path.isAbsolute(exe),
           windowsVerbatimArguments,
-          detached: true,
-          stdio: 'ignore'
         });
         return { success: true };
       }
