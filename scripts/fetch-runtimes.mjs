@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Downloads the Python and Java runtimes BA Space ships with, so ReaKit (Python), jadx (Java) and the
-// BAKit scripts run on a machine with neither installed. electron-builder copies runtimes/<os>-<arch>
-// into resources/runtimes (extraResources in package.json); src/main/runtimes.ts finds them there.
+// Downloads the Python, Java and Node.js runtimes BA Space ships with, so ReaKit (Python), jadx (Java), the
+// BAKit scripts and the npx-launched MCP servers (Node.js) run on a machine with none of them installed.
+// electron-builder copies runtimes/<os>-<arch> into resources/runtimes (extraResources in package.json);
+// src/main/runtimes.ts finds them there.
 //
 //   node scripts/fetch-runtimes.mjs              every target this OS builds (macOS: arm64 and x64)
 //   node scripts/fetch-runtimes.mjs win-x64 ...  only these targets
@@ -21,26 +22,34 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'runt
 
 const PBS = 'https://github.com/astral-sh/python-build-standalone/releases/download/20261003';
 const TEMURIN = 'https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1';
+const NODE_VERSION = 'v26.13.1';
+const NODE = `https://nodejs.org/dist/${NODE_VERSION}`;
 
 // Keys follow electron-builder's ${os}-${arch}.
 const TARGETS = {
   'win-x64': {
     python: { url: `${PBS}/cpython-3.12.15%2B20261003-x86_64-pc-windows-msvc-install_only_stripped.tar.gz`, sha256: '6fba7f2ae506facf41d457ea8293c7497910a675c69a4e954875169410a50402' },
     java: { url: `${TEMURIN}/OpenJDK21U-jre_x64_windows_hotspot_21.0.12.1_1.zip`, sha256: 'd35f31e712f0fcf6ac5a093edc90204fbff22f720ba3950bd09d331d5e621636' },
+    node: { url: `${NODE}/node-${NODE_VERSION}-win-x64.zip`, sha256: 'e2edda75bfb089654705cf65a13b58933bfd5f57148e8ebda916f58a2474f1f7' },
   },
   'mac-arm64': {
     python: { url: `${PBS}/cpython-3.12.15%2B20261003-aarch64-apple-darwin-install_only_stripped.tar.gz`, sha256: 'ad8d0c637c0a36b967b310e2c07254f4d2ca8cabaa7699e55ed6290aceb481a2' },
     java: { url: `${TEMURIN}/OpenJDK21U-jre_aarch64_mac_hotspot_21.0.12.1_1.tar.gz`, sha256: 'dec50fc6f9fcd4fe3ae8cabf5a5fa68f6afc48841f7698e468e9aa5d54beed84' },
+    node: { url: `${NODE}/node-${NODE_VERSION}-darwin-arm64.tar.gz`, sha256: 'aec2514ea1ceb2ba52455e9ec65986f6749a06dd759e5db2a72e6889668c9735' },
   },
   'mac-x64': {
     python: { url: `${PBS}/cpython-3.12.15%2B20261003-x86_64-apple-darwin-install_only_stripped.tar.gz`, sha256: '562c30864ece2cb1d3e0ad66a1acd498611a47e5a10ce81b99158bef1ccbd355' },
     java: { url: `${TEMURIN}/OpenJDK21U-jre_x64_mac_hotspot_21.0.12.1_1.tar.gz`, sha256: '6717ec641fd9ce0bb209ca083ee23b42202ac68cb6fcc5753496e0e4a0f41989' },
+    node: { url: `${NODE}/node-${NODE_VERSION}-darwin-x64.tar.gz`, sha256: '82bb96078a24ca50b9c9a38f2379e6be6d87171fcd400fc14c8934b3bce96e2f' },
   },
   'linux-x64': {
     python: { url: `${PBS}/cpython-3.12.15%2B20261003-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz`, sha256: '731af898886c5f821890dc901eca3c651cca8e51fa7308c159d12a1194aeac91' },
     java: { url: `${TEMURIN}/OpenJDK21U-jre_x64_linux_hotspot_21.0.12.1_1.tar.gz`, sha256: '2413149700df0f7d440500a84a8f764c535f21e5a5e87d38328b64eec2c5b500' },
+    node: { url: `${NODE}/node-${NODE_VERSION}-linux-x64.tar.gz`, sha256: '518674de2b621728a5e4486f5fb3b7d2900bb3cc4aa97969edaa463db99f9778' },
   },
 };
+
+const RUNTIMES = ['python', 'java', 'node'];
 
 const HOST_TARGETS = { win32: ['win-x64'], darwin: ['mac-arm64', 'mac-x64'], linux: ['linux-x64'] };
 
@@ -88,7 +97,7 @@ async function fetchTarget(key) {
   if (!spec) throw new Error(`Unknown target ${key}; expected one of ${Object.keys(TARGETS).join(', ')}`);
   const dir = path.join(ROOT, key);
   const marker = path.join(dir, '.fetched');
-  const want = `${spec.python.sha256}\n${spec.java.sha256}\n`;
+  const want = RUNTIMES.map((name) => `${spec[name].sha256}\n`).join('');
   if ((await fs.readFile(marker, 'utf8').catch(() => '')) === want) {
     console.log(`${key}: up to date`);
     return;
@@ -96,7 +105,7 @@ async function fetchTarget(key) {
   await fs.mkdir(dir, { recursive: true });
   const downloads = await fs.mkdtemp(path.join(os.tmpdir(), 'ba-runtime-dl-'));
   try {
-    for (const name of ['python', 'java']) {
+    for (const name of RUNTIMES) {
       const { url, sha256 } = spec[name];
       const archive = path.join(downloads, decodeURIComponent(path.basename(url)));
       console.log(`${key}: ${name} <- ${url}`);
@@ -106,6 +115,13 @@ async function fetchTarget(key) {
   } finally {
     await fs.rm(downloads, { recursive: true, force: true });
   }
+  // Node's C headers (include/, 65 MB) only serve native-addon builds, which download their own headers anyway.
+  const nodeDir = path.join(dir, 'node');
+  for (const name of ['include', 'share', 'CHANGELOG.md', 'README.md']) {
+    await fs.rm(path.join(nodeDir, name), { recursive: true, force: true });
+  }
+  // src/main/runtimes.ts compares this to refresh its stable copy of Node in the user data folder.
+  await fs.writeFile(path.join(nodeDir, '.version'), `${NODE_VERSION}\n`);
   // python-build-standalone names it python3 on macOS/Linux; the BAKit skills call `python`.
   if (!key.startsWith('win-')) {
     const link = path.join(dir, 'python', 'bin', 'python');

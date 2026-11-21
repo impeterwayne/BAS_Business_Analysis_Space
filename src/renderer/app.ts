@@ -6099,7 +6099,7 @@ const BAKIT_COMPONENTS = [
     toolkit: 'bakit',
     kind: 'mcp',
     name: 'Figma MCP (workspace plugin)',
-    description: 'Adds figma-mcp-android (npx) as an Antigravity plugin in this worktree (.agents/plugins/figma) so /ba-figma can read the design open in Figma Desktop. Needs Node.js and the figma-mcp-android plugin running in Figma Desktop. Skipped when already registered globally.',
+    description: 'Adds figma-mcp-android (npx) as an Antigravity plugin in this worktree (.agents/plugins/figma) so /ba-figma can read the design open in Figma Desktop. Uses the bundled Node.js; needs the figma-mcp-android plugin running in Figma Desktop. Skipped when already registered globally.',
     gitExcludePatterns: []
   }
 ];

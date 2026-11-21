@@ -4,7 +4,7 @@ import path from 'path';
 import os from 'os';
 import { getManagedMobilerunCli } from '../bakit/mobilerunSetup';
 import { isWin, exeName, androidSdkDirs, findOnPath, localDataDir, unixBinDirs } from '../platform';
-import { bundledAdb, bundledScrcpy } from '../runtimes';
+import { bundledAdb, bundledScrcpy, npxLaunch } from '../runtimes';
 const {
   parseAdbDevicesOutput,
   parseDeviceEnrichment,
@@ -902,25 +902,24 @@ export class DeviceService {
   public async setupMobilerunPortal(serial: string): Promise<{ success: boolean; output?: string; error?: string }> {
     const targetSerial = serial || this.activeSerial;
     const serialArg = targetSerial ? `-d "${targetSerial}"` : '';
+    const options = {
+      encoding: 'utf-8' as const,
+      timeout: 120000,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      windowsHide: true,
+    };
 
-    const isWin = process.platform === 'win32';
-    const candidateCommands = [
-      isWin
-        ? `cmd /c npx -y @impeterwayne/mobilerun-mcp@latest cli setup ${serialArg}`
-        : `npx -y @impeterwayne/mobilerun-mcp@latest cli setup ${serialArg}`,
-      `mobilerun setup ${serialArg}`,
-      `uv run mobilerun setup ${serialArg}`,
+    // npx with the bundled Node when the app ships one, else npx from PATH.
+    const npx = npxLaunch(['-y', '@impeterwayne/mobilerun-mcp@latest', 'cli', 'setup', ...(targetSerial ? ['-d', targetSerial] : [])]);
+    const candidates: Array<() => string> = [
+      () => execFileSync(npx.command, npx.args, { ...options, env: { ...options.env, ...npx.env } }),
+      () => execSync(`mobilerun setup ${serialArg}`, options),
+      () => execSync(`uv run mobilerun setup ${serialArg}`, options),
     ];
 
-    for (const cmd of candidateCommands) {
+    for (const run of candidates) {
       try {
-        const output = execSync(cmd, {
-          encoding: 'utf-8',
-          timeout: 120000,
-          env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-          windowsHide: true,
-        });
-        return { success: true, output: output.trim() };
+        return { success: true, output: run().trim() };
       } catch {
         // try next
       }

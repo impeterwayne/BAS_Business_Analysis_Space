@@ -6,6 +6,7 @@ const os = require('os');
 const crypto = require('crypto');
 const pty = require('node-pty');
 const { getWorktrees: readWorktrees, getGitInfo: readGitInfo } = require('./git/gitInfo');
+const { excludeFromGit } = require('./git/gitExclude');
 const { createWorkspaceConfigStore } = require('../application/workspaceConfigStore');
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
@@ -17,8 +18,9 @@ const { DeviceStreamService } = require('./device/deviceStreamService');
 const { registerDeviceIpc } = require('./ipc/deviceIpc');
 const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
 const {
-  isWin, isMac, findOnPath, firstExisting, buildLaunch, fixUnixPath, localDataDir, roamingConfigDir, unixBinDirs,
+  isWin, isMac, findOnPath, findAllOnPath, firstExisting, buildLaunch, fixUnixPath, localDataDir, roamingConfigDir, unixBinDirs,
 } = require('./platform');
+const { discoverInstalls, ANTIGRAVITY_IDE, ANTIGRAVITY_AGENT } = require('./appDiscovery');
 const { withBundledRuntimes } = require('./runtimes');
 
 // Finder/Dock launches on macOS (and desktop-file launches on Linux) start with a bare PATH.
@@ -1081,6 +1083,42 @@ app.whenReady().then(() => {
     ];
   }
 
+  // Fixed locations first, then whatever the folder / .desktop scan turns up (portable archives under ~/Tools etc.).
+  function findAntigravityIde(): string | null {
+    return firstExisting(antigravityCandidates())
+      || firstExisting(discoverInstalls(ANTIGRAVITY_IDE))
+      || findOnPath('antigravity-ide', { preferScripts: true })
+      || findOnPath('agy-ide', { preferScripts: true });
+  }
+
+  // `antigravity` on PATH is often the Antigravity CLI (mise, npm), not the Agent Manager app: skip anything that
+  // resolves into a CLI install or a version-manager shim.
+  function isAntigravityCliPath(candidate: string): boolean {
+    let real = candidate;
+    try {
+      real = fs.realpathSync(candidate);
+    } catch (_) {
+      // Keep the unresolved path.
+    }
+    return [candidate, real].some((p) => /antigravity[-_]cli|[\\/](mise|asdf)[\\/]|[\\/]node_modules[\\/]/i.test(p))
+      || /^(mise|asdf)(\.exe)?$/i.test(path.basename(real));
+  }
+
+  function findAntigravityAgent(): string | null {
+    const app = (p: string) => fs.existsSync(p) && !isAntigravityCliPath(p);
+    return antigravityAgentCandidates().find(app)
+      || discoverInstalls(ANTIGRAVITY_AGENT).find(app)
+      || findAllOnPath('antigravity').find(app)
+      || null;
+  }
+
+  // A saved path that no longer exists (app moved or updated) falls back to detection instead of failing with ENOENT.
+  function usableConfiguredPath(configured: string | undefined): string | null {
+    if (!configured) return null;
+    if (!path.isAbsolute(configured)) return findOnPath(configured, { preferScripts: true }) ? configured : null;
+    return fs.existsSync(configured) ? configured : null;
+  }
+
   function antigravityAgentCandidates() {
     if (isWin) return [path.join(localDataDir(), 'Programs', 'antigravity', 'Antigravity.exe')];
     if (isMac) return macApps('Antigravity.app');
@@ -1189,8 +1227,8 @@ app.whenReady().then(() => {
   ipcMain.handle('detect-integration-paths', () => {
     return {
       vscodePath: detectPath('code', vscodeCandidates()),
-      antigravityPath: detectPath('antigravity-ide', antigravityCandidates()),
-      antigravityAgentPath: detectPath('antigravity', antigravityAgentCandidates()),
+      antigravityPath: findAntigravityIde(),
+      antigravityAgentPath: findAntigravityAgent(),
       claudeDesktopPath: findClaudeDesktopExecutable(),
       androidStudioPath: detectPath(androidStudioCommand, androidStudioCandidates()),
       scrcpyPath: detectPath('scrcpy', scrcpyCandidates()),
@@ -1206,14 +1244,6 @@ app.whenReady().then(() => {
     };
   });
 
-
-  function findAntigravityExecutable() {
-    return detectPath('antigravity-ide', antigravityCandidates()) || 'antigravity-ide';
-  }
-
-  function findAntigravityAgentExecutable() {
-    return detectPath('antigravity', antigravityAgentCandidates()) || 'antigravity';
-  }
 
   function findVsCodeExecutable() {
     return detectPath('code', vscodeCandidates()) || 'code';
@@ -1426,24 +1456,13 @@ app.whenReady().then(() => {
     }
   }
 
-  // Uses .git/info/exclude (resolved per worktree) so the repo's .gitignore stays untouched.
-  function excludeFromGit(folderPath: string, pattern: string) {
-    try {
-      const rel = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], { cwd: folderPath, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-      const excludePath = path.resolve(folderPath, rel);
-      const current = fs.existsSync(excludePath) ? fs.readFileSync(excludePath, 'utf-8') : '';
-      if (current.split(/\r?\n/).some((line) => line.trim() === pattern)) return;
-      fs.mkdirSync(path.dirname(excludePath), { recursive: true });
-      fs.appendFileSync(excludePath, `${current && !current.endsWith('\n') ? '\n' : ''}${pattern}\n`);
-    } catch (_) {
-      // Not a git repo.
-    }
-  }
-
   ipcMain.handle('open-in-antigravity', async (_, dirPath) => {
     try {
       const settings = workspaceService.getSettings();
-      const exe = settings.antigravityPath || findAntigravityExecutable();
+      const exe = usableConfiguredPath(settings.antigravityPath) || findAntigravityIde();
+      if (!exe) {
+        return { success: false, error: 'Antigravity IDE not found. Install it, or set its path in Settings → Integrations.' };
+      }
       const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
 
       // Launch Antigravity IDE in the worktree directory safely (no shell-escaping issues)
@@ -1457,7 +1476,10 @@ app.whenReady().then(() => {
   ipcMain.handle('open-in-antigravity-agent', async (_, dirPath) => {
     try {
       const settings = workspaceService.getSettings();
-      const exe = settings.antigravityAgentPath || findAntigravityAgentExecutable();
+      const exe = usableConfiguredPath(settings.antigravityAgentPath) || findAntigravityAgent();
+      if (!exe) {
+        return { success: false, error: 'Antigravity Agent Manager not found. Install it, or set its path in Settings → Integrations.' };
+      }
       const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, []);
 
       // Launch Antigravity Agent Manager independently

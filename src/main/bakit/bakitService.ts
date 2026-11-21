@@ -3,7 +3,9 @@ import fs from 'fs';
 import os from 'os';
 import { app } from 'electron';
 import { getManagedMobilerunPython } from './mobilerunSetup';
-import { venvExecutable, findOnPath } from '../platform';
+import { venvExecutable } from '../platform';
+import { npxLaunch } from '../runtimes';
+import { excludeFromGit } from '../git/gitExclude';
 
 // mobilerun is registered per workspace as an Antigravity plugin: .agents/plugins/mobilerun/ with a
 // plugin.json marker and an mcp_config.json. Antigravity discovers plugins under the workspace's .agents/,
@@ -13,9 +15,48 @@ export const MOBILERUN_SERVER_NAME = 'mobilerun';
 export const MOBILERUN_PACKAGE = '@impeterwayne/mobilerun-mcp@latest';
 const MOBILERUN_PLUGIN_DIR = path.join('.agents', 'plugins', 'mobilerun');
 
-// macOS/Linux: absolute npx, since an MCP host started from Finder/Dock may not have Homebrew or nvm on PATH.
-function posixNpxCommand(): string {
-  return findOnPath('npx') || 'npx';
+// MCP server entry that runs `npx -y <pkg>`, with the bundled Node when the app ships one (see npxLaunch).
+// Keeps whatever else the user put in an existing entry, env vars included.
+function npxServerEntry(existing: any, pkg: string) {
+  const launch = npxLaunch(['-y', pkg]);
+  const entry: any = { ...(existing || {}), command: launch.command, args: launch.args };
+  if (launch.env) entry.env = { ...(existing?.env || {}), ...launch.env };
+  return entry;
+}
+
+// The entry holds absolute, per-machine paths (the bundled Node in this user's data folder). It goes stale when the
+// worktree's config came from somewhere else (committed by a teammate, copied from another machine or user) or the
+// data folder was wiped: then the command or npx-cli.js it names no longer exists.
+function isStaleEntry(entry: any): boolean {
+  if (!entry || typeof entry.command !== 'string') return false;
+  const files = [entry.command, ...(Array.isArray(entry.args) ? entry.args.filter((a: any) => typeof a === 'string' && /npx-cli\.js$/.test(a)) : [])];
+  // Both flavours: a config from another OS holds C:\... or /home/... paths, which this OS's path.isAbsolute misses.
+  const isAbsolute = (file: string) => path.posix.isAbsolute(file) || path.win32.isAbsolute(file);
+  return files.some((file) => isAbsolute(file) && !fs.existsSync(file));
+}
+
+// Rewrites our server entry when it is stale (see isStaleEntry), so a workspace opened in BA Space always starts the
+// server with this machine's Node. Returns whether the entry is registered.
+function repairServerEntry(worktreePath: string, configPath: string, serverName: string, pkg: string): boolean {
+  const config = readMcpConfig(configPath);
+  const entry = config.mcpServers[serverName];
+  if (!entry) return false;
+  if (isStaleEntry(entry)) {
+    config.mcpServers[serverName] = npxServerEntry(entry, pkg);
+    writeMcpConfig(configPath, config);
+  }
+  excludePluginDir(worktreePath, configPath);
+  return true;
+}
+
+// Machine-specific config: keep it out of the repo so it is never committed for teammates. Status checks run this
+// often, so each plugin folder is handled once per session.
+const excludedPluginDirs = new Set<string>();
+function excludePluginDir(worktreePath: string, configPath: string) {
+  if (excludedPluginDirs.has(configPath)) return;
+  excludedPluginDirs.add(configPath);
+  const rel = path.relative(worktreePath, path.dirname(configPath)).split(path.sep).join('/');
+  excludeFromGit(worktreePath, `${rel}/`);
 }
 
 export interface MobilerunMcpStatus {
@@ -71,7 +112,7 @@ export function getMobilerunMcpStatus(worktreePath: string, _customPath?: string
   const globalConfigPath = getAntigravityMcpConfigPath();
   const globalRegistered = isGloballyRegistered(globalConfigPath);
   try {
-    const registered = !!readMcpConfig(configPath).mcpServers[MOBILERUN_SERVER_NAME];
+    const registered = repairServerEntry(worktreePath, configPath, MOBILERUN_SERVER_NAME, MOBILERUN_PACKAGE);
     return { registered, configPath, pythonPath: 'npx', globalRegistered, globalConfigPath };
   } catch (err: any) {
     return { registered: false, configPath, pythonPath: null, globalRegistered, globalConfigPath, error: `Invalid JSON in ${configPath}: ${err.message}` };
@@ -90,12 +131,9 @@ export function registerMobilerunMcp(worktreePath: string, _customPath?: string)
     }, null, 2) + '\n', 'utf8');
     // Keep any other server or setting the user added to this plugin's config.
     const config = readMcpConfig(configPath);
-    config.mcpServers[MOBILERUN_SERVER_NAME] = {
-      ...(config.mcpServers[MOBILERUN_SERVER_NAME] || {}),
-      command: process.platform === 'win32' ? 'npx' : posixNpxCommand(),
-      args: ['-y', MOBILERUN_PACKAGE],
-    };
+    config.mcpServers[MOBILERUN_SERVER_NAME] = npxServerEntry(config.mcpServers[MOBILERUN_SERVER_NAME], MOBILERUN_PACKAGE);
     writeMcpConfig(configPath, config);
+    excludePluginDir(worktreePath, configPath);
     return { success: true, configPath, globalRegistered };
   } catch (err: any) {
     return { success: false, error: err.message, configPath, globalRegistered };
@@ -171,7 +209,7 @@ export function getFigmaMcpStatus(worktreePath: string): FigmaMcpStatus {
   const globalConfigPath = findGlobalFigmaConfig();
   const globalRegistered = !!globalConfigPath;
   try {
-    const registered = !!readMcpConfig(configPath).mcpServers[FIGMA_SERVER_NAME];
+    const registered = repairServerEntry(worktreePath, configPath, FIGMA_SERVER_NAME, FIGMA_PACKAGE);
     return { registered, configPath, globalRegistered, globalConfigPath };
   } catch (err: any) {
     return { registered: false, configPath, globalRegistered, globalConfigPath, error: `Invalid JSON in ${configPath}: ${err.message}` };
@@ -189,13 +227,10 @@ export function registerFigmaMcp(worktreePath: string) {
       name: 'figma',
       description: 'BAKit: reads the Figma design open in Figma Desktop (figma-mcp-android plugin bridge) for BA analysis.',
     }, null, 2) + '\n', 'utf8');
-    // npx is a .cmd shim on Windows, which a bare spawn cannot start.
-    const launch = process.platform === 'win32'
-      ? { command: 'cmd', args: ['/c', 'npx', '-y', FIGMA_PACKAGE] }
-      : { command: posixNpxCommand(), args: ['-y', FIGMA_PACKAGE] };
     const config = readMcpConfig(configPath);
-    config.mcpServers[FIGMA_SERVER_NAME] = { ...(config.mcpServers[FIGMA_SERVER_NAME] || {}), ...launch };
+    config.mcpServers[FIGMA_SERVER_NAME] = npxServerEntry(config.mcpServers[FIGMA_SERVER_NAME], FIGMA_PACKAGE);
     writeMcpConfig(configPath, config);
+    excludePluginDir(worktreePath, configPath);
     return { success: true, skipped: false, configPath, globalConfigPath: null };
   } catch (err: any) {
     return { success: false, error: err.message, configPath };
