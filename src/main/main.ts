@@ -4,7 +4,6 @@ const { execSync, execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
-const pty = require('node-pty');
 const { getWorktrees: readWorktrees, getGitInfo: readGitInfo } = require('./git/gitInfo');
 const { excludeFromGit } = require('./git/gitExclude');
 const { createWorkspaceConfigStore } = require('../application/workspaceConfigStore');
@@ -16,12 +15,10 @@ const { registerReakitIpc } = require('./reakit/reakitService');
 const { DeviceService } = require('./device/deviceService');
 const { DeviceStreamService } = require('./device/deviceStreamService');
 const { registerDeviceIpc } = require('./ipc/deviceIpc');
-const { installPtyShutdownLifecycle, killPtyProcess } = require('./process/ptyLifecycle');
 const {
   isWin, isMac, findOnPath, findAllOnPath, firstExisting, buildLaunch, fixUnixPath, localDataDir, roamingConfigDir, unixBinDirs,
 } = require('./platform');
 const { discoverInstalls, ANTIGRAVITY_IDE, ANTIGRAVITY_AGENT } = require('./appDiscovery');
-const { withBundledRuntimes } = require('./runtimes');
 
 // Finder/Dock launches on macOS (and desktop-file launches on Linux) start with a bare PATH.
 fixUnixPath();
@@ -36,47 +33,10 @@ const workspaceService = createWorkspaceService({
 const deviceService = new DeviceService(() => workspaceService.getSettings());
 const deviceStreamService = new DeviceStreamService(deviceService);
 let mainWindow = null;
-const ptyProcesses = new Map(); // id -> pty process
 
 // ── Git Helpers ────────────────────────────────────────
 function getGitInfo(dirPath) {
   return readGitInfo(dirPath, execSync);
-}
-
-function shellQuoteWindowsArg(value) {
-  const normalized = String(value);
-  if (!/[\s"]/u.test(normalized)) return normalized;
-  return `"${normalized.replace(/"/g, '""')}"`;
-}
-
-// POSIX sh/bash/zsh quoting for the macOS/Linux terminals.
-function shellQuotePosixArg(value) {
-  const normalized = String(value);
-  if (/^[\w@%+=:,./-]+$/u.test(normalized)) return normalized;
-  return `'${normalized.replace(/'/g, `'\\''`)}'`;
-}
-
-function buildShellCommand(commandOrPath, args = []) {
-  const quote = isWin ? shellQuoteWindowsArg : shellQuotePosixArg;
-  return [commandOrPath, ...args].map(quote).join(' ');
-}
-
-function resolveToolLaunch(command, extraArgs = []) {
-  const launchArgs = Array.isArray(extraArgs) ? extraArgs.map((arg) => String(arg)) : [];
-
-  // npm-installed CLIs are .cmd shims on Windows, so those win over .exe there.
-  const resolvedPath = findOnPath(command, { preferScripts: true });
-  if (!resolvedPath) {
-    throw new Error(`Tool not found on PATH: ${command}`);
-  }
-
-  const launch = buildLaunch(resolvedPath, launchArgs);
-  return {
-    file: launch.file,
-    // node-pty takes a string as the verbatim Windows command line, which the cmd.exe form needs.
-    args: launch.windowsVerbatimArguments ? launch.args.join(' ') : launch.args,
-    shellCommand: buildShellCommand(resolvedPath, launchArgs),
-  };
 }
 
 function getRecentCommits(dirPath, count = 5) {
@@ -131,17 +91,6 @@ function isLockRelatedRemoveError(error) {
     || message.includes('device or resource busy')
     || message.includes('used by another process')
     || message.includes('file is being used by another process');
-}
-
-function closePtyById(id) {
-  const proc = ptyProcesses.get(id);
-  if (!proc) {
-    return false;
-  }
-
-  killPtyProcess(proc, execSync);
-  ptyProcesses.delete(id);
-  return true;
 }
 
 function removeWorktreeWithOptionalBranchDelete({ projectPath, wtPath, force = false, deleteBranch = false }) {
@@ -212,27 +161,9 @@ function removeWorktreeWithOptionalBranchDelete({ projectPath, wtPath, force = f
   }
 }
 
-// ── Detect default shell ───────────────────────────────
-function getDefaultShell() {
-  if (process.platform === 'win32') {
-    // Prefer PowerShell 7+ if available, then pwsh, then powershell
-    const pwshPaths = [
-      'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
-      'C:\\Program Files\\PowerShell\\pwsh.exe',
-    ];
-    for (const p of pwshPaths) {
-      if (fs.existsSync(p)) return p;
-    }
-    // Check if pwsh is on PATH
-    if (findOnPath('pwsh')) return 'pwsh.exe';
-    return 'powershell.exe';
-  }
-  return process.env.SHELL || (isMac ? '/bin/zsh' : '/bin/bash');
-}
-
 // ── External links ─────────────────────────────────────
 // Only http/https reach the OS handler; other schemes (file:, javascript:, custom
-// protocols) are ignored so terminal output can't launch arbitrary apps.
+// protocols) are ignored so untrusted links can't launch arbitrary apps.
 function openExternalUrl(url) {
   if (typeof url !== 'string') return { success: false, error: 'Invalid URL' };
   if (!/^https?:\/\//iu.test(url)) return { success: false, error: 'Unsupported URL scheme' };
@@ -276,9 +207,8 @@ function createWindow() {
     },
   });
 
-  // Intercept window.open calls (e.g. from xterm web-links addon or target="_blank" links).
-  // Note: some callers (xterm's WebLinksAddon) call window.open() with no URL and then assign
-  // location.href, so `url` here can be about:blank — never let that spawn a child window.
+  // Intercept window.open calls (e.g. target="_blank" links).
+  // Never let about:blank or external links spawn an Electron child window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     openExternalUrl(url);
     return { action: 'deny' };
@@ -297,7 +227,7 @@ function createWindow() {
 }
 
 // macOS application menu. Electron's default one puts Close (Cmd+W) in the Window menu, which closes the only
-// window and, through window-all-closed, quits and kills every terminal. This one has no close role.
+// window and quits the app. This one has no close role.
 function installMacAppMenu() {
   const viewSubmenu = [
     ...(app.isPackaged ? [] : [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }]),
@@ -592,52 +522,6 @@ app.whenReady().then(() => {
     return fs.existsSync(targetPath);
   });
 
-  ipcMain.handle('project:write-file', (_, { worktreePath, filename, content }) => {
-    try {
-      if (!worktreePath || !filename) {
-        throw new Error('Worktree path and filename are required.');
-      }
-      const targetFilePath = path.join(worktreePath, filename);
-      const parentDir = path.dirname(targetFilePath);
-      if (!fs.existsSync(parentDir)) {
-        fs.mkdirSync(parentDir, { recursive: true });
-      }
-      fs.writeFileSync(targetFilePath, content, 'utf-8');
-      return { success: true, filePath: targetFilePath };
-    } catch (err) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  });
-
-  ipcMain.handle('project:download-file', async (_, { url, targetFilePath }) => {
-    try {
-      if (!url || !targetFilePath) {
-        throw new Error('URL and targetFilePath are required.');
-      }
-      if (fs.existsSync(targetFilePath) && fs.statSync(targetFilePath).size > 0) {
-        return { success: true, cached: true, filePath: targetFilePath };
-      }
-      const parentDir = path.dirname(targetFilePath);
-      if (!fs.existsSync(parentDir)) {
-        fs.mkdirSync(parentDir, { recursive: true });
-      }
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} (${response.statusText})`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      fs.writeFileSync(targetFilePath, buffer);
-      return { success: true, cached: false, filePath: targetFilePath };
-    } catch (err: any) {
-      return { success: false, error: err?.message || String(err) };
-    }
-  });
-
   // Directory recursive copy helper
   function copyFolderSync(from, to) {
     if (!fs.existsSync(from)) return;
@@ -813,186 +697,7 @@ app.whenReady().then(() => {
   });
 
 
-  // ── PTY / Embedded Terminal ──────────────────────────
-
-  // Env for the embedded terminals. A Finder/Dock launch on macOS has no LANG, which leaves zsh, git and
-  // Python in the C locale (mangled UTF-8), so derive one from the app locale.
-  function terminalEnv() {
-    const env: NodeJS.ProcessEnv = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' };
-    if (!isWin && !env.LANG) {
-      const locale = app.getLocale().replace('-', '_');
-      env.LANG = /^[a-z]{2}_[A-Z]{2}$/.test(locale) ? `${locale}.UTF-8` : 'en_US.UTF-8';
-    }
-    return withBundledRuntimes(env);
-  }
-
-  ipcMain.handle('pty:create', (_, { cwd, id }) => {
-    try {
-      const shellPath = getDefaultShell();
-      // macOS terminals open login shells (that is where Homebrew/nvm set PATH up); Linux ones do not.
-      const shellArgs = shellPath.includes('pwsh') || shellPath.includes('powershell')
-        ? ['-NoLogo']
-        : (isMac ? ['-l'] : []);
-
-      const ptyProc = pty.spawn(shellPath, shellArgs, {
-        name: 'xterm-256color',
-        cols: 120,
-        rows: 30,
-        cwd: cwd || os.homedir(),
-        env: terminalEnv(),
-      });
-
-      ptyProcesses.set(id, ptyProc);
-
-      ptyProc.onData((data) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pty:data', { id, data });
-        }
-      });
-
-      ptyProc.onExit(({ exitCode }) => {
-        ptyProcesses.delete(id);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pty:exit', { id, exitCode });
-        }
-      });
-
-      return { success: true, pid: ptyProc.pid };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-
-  ipcMain.handle('pty:create-tool', (_, { cwd, id, command, args = [] }) => {
-    try {
-      const { file: toolPath, args: toolArgs } = resolveToolLaunch(command, args);
-
-      const ptyProc = pty.spawn(toolPath, toolArgs, {
-        name: 'xterm-256color',
-        cols: 120,
-        rows: 30,
-        cwd: cwd || os.homedir(),
-        env: terminalEnv(),
-      });
-
-      ptyProcesses.set(id, ptyProc);
-
-      ptyProc.onData((data) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pty:data', { id, data });
-        }
-      });
-
-      ptyProc.onExit(({ exitCode }) => {
-        ptyProcesses.delete(id);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pty:exit', { id, exitCode });
-        }
-      });
-
-      return { success: true, pid: ptyProc.pid };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-
-  ipcMain.handle('tool:resolve-launch', (_, { command, args = [] }) => {
-    try {
-      const { shellCommand } = resolveToolLaunch(command, args);
-      return { success: true, shellCommand };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
-
-  ipcMain.on('pty:write', (_, { id, data }) => {
-    const proc = ptyProcesses.get(id);
-    if (proc) proc.write(data);
-  });
-
-  ipcMain.on('pty:resize', (_, { id, cols, rows }) => {
-    const proc = ptyProcesses.get(id);
-    if (proc) {
-      try {
-        proc.resize(cols, rows);
-      } catch (_) {}
-    }
-  });
-
-  ipcMain.handle('pty:kill', (_, { id }) => {
-    closePtyById(id);
-    return { success: true };
-  });
-
-  // ── Launch Actions (kept for external terminal) ──────
-
-  // AppleScript string literal: backslashes and double quotes escaped.
-  function appleScriptString(value) {
-    return `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  }
-
-  // Linux terminal emulators in preference order, with the flag that precedes the command to run.
-  const LINUX_TERMINALS = [
-    { command: 'x-terminal-emulator', execFlag: '-e' },
-    { command: 'gnome-terminal', execFlag: '--' },
-    { command: 'konsole', execFlag: '-e' },
-    { command: 'xfce4-terminal', execFlag: '-x' },
-    { command: 'kitty', execFlag: null },
-    { command: 'alacritty', execFlag: '-e' },
-    { command: 'tilix', execFlag: '-e' },
-    { command: 'xterm', execFlag: '-e' },
-  ];
-
-  function openExternalTerminal(cwd, shellCommand) {
-    if (isWin) {
-      const args = shellCommand
-        ? ['new-tab', '-d', cwd, 'cmd.exe', '/d', '/k', shellCommand]
-        : ['new-tab', '-d', cwd];
-      spawn('wt.exe', args, { detached: true, stdio: 'ignore', shell: true });
-      return;
-    }
-
-    if (isMac) {
-      const script = shellCommand
-        ? `cd ${shellQuotePosixArg(cwd)} && ${shellCommand}`
-        : `cd ${shellQuotePosixArg(cwd)}`;
-      // Wait for osascript so a refused Automation permission or a missing Terminal reaches the caller.
-      return new Promise<void>((resolve, reject) => {
-        const child = spawn('osascript', [
-          '-e', `tell application "Terminal" to do script ${appleScriptString(script)}`,
-          '-e', 'tell application "Terminal" to activate',
-        ], { stdio: ['ignore', 'ignore', 'pipe'] });
-        let stderr = '';
-        child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-        child.on('error', reject);
-        child.on('exit', (code, signal) => {
-          if (code === 0) resolve();
-          else reject(new Error(stderr.trim() || `osascript exited with ${signal || `code ${code}`}`));
-        });
-      });
-    }
-
-    const terminal = LINUX_TERMINALS.find((t) => findOnPath(t.command));
-    if (!terminal) {
-      throw new Error('No terminal emulator found. Install gnome-terminal, konsole, xfce4-terminal or xterm.');
-    }
-    const userShell = process.env.SHELL || '/bin/bash';
-    // Keep the window open after the tool exits by handing over to an interactive shell.
-    const args = shellCommand
-      ? [...(terminal.execFlag ? [terminal.execFlag] : []), userShell, '-c', `${shellCommand}; exec ${shellQuotePosixArg(userShell)}`]
-      : [];
-    spawn(terminal.command, args, { cwd, detached: true, stdio: 'ignore' }).unref();
-  }
-
-  ipcMain.handle('open-wt', async (_, { cwd, launchCommand, launchArgs = [] }) => {
-    try {
-      const shellCommand = launchCommand ? resolveToolLaunch(launchCommand, launchArgs).shellCommand : '';
-      await openExternalTerminal(cwd, shellCommand);
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  });
+  // ── Launch Actions ───────────────────────────────────
 
   ipcMain.handle('open-external', (_, url) => openExternalUrl(url));
 
@@ -1809,8 +1514,6 @@ app.whenReady().then(() => {
     }
   });
 });
-
-installPtyShutdownLifecycle(app, ptyProcesses, execSync);
 
 app.on('will-quit', () => {
   deviceStreamService.stopAllStreams();

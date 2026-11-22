@@ -1,11 +1,7 @@
 /* ═══════════════════════════════════════════════════════
-   Coding Space — Renderer (Embedded Terminal + Sidebar)
+   BA Space — Renderer (Workspace + Sidebar)
    ═══════════════════════════════════════════════════════ */
 
-const { Terminal } = require('@xterm/xterm');
-const { FitAddon } = require('@xterm/addon-fit');
-const { WebLinksAddon } = require('@xterm/addon-web-links');
-const { WebglAddon } = require('@xterm/addon-webgl');
 const {
   getAvailableWorktreeBranches,
   isInvalidGitBranchName,
@@ -17,11 +13,10 @@ const {
   buildWorktreeTree: getDomainBuildWorktreeTree,
   parseFigmaUrl,
   parseFirebaseUrl,
+  parsePlaneUrl,
   parseDocUrl,
   formatDisplayUrl,
-  parseBenchmarkFlows,
   parseTargetFlows,
-  formatFlowSlug,
   buildBenchmarkSlashCommand,
   buildTargetFlowSlashCommand,
   buildChecklistSlashCommand,
@@ -37,50 +32,6 @@ const { openMobilerunSetupModal } = require('./modals/mobilerunSetupModal');
 const { createModalHelpers } = require('./ui/modalHelpers');
 const { createModalPrimitives } = require('./ui/modalPrimitives');
 const { DeviceManagerScreen } = require('./screens/deviceManagerScreen');
-const { createPlaneTaskScreen } = require('./screens/planeTaskScreen');
-
-type TerminalBehavior = {
-  forceMouseMode: boolean;
-};
-
-type ToolTab = {
-  key: string;
-  action: string;
-  command: string;
-  label: string;
-  iconKey: string;
-  prewarm: boolean;
-  launchArgs: string[];
-  title: string;
-  warningBadge?: string;
-  behavior: TerminalBehavior;
-};
-
-// ── Windows Terminal color scheme ──────────────────────
-const WT_THEME = {
-  background: '#0c0c0c',
-  foreground: '#cccccc',
-  cursor: '#cccccc',
-  cursorAccent: '#0c0c0c',
-  selectionBackground: 'rgba(255,255,255,0.18)',
-  selectionForeground: '#ffffff',
-  black: '#0c0c0c',
-  red: '#c50f1f',
-  green: '#13a10e',
-  yellow: '#c19c00',
-  blue: '#0037da',
-  magenta: '#881798',
-  cyan: '#3a96dd',
-  white: '#cccccc',
-  brightBlack: '#767676',
-  brightRed: '#e74856',
-  brightGreen: '#16c60c',
-  brightYellow: '#f9f1a5',
-  brightBlue: '#3b78ff',
-  brightMagenta: '#b4009e',
-  brightCyan: '#61d6d6',
-  brightWhite: '#f2f2f2',
-};
 
 // ── State ──────────────────────────────────────────────
 const state: {
@@ -100,24 +51,11 @@ const state: {
     reakitPath?: string;
     autoRefreshCurrentProject?: boolean;
     autoRefreshInterval?: number;
-    planeApiKey?: string;
-    planeBaseUrl?: string;
-    planeWorkspaceSlug?: string;
-    projectPlaneIds?: Record<string, string>;
     symlinkTargets?: Array<{ name: string; targetPath: string }>;
   };
-  useExternalWt: boolean;
   workspaceSidebarCollapsed: boolean;
-  tabSidebarCollapsed: boolean;
   expandedProjects: Set<string>;
-  terminals: Map<string, any>;
-  activeTerminalId: string | null;
   activeWorktreePath: string | null;
-  worktreeActiveTerminal: Map<string, string>;
-  terminalCounter: number;
-  prewarm: { opencode: any };
-  prewarmInProgress: { opencode: boolean };
-  prewarmSuspendedWorktrees: Set<string>;
   selectedProjectPath: string | null;
 } = {
   projects: [],
@@ -126,23 +64,9 @@ const state: {
     autoRefreshCurrentProject: false,
     autoRefreshInterval: 10,
   },
-  useExternalWt: false,
   workspaceSidebarCollapsed: false,
-  tabSidebarCollapsed: false,
   expandedProjects: new Set(),
-  terminals: new Map(),   // id -> { term, fitAddon, paneEl, name, cwd, worktreePath, cleanup }
-  activeTerminalId: null,
-  activeWorktreePath: null, // which worktree's tabs are currently shown
-  worktreeActiveTerminal: new Map(), // worktreePath -> last active terminal id
-  terminalCounter: 0,
-  // Prewarmed tool sessions: { id, term, fitAddon, paneEl, cleanup, cwd, worktreePath, ready }
-  prewarm: {
-    opencode: null,
-  },
-  prewarmInProgress: {
-    opencode: false,
-  },
-  prewarmSuspendedWorktrees: new Set(),
+  activeWorktreePath: null,
   selectedProjectPath: null,
 };
 
@@ -158,7 +82,6 @@ const dom = {
   btnAddProject: $('#btn-add-project'),
   btnAddFirst: $('#btn-add-first'),
   btnRefreshAll: $('#btn-refresh-all'),
-  toggleExternalWt: $('#toggle-external-wt'),
   projectsContainer: $('#projects-container'),
   loadingState: $('#loading-state'),
   emptyState: $('#empty-state'),
@@ -171,17 +94,6 @@ const dom = {
   modalCloseBtn: $('#modal-close-btn'),
   terminalArea: $('#terminal-area'),
   terminalWelcome: $('#terminal-welcome'),
-  terminalContainer: $('#terminal-container'),
-  terminalTabs: $('#terminal-tabs'),
-  btnTerminalScreen: $('#btn-terminal-screen'),
-  terminalScreen: $('#terminal-screen'),
-  btnCloseTerminalScreen: $('#btn-close-terminal-screen'),
-  btnTerminalScreenNew: $('#btn-terminal-screen-new'),
-  terminalEmptyState: $('#terminal-empty-state'),
-  btnTerminalEmptyNew: $('#btn-terminal-empty-new'),
-  tabListScroll: $('#tab-list-scroll'),
-  tabNewBtn: $('#tab-new-btn'),
-  tabCollapseBtn: $('#tab-collapse-btn'),
   btnVsCode: $('#btn-vscode'),
   btnExplorer: $('#btn-explorer'),
   btnAndroidStudio: $('#btn-android-studio'),
@@ -203,6 +115,7 @@ const dom = {
   btnObsidian: $('#btn-obsidian'),
   dashboardEmptyState: $('#dashboard-empty-state'),
   btnDashboardAddFirst: $('#btn-dashboard-add-first'),
+  btnDashboardEmptySettings: $('#btn-dashboard-empty-settings'),
   dashboardViewer: $('#dashboard-viewer'),
   dashProjectName: $('#dash-project-name'),
   dashBranchBadge: $('#dash-branch-badge'),
@@ -218,17 +131,19 @@ const dom = {
   dashFirebaseStatusPill: $('#dash-firebase-status-pill'),
   dashFirebaseBody: $('#dash-firebase-body'),
   dashBtnBrowserFirebase: $('#dash-btn-browser-firebase'),
+  dashPlaneStatusPill: $('#dash-plane-status-pill'),
+  dashPlaneBody: $('#dash-plane-body'),
+  dashBtnBrowserPlane: $('#dash-btn-browser-plane'),
   dashLegacyDocsStatusPill: $('#dash-legacy-docs-status-pill'),
   dashLegacyDocsActions: $('#dash-legacy-docs-actions'),
   dashLegacyDocsBody: $('#dash-legacy-docs-body'),
   dashBtnBrowserPrd: $('#dash-btn-browser-prd'),
   dashBtnBrowserChecklist: $('#dash-btn-browser-checklist'),
-  dashSectionChecklist: $('#dash-section-checklist'),
-  dashChecklistBadge: $('#dash-checklist-badge'),
-  dashBtnChecklistOpenLink: $('#dash-btn-checklist-open-link'),
-  dashBtnChecklistResources: $('#dash-btn-checklist-resources'),
-  dashBtnAddChecklistScope: $('#dash-btn-add-checklist-scope'),
-  dashChecklistBody: $('#dash-checklist-body'),
+  dashSectionAgentToolkit: $('#dash-section-agent-toolkit'),
+  dashToolkitHeader: $('#dash-toolkit-header'),
+  dashToolkitBody: $('#dash-toolkit-body') as HTMLElement | null,
+  dashToolkitStatusPill: $('#dash-toolkit-status-pill'),
+  dashToolkitCountBadge: $('#dash-toolkit-count-badge'),
   dashSectionCompetitors: $('#dash-section-competitors'),
   dashBtnImportCompApk: $('#dash-btn-import-comp-apk'),
   dashCompBadge: $('#dash-comp-badge'),
@@ -245,13 +160,9 @@ const dom = {
   sidebarResizeHandle: $('#sidebar-resize-handle'),
   sidebar: $('#sidebar'),
   workspaceSidebar: $('#workspace-sidebar'),
-  tabResizeHandle: $('#tab-resize-handle'),
   settingsAntigravityPath: $('#settings-antigravity-path'),
   settingsAntigravityAgentPath: $('#settings-antigravity-agent-path'),
   settingsClaudeDesktopPath: $('#settings-claude-desktop-path') as HTMLInputElement | null,
-  settingsPlaneApiKey: $('#settings-plane-api-key') as HTMLInputElement | null,
-  btnCopyPlaneApiKey: $('#btn-copy-plane-api-key') as HTMLButtonElement | null,
-  btnSavePlaneApiKey: $('#btn-save-plane-api-key') as HTMLButtonElement | null,
   settingsVsCodePath: $('#settings-vscode-path') as HTMLInputElement | null,
   settingsAndroidStudioPath: $('#settings-android-studio-path'),
   settingsFigmaPath: $('#settings-figma-path'),
@@ -282,10 +193,6 @@ const dom = {
   btnAddSymlinkScreenTarget: $('#btn-symlink-screen-add'),
   symlinkScreenNameGroup: $('#symlink-screen-name-group'),
   btnAgentToolkit: $('#btn-agent-toolkit'),
-  agentToolkitScreen: $('#agent-toolkit-screen'),
-  btnCloseAgentToolkitScreen: $('#btn-close-agent-toolkit-screen'),
-  agentToolkitActiveName: $('#agent-toolkit-active-name'),
-  agentToolkitActivePath: $('#agent-toolkit-active-path'),
   agentToolkitListContainer: $('#agent-toolkit-list-container'),
   btnDeviceManager: $('#btn-device-manager'),
   deviceManagerScreen: $('#device-manager-screen'),
@@ -294,27 +201,18 @@ const dom = {
   btnCloseDeviceRemoteScreen: $('#btn-close-device-remote-screen'),
   btnBackToDeviceList: $('#btn-dm-back-to-list'),
   btnClaudeDesktop: $('#btn-claude-desktop'),
-  btnPlaneTasks: $('#btn-plane-tasks'),
-  planeTaskScreen: $('#plane-task-screen'),
 };
 
 const WORKSPACE_SIDEBAR_COLLAPSED_KEY = 'codingspace.workspaceSidebarCollapsed';
-const TAB_SIDEBAR_COLLAPSED_KEY = 'codingspace.tabSidebarCollapsed';
 
 // ── Window Controls ────────────────────────────────────
 // platform-darwin hides the custom buttons (native traffic lights are shown) and makes room for them.
 document.body.classList.add(`platform-${window.api.platform}`);
 const isMac = window.api.platform === 'darwin';
 const FILE_MANAGER_LABEL = isMac ? 'Finder' : 'Explorer';
-const EXTERNAL_TERMINAL_LABEL = window.api.platform === 'win32' ? 'Windows Terminal' : 'External Terminal';
-const externalWtToggle = document.querySelector('label.workspace-toggle[title*="Windows Terminal"]');
-if (externalWtToggle && window.api.platform !== 'win32') {
-  externalWtToggle.setAttribute('title', 'Open worktrees in an external terminal window');
-}
 // macOS: swap Windows-only wording and path examples in the static markup.
 if (isMac) {
   dom.dashBtnRevealPath?.setAttribute('title', 'Reveal in Finder');
-  dom.btnTerminalScreenNew?.setAttribute('title', 'New Terminal (⌘N)');
   if (dom.btnExplorer) {
     dom.btnExplorer.setAttribute('title', 'Open in Finder');
     dom.btnExplorer.setAttribute('aria-label', 'Open in Finder');
@@ -338,10 +236,6 @@ dom.btnMaximize.addEventListener('click', () => window.api.maximize());
 dom.btnClose.addEventListener('click', () => window.api.close());
 
 // ── Option Toggles ─────────────────────────────────────
-dom.toggleExternalWt.addEventListener('change', (e) => {
-  state.useExternalWt = e.target.checked;
-});
-
 dom.btnToggleWorkspaceSidebar.addEventListener('click', () => {
   setWorkspaceSidebarCollapsed(!state.workspaceSidebarCollapsed);
 });
@@ -390,70 +284,10 @@ if (dom.btnBrowseObsidianVault && dom.settingsObsidianVault) {
   });
 }
 
-if (dom.btnCopyPlaneApiKey && dom.settingsPlaneApiKey) {
-  dom.btnCopyPlaneApiKey.addEventListener('click', async () => {
-    const apiKey = dom.settingsPlaneApiKey?.value?.trim() || state.settings?.planeApiKey || '';
-    if (!apiKey) {
-      showToast('No Plane API key to copy', 'warning');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(apiKey);
-      showToast('Plane API key copied to clipboard!', 'success');
-      const btn = dom.btnCopyPlaneApiKey;
-      if (btn) {
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<img src="icons/check.svg" width="14" height="14" alt="" /><span>Copied!</span>';
-        btn.classList.add('btn-copied');
-        setTimeout(() => {
-          btn.innerHTML = originalHtml;
-          btn.classList.remove('btn-copied');
-        }, 1800);
-      }
-    } catch (_) {
-      showToast('Failed to copy Plane API key to clipboard', 'error');
-    }
-  });
-}
-
-if (dom.btnSavePlaneApiKey && dom.settingsPlaneApiKey) {
-  dom.btnSavePlaneApiKey.addEventListener('click', async () => {
-    const btn = dom.btnSavePlaneApiKey;
-    const originalHtml = btn?.innerHTML || '';
-    try {
-      if (btn) btn.disabled = true;
-      await saveSettingsFromUI();
-      const hasKey = !!(dom.settingsPlaneApiKey?.value?.trim());
-      showToast(hasKey ? 'Plane API key saved successfully!' : 'Plane API key cleared', 'success');
-      if (btn) {
-        btn.innerHTML = '<img src="icons/check.svg" width="14" height="14" alt="" /><span>Saved!</span>';
-        setTimeout(() => {
-          btn.innerHTML = originalHtml;
-          btn.disabled = false;
-        }, 1800);
-      }
-    } catch (err: any) {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-      }
-      showToast(`Failed to save Plane API key: ${err?.message || err}`, 'error');
-    }
-  });
-
-  dom.settingsPlaneApiKey.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      dom.btnSavePlaneApiKey?.click();
-    }
-  });
-}
-
 const settingsInputs = [
   dom.settingsAntigravityPath,
   dom.settingsAntigravityAgentPath,
   dom.settingsClaudeDesktopPath,
-  dom.settingsPlaneApiKey,
   dom.settingsAndroidStudioPath,
   dom.settingsFigmaPath,
   dom.settingsFigmaUrl,
@@ -484,9 +318,8 @@ async function addProject() {
       if (state.workspaceSidebarCollapsed) {
         setWorkspaceSidebarCollapsed(false);
       }
-      hideTerminalScreen();
       renderSidebar();
-      await openProjectWorkspaceAndTerminal(result.path);
+      await openProjectWorkspace(result.path);
       scrollSelectedProjectIntoView(result.path);
     }
     showToast(result.error, result.path ? 'info' : 'error');
@@ -499,8 +332,7 @@ async function addProject() {
   }
   showToast(`Added project: ${result.name}`, 'success');
   await loadWorkspaces();
-  hideTerminalScreen();
-  await openProjectWorkspaceAndTerminal(result.path);
+  await openProjectWorkspace(result.path);
   scrollSelectedProjectIntoView(result.path);
 }
 
@@ -535,7 +367,6 @@ if (dom.btnRefreshAll) {
   document.addEventListener('mousemove', (e) => {
     if (!isResizing) return;
     dom.sidebar.style.width = Math.min(500, Math.max(200, e.clientX)) + 'px';
-    fitActiveTerminal();
   });
   document.addEventListener('mouseup', () => {
     if (isResizing) {
@@ -543,42 +374,6 @@ if (dom.btnRefreshAll) {
       dom.sidebarResizeHandle.classList.remove('active');
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      fitActiveTerminal();
-    }
-  });
-})();
-
-// ── Tab Sidebar Resize ─────────────────────────────────
-(function initTabSidebarResize() {
-  let isResizing = false;
-  
-  dom.tabResizeHandle.addEventListener('mousedown', (e) => {
-    if (state.tabSidebarCollapsed) return; // Do not resize if collapsed
-    isResizing = true;
-    dom.tabResizeHandle.classList.add('active');
-    dom.terminalTabs.classList.add('resizing');
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
-  });
-  
-  document.addEventListener('mousemove', (e) => {
-    if (!isResizing) return;
-    const parentEl = dom.terminalTabs?.parentElement;
-    const parentLeft = parentEl ? parentEl.getBoundingClientRect().left : dom.sidebar.getBoundingClientRect().width;
-    const computedWidth = Math.min(350, Math.max(140, e.clientX - parentLeft));
-    document.documentElement.style.setProperty('--tab-sidebar-width', computedWidth + 'px');
-    fitActiveTerminal();
-  });
-  
-  document.addEventListener('mouseup', () => {
-    if (isResizing) {
-      isResizing = false;
-      dom.tabResizeHandle.classList.remove('active');
-      dom.terminalTabs.classList.remove('resizing');
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      fitActiveTerminal();
     }
   });
 })();
@@ -632,7 +427,6 @@ function iconSvg(rawSvg, size = 12) {
 
 // Load all SVG icons once at startup
 const iconRaw = {
-  terminal: loadIcon('terminal'),
   code: loadIcon('code'),
   codex: loadIcon('codex'),
   folder: loadIcon('folder'),
@@ -646,7 +440,6 @@ const iconRaw = {
   close: loadIcon('close'),
   opencode: loadIcon('opencode'),
   claude: loadIcon('claude'),
-  'windows-terminal': loadIcon('windows-terminal'),
   android: loadIcon('android'),
   antigravity: loadIcon('antigravity'),
   'more-vertical': loadIcon('more-vertical'),
@@ -669,7 +462,6 @@ const iconRaw = {
 
 // Pre-sized icon strings matching original inline sizes
 const icons = {
-  terminal: iconSvg(iconRaw.terminal, 12),
   code: iconSvg(iconRaw.code, 12),
   folder: iconSvg(iconRaw.folder, 12),
   gitBranch: iconSvg(iconRaw.gitBranch, 10),
@@ -683,7 +475,6 @@ const icons = {
   close: iconSvg(iconRaw.close, 8),
   get opencode() { return iconSvg(iconRaw.opencode, 12); },
   claude: iconSvg(iconRaw.claude, 12),
-  'windows-terminal': iconSvg(iconRaw['windows-terminal'], 12),
   android: iconSvg(iconRaw.android, 12),
   apk: iconSvg(iconRaw.apk, 12),
   decode: iconSvg(iconRaw.decode, 12),
@@ -719,145 +510,14 @@ const FIREBASE_COLORED_LOGO = `<svg width="22" height="28" viewBox="0 0 24 30" f
   <path d="M1 24 15.5 7.7a.6.6 0 0 1 1 .3L23 24l-9.9 5.6a2.2 2.2 0 0 1-2.2 0Z" fill="#FFCA28"/>
 </svg>`;
 
+const PLANE_COLORED_LOGO = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M21.5 2.5 10 14" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21.5 2.5 14.5 21.5 10 14 2.5 9.5 21.5 2.5Z" fill="#3F76FF" fill-opacity="0.22" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
 const EDIT_PENCIL_SVG =`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
 
-const TOOL_TABS: Record<string, ToolTab> = {
-  agy: {
-    key: 'agy',
-    action: 'new-agy',
-    command: 'agy',
-    label: 'Antigravity CLI',
-    iconKey: 'antigravity',
-    prewarm: false,
-    launchArgs: ['--dangerously-skip-permissions'],
-    title: 'Open Antigravity CLI with --dangerously-skip-permissions in a new terminal tab',
-    warningBadge: 'danger',
-    behavior: {
-      forceMouseMode: false,
-    },
-  },
-
-  opencode: {
-    key: 'opencode',
-    action: 'new-opencode',
-    command: 'opencode',
-    label: 'OpenCode',
-    iconKey: 'opencode',
-    prewarm: false,
-    launchArgs: [],
-    title: 'Open OpenCode in a new terminal tab',
-    behavior: {
-      forceMouseMode: true,
-    },
-  },
-
-  codexYolo: {
-    key: 'codexYolo',
-    action: 'new-codex-yolo',
-    command: 'codex',
-    label: 'Codex (YOLO)',
-    iconKey: 'codex',
-    prewarm: false,
-    launchArgs: ['--dangerously-bypass-approvals-and-sandbox'],
-    title: 'Open Codex without approvals or sandboxing. Only use this in isolated/sandboxed environments.',
-    warningBadge: 'danger',
-    behavior: {
-      forceMouseMode: false,
-    },
-  },
-
-  claudeDangerous: {
-    key: 'claudeDangerous',
-    action: 'new-claude-dangerous',
-    command: 'claude',
-    label: 'Claude (skip permissions)',
-    iconKey: 'claude',
-    prewarm: false,
-    launchArgs: ['--dangerously-skip-permissions'],
-    title: 'Open Claude with --dangerously-skip-permissions. Only use this in isolated/sandboxed environments.',
-    warningBadge: 'danger',
-    behavior: {
-      forceMouseMode: false,
-    },
-  },
-};
-
-const PREWARM_TOOLS = Object.fromEntries(
-  Object.values(TOOL_TABS)
-    .filter((tool) => tool.prewarm)
-    .map((tool) => [tool.key, tool])
-);
-
-function getToolTabByAction(action) {
-  return Object.values(TOOL_TABS).find((tool) => tool.action === action) || null;
-}
-
-function getToolTabByKey(toolKey) {
-  return TOOL_TABS[toolKey] || null;
-}
-
-async function resolveToolLaunchOrThrow(command, launchArgs = []) {
-  const resolved = await window.api.resolveToolLaunch({ command, args: launchArgs });
-  if (!resolved?.success || !resolved.shellCommand) {
-    throw new Error(resolved?.error || `Failed to resolve launch command for ${command}`);
-  }
-  return resolved.shellCommand;
-}
-
-/** @param {ToolTab} tool */
-function buildToolTabLabel(tool, wtName) {
-  return `${tool.label}: ${wtName}`;
-}
-
-function buildToolSessionName(tool, wtName) {
-  const safeName = wtName.replace(/[^a-zA-Z0-9]/g, '_');
-  const safeToolName = tool.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  return `${safeName}_${safeToolName}_${Date.now()}`;
-}
-
-const DEFAULT_TERMINAL_BEHAVIOR: TerminalBehavior = {
-  forceMouseMode: false,
-};
-
-function normalizeTerminalBehavior(behavior: Partial<TerminalBehavior> = {}): TerminalBehavior {
-  return {
-    forceMouseMode: Boolean(behavior.forceMouseMode),
-  };
-}
-
-function applyTerminalBehavior(term, behavior: TerminalBehavior) {
-  if (behavior.forceMouseMode) {
-    forceTerminalMouseMode(term);
-  }
-
-  return () => {};
-}
-
-// OSC 8 hyperlinks (emitted by Claude Code, gh, npm, vite…) bypass the web-links addon —
-// xterm handles them itself, and its default handler confirm()s then calls window.open(),
-// which the main process denies, so the link goes nowhere. Route it through the same IPC.
-const TERMINAL_LINK_HANDLER = {
-  activate: (_event, text) => {
-    void window.api.openExternal(text);
-  },
-};
-
-function loadRendererAddons(term, fitAddon) {
-  term.options.linkHandler = TERMINAL_LINK_HANDLER;
-  term.loadAddon(fitAddon);
-  // The addon's default handler does window.open() then sets location.href, which Electron
-  // turns into an in-app window instead of the OS browser — hand the URL to the main process.
-  term.loadAddon(new WebLinksAddon((_event, uri) => {
-    void window.api.openExternal(uri);
-  }));
-  try {
-    term.loadAddon(new WebglAddon());
-  } catch (error) {
-    console.warn('Failed to enable WebGL renderer:', error?.message || error);
-  }
-}
-
-function menuItemHTML({ action, icon, label, title = '', badges = [], danger = false, iconClass = 'terminal-icon' }) {
+function menuItemHTML({ action, icon, label, title = '', badges = [], danger = false, iconClass = 'menu-icon' }) {
   const className = `tab-dropdown-item${danger ? ' danger' : ''}`;
   const badgeHtml = badges.filter(Boolean).join('');
   const appliedIconClass = danger ? 'danger-icon' : iconClass;
@@ -872,24 +532,6 @@ function menuItemHTML({ action, icon, label, title = '', badges = [], danger = f
 
 function menuDividerHTML() {
   return '<div class="tab-dropdown-divider"></div>';
-}
-
-function renderToolDropdownItems() {
-  return (Object.values(TOOL_TABS) as ToolTab[])
-    .map((tool) => {
-      const warningBadge = tool.warningBadge
-        ? `<span class="tab-dropdown-badge danger-badge">${tool.warningBadge}</span>`
-        : '';
-      return menuItemHTML({
-        action: tool.action,
-        icon: icons[tool.iconKey] || icons.terminal,
-        label: tool.label,
-        title: tool.title || tool.label,
-        badges: [warningBadge],
-        iconClass: `${tool.iconKey}-icon`,
-      });
-    })
-    .join('');
 }
 
 /**
@@ -1030,599 +672,19 @@ function createWorktreeSubmitHandler({ project, combo, pathInput, button, button
 }
 
 // ═══════════════════════════════════════════════════════
-// EMBEDDED TERMINAL MANAGEMENT
+// WORKTREE CONTEXT & WORKSPACE SWITCHING
 // ═══════════════════════════════════════════════════════
-
-const FORCED_MOUSE_MODE_SEQUENCE = '\x1b[?1002h\x1b[?1006h';
-
-function forceTerminalMouseMode(term) {
-  term.write(FORCED_MOUSE_MODE_SEQUENCE);
-}
-
-async function createTerminal(cwd, name, { worktreePath = '', iconKey = 'terminal', behavior = DEFAULT_TERMINAL_BEHAVIOR } = {}) {
-  const id = `term-${++state.terminalCounter}`;
-  const wtPath = worktreePath || cwd; // associate terminal with this worktree
-
-  // Create xterm instance with Windows Terminal theme
-  const term = new Terminal({
-    theme: WT_THEME,
-    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'SF Mono', Menlo, Monaco, monospace",
-    fontSize: 14,
-    lineHeight: 1.2,
-    cursorBlink: true,
-    cursorStyle: 'bar',
-    cursorWidth: 2,
-    allowProposedApi: true,
-    macOptionIsMeta: isMac,
-    macOptionClickForcesSelection: isMac,
-    scrollback: 10000,
-    tabStopWidth: 4,
-  });
-
-  const fitAddon = new FitAddon();
-  loadRendererAddons(term, fitAddon);
-
-  // Create pane element
-  const paneEl = document.createElement('div');
-  paneEl.className = 'terminal-pane';
-  paneEl.id = `pane-${id}`;
-  dom.terminalContainer.appendChild(paneEl);
-
-  // Open xterm in pane
-  term.open(paneEl);
-  const terminalBehavior = normalizeTerminalBehavior(behavior);
-  const cleanupBehavior = applyTerminalBehavior(term, terminalBehavior);
-
-  // Fit after DOM settles
-
-  requestAnimationFrame(() => {
-    fitAddon.fit();
-  });
-
-  // Create PTY on backend
-  const result = await window.api.ptyCreate({ cwd, id });
-  if (!result.success) {
-    showToast(`Failed to create terminal: ${result.error}`, 'error');
-    paneEl.remove();
-    term.dispose();
-    return null;
-  }
-
-  // Wire data: PTY -> xterm
-  const cleanupData = window.api.onPtyData(({ id: dataId, data }) => {
-    if (dataId === id) term.write(data);
-  });
-
-  // Wire data: xterm -> PTY
-  const onDataDisposable = term.onData((data) => {
-    window.api.ptyWrite(id, data);
-  });
-
-  // Handle resize
-  const onResizeDisposable = term.onResize(({ cols, rows }) => {
-    window.api.ptyResize(id, cols, rows);
-  });
-
-  // Handle exit
-  const cleanupExit = window.api.onPtyExit(({ id: exitId }) => {
-    if (exitId === id) {
-      closeTerminal(id);
-    }
-  });
-
-  // Store terminal info (with worktree association)
-  state.terminals.set(id, {
-    term, fitAddon, paneEl, name, cwd, worktreePath: wtPath, iconKey, behavior: terminalBehavior,
-    cleanup: () => {
-      cleanupBehavior();
-      cleanupData();
-      cleanupExit();
-      onDataDisposable.dispose();
-      onResizeDisposable.dispose();
-    },
-  });
-
-  // Switch worktree context to this terminal's worktree, then create tab
-  state.activeWorktreePath = wtPath;
-  rebuildTabsForWorktree(wtPath);
-
-  // Switch to this terminal
-  switchToTerminal(id);
-
-  // Fit and send initial size
-  setTimeout(() => {
-    fitAddon.fit();
-    window.api.ptyResize(id, term.cols, term.rows);
-  }, 100);
-
-  return id;
-}
-
-/**
- * Create a terminal that directly spawns a tool command as the PTY process.
- * Unlike createTerminal() which spawns a shell, this makes the tool the direct
- * process — giving it proper terminal allocation (fixes opencode not
- * spawning when typed into a shell).
- */
-async function createDirectToolTerminal(cwd, name, options: { command?: string; launchArgs?: string[]; worktreePath?: string; iconKey?: string; behavior?: Partial<TerminalBehavior> } = {}) {
-  const { command, launchArgs = [], worktreePath = '', iconKey = 'terminal', behavior = DEFAULT_TERMINAL_BEHAVIOR } = options;
-  if (!command) {
-    showToast('Missing tool command', 'error');
-    return null;
-  }
-  const id = `term-${++state.terminalCounter}`;
-  const wtPath = worktreePath || cwd;
-
-  const term = new Terminal({
-    theme: WT_THEME,
-    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'SF Mono', Menlo, Monaco, monospace",
-    fontSize: 14,
-    lineHeight: 1.2,
-    cursorBlink: true,
-    cursorStyle: 'bar',
-    cursorWidth: 2,
-    allowProposedApi: true,
-    macOptionIsMeta: isMac,
-    macOptionClickForcesSelection: isMac,
-    scrollback: 10000,
-    tabStopWidth: 4,
-  });
-
-  const fitAddon = new FitAddon();
-  loadRendererAddons(term, fitAddon);
-
-  const paneEl = document.createElement('div');
-  paneEl.className = 'terminal-pane';
-  paneEl.id = `pane-${id}`;
-  dom.terminalContainer.appendChild(paneEl);
-
-  term.open(paneEl);
-  const terminalBehavior = normalizeTerminalBehavior(behavior);
-  const cleanupBehavior = applyTerminalBehavior(term, terminalBehavior);
-  requestAnimationFrame(() => fitAddon.fit());
-
-  const result = await window.api.ptyCreate({ cwd, id });
-  if (!result.success) {
-    showToast(`Failed to launch ${command}: ${result.error}`, 'error');
-    paneEl.remove();
-    term.dispose();
-    return null;
-  }
-
-  let launchCommand;
-  try {
-    launchCommand = await resolveToolLaunchOrThrow(command, launchArgs);
-  } catch (error) {
-    showToast(`Failed to launch ${command}: ${error.message}`, 'error');
-    window.api.ptyKill(id);
-    paneEl.remove();
-    term.dispose();
-    return null;
-  }
-
-  const cleanupData = window.api.onPtyData(({ id: dataId, data }) => {
-    if (dataId === id) term.write(data);
-  });
-
-  const onDataDisposable = term.onData((data) => {
-    window.api.ptyWrite(id, data);
-  });
-
-  const onResizeDisposable = term.onResize(({ cols, rows }) => {
-    window.api.ptyResize(id, cols, rows);
-  });
-
-  const cleanupExit = window.api.onPtyExit(({ id: exitId }) => {
-    if (exitId === id) closeTerminal(id);
-  });
-
-  state.terminals.set(id, {
-    term, fitAddon, paneEl, name, cwd, worktreePath: wtPath, iconKey, behavior: terminalBehavior,
-    cleanup: () => {
-      cleanupBehavior();
-      cleanupData();
-      cleanupExit();
-      onDataDisposable.dispose();
-      onResizeDisposable.dispose();
-    },
-  });
-
-  state.activeWorktreePath = wtPath;
-  rebuildTabsForWorktree(wtPath);
-  switchToTerminal(id);
-
-  setTimeout(() => {
-    fitAddon.fit();
-    window.api.ptyResize(id, term.cols, term.rows);
-    setTimeout(() => {
-      window.api.ptyWrite(id, `${launchCommand}\r`);
-    }, 500);
-  }, 100);
-
-  return id;
-}
-
-function attachPtyToTerminal(id, term, fitAddon, paneEl, cleanupExtra = () => {}) {
-  const cleanupData = window.api.onPtyData(({ id: dataId, data }) => {
-    if (dataId === id) term.write(data);
-  });
-
-  const onDataDisposable = term.onData((data) => {
-    window.api.ptyWrite(id, data);
-  });
-
-  const onResizeDisposable = term.onResize(({ cols, rows }) => {
-    window.api.ptyResize(id, cols, rows);
-  });
-
-  const cleanupExit = window.api.onPtyExit(({ id: exitId }) => {
-    if (exitId === id) closeTerminal(id);
-  });
-
-  return () => {
-    cleanupExtra();
-    cleanupData();
-    cleanupExit();
-    onDataDisposable.dispose();
-    onResizeDisposable.dispose();
-  };
-}
-
-
-// ═══════════════════════════════════════════════════════
-// PREWARM SYSTEM — Background tool sessions
-// ═══════════════════════════════════════════════════════
-
-/**
- * Create a prewarmed background PTY for a tool session.
- * No xterm or DOM pane is created here; only the backend session is warmed.
- */
-async function createPrewarmedTerminal(toolKey) {
-  const tool = getToolTabByKey(toolKey);
-  if (!tool) return;
-
-  // Don't prewarm if already in progress or already warmed
-  if (state.prewarmInProgress[toolKey] || state.prewarm[toolKey]) return;
-
-  // Need an active worktree to prewarm against
-  const wtPath = state.activeWorktreePath;
-  if (!wtPath || state.prewarmSuspendedWorktrees.has(wtPath)) return;
-
-  state.prewarmInProgress[toolKey] = true;
-
-  const id = `term-${++state.terminalCounter}`;
-
-  const result = await window.api.ptyCreate({ cwd: wtPath, id });
-  if (!result.success) {
-    console.warn(`[prewarm] Failed to create PTY for ${toolKey}:`, result.error);
-    state.prewarmInProgress[toolKey] = false;
-    return;
-  }
-
-  let launchCommand;
-  try {
-    launchCommand = await resolveToolLaunchOrThrow(tool.command, tool.launchArgs);
-  } catch (error) {
-    console.warn(`[prewarm] Failed to resolve launch command for ${toolKey}:`, error);
-    window.api.ptyKill(id);
-    state.prewarmInProgress[toolKey] = false;
-    return;
-  }
-
-  let exitCleanup = () => {};
-  const cleanup = () => {
-    exitCleanup();
-  };
-
-  exitCleanup = window.api.onPtyExit(({ id: exitId }) => {
-    if (exitId !== id) return;
-    if (state.prewarm[toolKey]?.id !== id) return;
-    cleanupPrewarm(toolKey);
-    if (state.prewarmSuspendedWorktrees.has(wtPath)) return;
-    setTimeout(() => {
-      if (state.prewarmSuspendedWorktrees.has(wtPath)) return;
-      createPrewarmedTerminal(toolKey);
-    }, 1000);
-  });
-
-  // Send initial resize + launch the tool command
-  setTimeout(() => {
-    window.api.ptyResize(id, 120, 30);
-    setTimeout(() => {
-      window.api.ptyWrite(id, `${launchCommand}\r`);
-    }, 500);
-  }, 100);
-
-  // Store as prewarmed backend session only
-  state.prewarm[toolKey] = {
-    id,
-    cleanup,
-    cwd: wtPath,
-    worktreePath: wtPath,
-    launchCommand,
-  };
-  state.prewarmInProgress[toolKey] = false;
-
-  console.log(`[prewarm] ${tool.label} session ready (${id}) for ${wtPath}`);
-}
-
-/** Get worktree display name for a path */
-function getWorktreeNameForPath(wtPath) {
-  for (const p of state.projects) {
-    const wt = (p.worktrees || []).find((w) => w.path === wtPath);
-    if (wt) return wt.name;
-  }
-  return 'Terminal';
-}
-
-/** Clean up a prewarmed session without promoting it */
-function cleanupPrewarm(toolKey) {
-  const pw = state.prewarm[toolKey];
-  if (!pw) return;
-
-  pw.cleanup();
-  window.api.ptyKill(pw.id);
-  state.prewarm[toolKey] = null;
-}
-
-/**
- * Promote a prewarmed terminal into a visible tab.
- * Returns true if promotion succeeded, false if no prewarm available.
- */
-function promotePrewarmedTerminal(toolKey) {
-  const pw = state.prewarm[toolKey];
-  if (!pw) return false;
-
-  const tool = getToolTabByKey(toolKey);
-  const { wtPath, wtName } = getActiveWorktreeInfo();
-
-  // Check if the prewarmed session matches the current worktree
-  if (pw.worktreePath !== wtPath) {
-    // Mismatch — discard and fall through to normal creation
-    cleanupPrewarm(toolKey);
-    return false;
-  }
-
-  const id = pw.id;
-  const tabLabel = buildToolTabLabel(tool, wtName);
-  const terminalBehavior = normalizeTerminalBehavior(tool.behavior);
-
-  const term = new Terminal({
-    theme: WT_THEME,
-    fontFamily: "'Cascadia Mono', 'JetBrains Mono', 'Consolas', 'SF Mono', Menlo, Monaco, monospace",
-    fontSize: 14,
-    lineHeight: 1.2,
-    cursorBlink: true,
-    cursorStyle: 'bar',
-    cursorWidth: 2,
-    allowProposedApi: true,
-    macOptionIsMeta: isMac,
-    macOptionClickForcesSelection: isMac,
-    scrollback: 10000,
-    tabStopWidth: 4,
-  });
-  const fitAddon = new FitAddon();
-  loadRendererAddons(term, fitAddon);
-
-  const paneEl = document.createElement('div');
-  paneEl.className = 'terminal-pane';
-  paneEl.id = `pane-${id}`;
-  dom.terminalContainer.appendChild(paneEl);
-  term.open(paneEl);
-  const cleanupBehavior = applyTerminalBehavior(term, terminalBehavior);
-
-  const cleanup = attachPtyToTerminal(id, term, fitAddon, paneEl, cleanupBehavior);
-
-  // Register in the terminals map
-  state.terminals.set(id, {
-    term,
-    fitAddon,
-    paneEl,
-    name: tabLabel,
-    cwd: pw.cwd,
-    worktreePath: pw.worktreePath,
-    iconKey: tool.iconKey,
-    behavior: terminalBehavior,
-    cleanup,
-  });
-
-  // Clear the prewarm slot
-  state.prewarm[toolKey] = null;
-
-  // Switch worktree context and create tab
-  state.activeWorktreePath = wtPath;
-  rebuildTabsForWorktree(wtPath);
-  switchToTerminal(id);
-
-  // Fit the promoted terminal
-  setTimeout(() => {
-    fitAddon.fit();
-    window.api.ptyResize(id, term.cols, term.rows);
-  }, 50);
-
-  console.log(`[prewarm] Promoted ${tool.label} session (${id})`);
-
-  // Prewarm the next one
-  setTimeout(() => createPrewarmedTerminal(toolKey), 500);
-
-  return true;
-}
-
-/** Prewarm all tool sessions for the current worktree */
-function prewarmAllTools() {
-  if (!state.activeWorktreePath) return;
-  for (const toolKey of Object.keys(PREWARM_TOOLS)) {
-    createPrewarmedTerminal(toolKey);
-  }
-}
-
-/** Discard and re-prewarm when the active worktree changes */
-function reprewarmForWorktree() {
-  for (const toolKey of Object.keys(PREWARM_TOOLS)) {
-    // Discard existing prewarm if it doesn't match
-    const pw = state.prewarm[toolKey];
-    if (pw && pw.worktreePath !== state.activeWorktreePath) {
-      cleanupPrewarm(toolKey);
-    }
-    createPrewarmedTerminal(toolKey);
-  }
-}
-
-/** Get all terminal IDs belonging to a given worktree path */
-function getTerminalsForWorktree(wtPath) {
-  const ids = [];
-  for (const [id, info] of state.terminals) {
-    if (info.worktreePath === wtPath) ids.push(id);
-  }
-  return ids;
-}
-
-async function closeWorktreeOwnedSessions(wtPath) {
-  state.prewarmSuspendedWorktrees.add(wtPath);
-
-  const terminalIds = [...getTerminalsForWorktree(wtPath)];
-  for (const id of terminalIds) {
-    closeTerminal(id);
-  }
-
-  for (const toolKey of Object.keys(PREWARM_TOOLS)) {
-    if (state.prewarm[toolKey]?.worktreePath === wtPath) {
-      cleanupPrewarm(toolKey);
-    }
-  }
-
-  await new Promise((resolve) => setTimeout(resolve, 150));
-}
-
-async function releaseWorktreeOwnedSessions(wtPath) {
-  await new Promise((resolve) => setTimeout(resolve, 1200));
-  state.prewarmSuspendedWorktrees.delete(wtPath);
-}
-
-/** Rebuild the tab bar to show only terminals for the given worktree */
-function rebuildTabsForWorktree(wtPath) {
-  // Remove all existing tab buttons from the scrollable list
-  dom.tabListScroll.querySelectorAll('.terminal-tab').forEach((t) => t.remove());
-
-  // Insert tabs for this worktree
-  const ids = getTerminalsForWorktree(wtPath);
-  for (const id of ids) {
-    const info = state.terminals.get(id);
-    if (info) insertTab(id, info.name);
-  }
-}
-
-/** Insert a single tab button into the vertical tab list */
-function insertTab(id, name) {
-  const info = state.terminals.get(id);
-  const iconKey = info?.iconKey || 'terminal';
-  const iconMarkup = icons[iconKey] || icons.terminal;
-  const iconClass = `${iconKey}-icon`;
-  const tab = document.createElement('button');
-  tab.className = 'terminal-tab';
-  tab.dataset.termId = id;
-  tab.innerHTML = `
-    <span class="terminal-tab-icon ${iconClass}">${iconMarkup}</span>
-    <span class="terminal-tab-name">${esc(name)}</span>
-    <button class="terminal-tab-close" data-close-term="${id}" title="Close">${icons.close}</button>
-  `;
-  // Append to the scrollable tab list
-  dom.tabListScroll.appendChild(tab);
-
-  // Switch on click
-  tab.addEventListener('click', (e) => {
-    const target = e.target;
-    if (target instanceof Element && target.closest('.terminal-tab-close')) return;
-    switchToTerminal(id);
-  });
-
-  // Close on X click
-  tab.querySelector('.terminal-tab-close').addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeTerminal(id);
-  });
-}
-
-function isTerminalScreenVisible() {
-  return dom.terminalScreen ? !dom.terminalScreen.classList.contains('hidden') : false;
-}
-
-async function showTerminalScreen() {
-  concealPlaneTaskScreen();
-  // Exit other screens
-  dom.settingsScreen?.classList.add('hidden');
-  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
-  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
-
-  if (dom.terminalScreen) {
-    dom.terminalScreen.classList.remove('hidden');
-  }
-  if (dom.btnTerminalScreen) {
-    dom.btnTerminalScreen.classList.add('active');
-  }
-  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
-  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
-  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
-
-  const activeWorktreePath = state.activeWorktreePath;
-  const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'active workspace';
-
-  // Check if active worktree has terminals
-  const wtTerminals = getTerminalsForWorktree(activeWorktreePath);
-  if (wtTerminals.length > 0) {
-    if (dom.terminalEmptyState) dom.terminalEmptyState.classList.add('hidden');
-    const savedId = state.worktreeActiveTerminal.get(activeWorktreePath);
-    if (savedId && state.terminals.has(savedId)) {
-      switchToTerminal(savedId);
-    } else {
-      switchToTerminal(wtTerminals[wtTerminals.length - 1]);
-    }
-  } else if (activeWorktreePath) {
-    // If no terminal exists for this worktree yet, auto-create the initial shell
-    await createTerminal(activeWorktreePath, activeWorktreeName, {
-      worktreePath: activeWorktreePath,
-    });
-  } else if (state.projects && state.projects.length > 0) {
-    const p = state.projects.find((proj) => proj.path === state.selectedProjectPath) || state.projects[0];
-    const wt = (p.worktrees && p.worktrees[0]) ? p.worktrees[0].path : p.path;
-    await createTerminal(wt, p.name);
-  } else {
-    if (dom.terminalEmptyState) dom.terminalEmptyState.classList.remove('hidden');
-  }
-
-  fitActiveTerminal();
-}
-
-function hideTerminalScreen() {
-  if (dom.terminalScreen) {
-    dom.terminalScreen.classList.add('hidden');
-  }
-  if (dom.btnTerminalScreen) {
-    dom.btnTerminalScreen.classList.remove('active');
-  }
-  startAutoRefreshLoop();
-}
 
 /** Switch the active worktree context */
 function switchWorktreeContext(wtPath) {
-  concealPlaneTaskScreen();
   // Exit other screens if active
   dom.settingsScreen.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
 
   if (state.activeWorktreePath === wtPath) {
-    rebuildTabsForWorktree(wtPath);
     updateSidebarActiveState();
     return;
-  }
-
-  // Save current active terminal for the old worktree
-  if (state.activeWorktreePath && state.activeTerminalId) {
-    state.worktreeActiveTerminal.set(state.activeWorktreePath, state.activeTerminalId);
   }
 
   state.activeWorktreePath = wtPath;
@@ -1634,160 +696,24 @@ function switchWorktreeContext(wtPath) {
     renderSidebar(); // Redraw sidebar to show the selected project
   }
 
-  rebuildTabsForWorktree(wtPath);
-
-  // If the terminal screen is currently visible, update terminal view
-  if (isTerminalScreenVisible()) {
-    const savedId = state.worktreeActiveTerminal.get(wtPath);
-    const wtTerminals = getTerminalsForWorktree(wtPath);
-
-    if (savedId && state.terminals.has(savedId)) {
-      switchToTerminal(savedId);
-    } else if (wtTerminals.length > 0) {
-      switchToTerminal(wtTerminals[wtTerminals.length - 1]);
-    } else {
-      // No terminals for this worktree
-      state.activeTerminalId = null;
-      dom.terminalContainer.querySelectorAll('.terminal-pane').forEach((p) => {
-        p.classList.remove('active');
-      });
-      dom.tabListScroll.querySelectorAll('.terminal-tab').forEach((t) => {
-        t.classList.remove('active');
-      });
-      if (dom.terminalEmptyState) dom.terminalEmptyState.classList.remove('hidden');
-    }
-  }
-
   updateSidebarActiveState();
 
   // If other screens are open, update them
   if (dom.symlinkScreen && !dom.symlinkScreen.classList.contains('hidden')) {
     void showSymlinkScreen();
   }
-  if (dom.agentToolkitScreen && !dom.agentToolkitScreen.classList.contains('hidden')) {
-    void showAgentToolkitScreen();
-  }
-
-  // Re-prewarm tool sessions for the new worktree
-  reprewarmForWorktree();
 }
 
-async function openProjectWorkspaceAndTerminal(projectPath) {
+async function openProjectWorkspace(projectPath) {
   const project = state.projects.find((p) => p.path === projectPath);
   if (!project || !project.worktrees || project.worktrees.length === 0) return;
 
-  // Determine the target worktree
-  let targetWt = project.worktrees.find((w) => w.path === state.activeWorktreePath);
-  if (!targetWt) {
-    targetWt = project.worktrees.find((w) => getTerminalsForWorktree(w.path).length > 0);
-  }
-  if (!targetWt) {
-    targetWt = project.worktrees.find((w) => state.worktreeActiveTerminal.has(w.path));
-  }
-  if (!targetWt) {
-    targetWt = project.worktrees[0];
-  }
+  const targetWt =
+    project.worktrees.find((w) => w.path === state.activeWorktreePath) ||
+    project.worktrees[0];
 
   if (targetWt) {
     switchWorktreeContext(targetWt.path);
-  }
-}
-
-function switchToTerminal(id) {
-  concealPlaneTaskScreen();
-  // Exit other screens if active
-  dom.settingsScreen.classList.add('hidden');
-  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-
-  const termInfo = state.terminals.get(id);
-  if (!termInfo) return;
-
-  state.activeTerminalId = id;
-
-  // If the terminal belongs to a different worktree, switch context first
-  if (termInfo.worktreePath !== state.activeWorktreePath) {
-    state.activeWorktreePath = termInfo.worktreePath;
-    rebuildTabsForWorktree(termInfo.worktreePath);
-
-    // Set selected project based on active worktree path
-    const project = state.projects?.find((p) => (p.worktrees || []).some((wt) => wt.path === termInfo.worktreePath));
-    if (project && state.selectedProjectPath !== project.path) {
-      state.selectedProjectPath = project.path;
-      renderSidebar(); // Redraw sidebar to show the selected project
-    }
-  }
-
-  // Remember this as the last active terminal for its worktree
-  state.worktreeActiveTerminal.set(termInfo.worktreePath, id);
-
-  // Update tab active state
-  dom.tabListScroll.querySelectorAll('.terminal-tab').forEach((t) => {
-    t.classList.toggle('active', t.dataset.termId === id);
-  });
-
-  // Update pane visibility — show only panes for current worktree context
-  dom.terminalContainer.querySelectorAll('.terminal-pane').forEach((p) => {
-    p.classList.remove('active');
-  });
-  termInfo.paneEl.classList.add('active');
-
-  // Hide empty state if present
-  if (dom.terminalEmptyState) dom.terminalEmptyState.classList.add('hidden');
-
-  // Focus and fit
-  requestAnimationFrame(() => {
-    termInfo.fitAddon.fit();
-    termInfo.term.focus();
-  });
-
-  // Update sidebar active state
-  updateSidebarActiveState();
-}
-
-function closeTerminal(id) {
-  const termInfo = state.terminals.get(id);
-  if (!termInfo) return;
-
-  const wtPath = termInfo.worktreePath;
-
-  // Cleanup listeners
-  termInfo.cleanup();
-  termInfo.term.dispose();
-  termInfo.paneEl.remove();
-
-  // Kill PTY
-  window.api.ptyKill(id);
-
-  // Remove tab from tab bar
-  const tab = dom.tabListScroll.querySelector(`[data-term-id="${id}"]`);
-  if (tab) tab.remove();
-
-  state.terminals.delete(id);
-
-  // Clean up worktree active tracking
-  if (state.worktreeActiveTerminal.get(wtPath) === id) {
-    state.worktreeActiveTerminal.delete(wtPath);
-  }
-
-  // Switch to another terminal within the SAME worktree, or show empty state
-  if (state.activeTerminalId === id) {
-    const remaining = getTerminalsForWorktree(wtPath);
-    if (remaining.length > 0) {
-      switchToTerminal(remaining[remaining.length - 1]);
-    } else {
-      state.activeTerminalId = null;
-      if (dom.terminalEmptyState) dom.terminalEmptyState.classList.remove('hidden');
-    }
-  }
-}
-
-function fitActiveTerminal() {
-  if (state.activeTerminalId) {
-    const termInfo = state.terminals.get(state.activeTerminalId);
-    if (termInfo) {
-      requestAnimationFrame(() => termInfo.fitAddon.fit());
-    }
   }
 }
 
@@ -1839,57 +765,12 @@ function setWorkspaceSidebarCollapsed(collapsed, { persist = true } = {}) {
   if (persist) {
     saveWorkspaceSidebarCollapsed(collapsed);
   }
-
-  fitActiveTerminal();
-
-  let transitionHandled = false;
-  const handleTransitionEnd = (event) => {
-    if (event.target !== dom.workspaceSidebar || event.propertyName !== 'width') {
-      return;
-    }
-
-    transitionHandled = true;
-    dom.workspaceSidebar.removeEventListener('transitionend', handleTransitionEnd);
-    fitActiveTerminal();
-  };
-
-  dom.workspaceSidebar.addEventListener('transitionend', handleTransitionEnd);
-
-  window.setTimeout(() => {
-    dom.workspaceSidebar.removeEventListener('transitionend', handleTransitionEnd);
-    if (!transitionHandled) {
-      fitActiveTerminal();
-    }
-  }, 360);
 }
-
-// Resize all terminals on window resize
-window.addEventListener('resize', () => fitActiveTerminal());
 
 // Right click context menu for selection copy
 window.addEventListener('contextmenu', (e) => {
-  let selectedText = '';
-  
-  // 1. Check if the target is within a terminal pane
-  const terminalPane = (e.target as HTMLElement).closest('.terminal-pane');
-  if (terminalPane) {
-    const paneId = terminalPane.id; // e.g. "pane-term-1"
-    const termId = paneId.replace('pane-', '');
-    const termInfo = state.terminals.get(termId);
-    if (termInfo && termInfo.term && termInfo.term.hasSelection()) {
-      selectedText = termInfo.term.getSelection();
-    }
-  }
-  
-  // 2. If no terminal selection, check standard DOM selection
-  if (!selectedText) {
-    const domSelection = window.getSelection() ? window.getSelection().toString() : '';
-    if (domSelection) {
-      selectedText = domSelection;
-    }
-  }
+  const selectedText = window.getSelection() ? window.getSelection().toString() : '';
 
-  // 3. If there is selected text, show context menu
   if (selectedText) {
     e.preventDefault();
     e.stopPropagation();
@@ -1897,149 +778,9 @@ window.addEventListener('contextmenu', (e) => {
   }
 });
 
-// ── Tab Sidebar Collapse Toggle ────────────────────────
-function loadTabSidebarCollapsed() {
-  try {
-    const val = localStorage.getItem(TAB_SIDEBAR_COLLAPSED_KEY);
-    return val === 'true';
-  } catch (error) {
-    return false;
-  }
-}
-
-function saveTabSidebarCollapsed(collapsed) {
-  try {
-    localStorage.setItem(TAB_SIDEBAR_COLLAPSED_KEY, collapsed ? 'true' : 'false');
-  } catch (error) {
-    console.warn('Failed to save tab sidebar preference:', error.message);
-  }
-}
-
-function setTabSidebarCollapsed(collapsed, { persist = true } = {}) {
-  state.tabSidebarCollapsed = collapsed;
-  dom.terminalTabs.classList.toggle('collapsed', collapsed);
-  dom.tabCollapseBtn.title = collapsed ? 'Expand tabs' : 'Collapse tabs';
-  if (persist) saveTabSidebarCollapsed(collapsed);
-  fitActiveTerminal();
-  // Fit again after the transition finishes
-  setTimeout(() => fitActiveTerminal(), 280);
-}
-
-dom.tabCollapseBtn.addEventListener('click', () => {
-  setTabSidebarCollapsed(!state.tabSidebarCollapsed);
-});
-
-// ── New Tab Dropdown ───────────────────────────────────
-function getActiveWorktreeInfo() {
-  const wtPath = state.activeWorktreePath;
-  if (!wtPath) {
-    const fallbackPath = state.projects[0]?.worktrees?.[0]?.path || '.';
-    return { wtPath: fallbackPath, wtName: 'Terminal' };
-  }
-  let wtName = 'Terminal';
-  for (const p of state.projects) {
-    const wt = (p.worktrees || []).find((w) => w.path === wtPath);
-    if (wt) { wtName = wt.name; break; }
-  }
-  return { wtPath, wtName };
-}
-
-function createNewTerminalTab() {
-  const { wtPath, wtName } = getActiveWorktreeInfo();
-  if (state.useExternalWt) {
-    window.api.openWindowsTerminal({
-      cwd: wtPath,
-    });
-    return;
-  }
-
-  const count = getTerminalsForWorktree(wtPath).length + 1;
-  createTerminal(wtPath, `${wtName} (${count})`, {
-    worktreePath: wtPath,
-    iconKey: state.useExternalWt ? 'windows-terminal' : 'terminal',
-  });
-}
-
-function createToolTab(toolKey) {
-  const tool = getToolTabByKey(toolKey);
-  if (!tool) {
-    showToast(`Unknown tool: ${toolKey}`, 'error');
-    return;
-  }
-
-  const { wtPath, wtName } = getActiveWorktreeInfo();
-
-  if (state.useExternalWt) {
-    void window.api.openWindowsTerminal({
-      cwd: wtPath,
-      launchCommand: tool.command,
-      launchArgs: tool.launchArgs,
-    });
-    return;
-  }
-
-  if (tool.prewarm && promotePrewarmedTerminal(tool.key)) {
-    return;
-  }
-
-  const tabLabel = buildToolTabLabel(tool, wtName);
-  createDirectToolTerminal(wtPath, tabLabel, {
-    command: tool.command,
-    launchArgs: tool.launchArgs,
-    worktreePath: wtPath,
-    iconKey: tool.iconKey,
-    behavior: tool.behavior,
-  });
-}
-
-
-function showTabDropdown() {
-  hideTabDropdown();
-  hideProjectOptionsMenu();
-  hideWorktreeContextMenu();
-  hideSelectionContextMenu();
-
-  const dropdown = showPositionedMenu({
-    id: 'tab-dropdown',
-    className: 'tab-dropdown',
-    anchorRect: dom.tabNewBtn.getBoundingClientRect(),
-    html: `
-      ${menuItemHTML({
-        action: 'new-terminal',
-        icon: state.useExternalWt ? icons['windows-terminal'] : icons.terminal,
-        label: state.useExternalWt ? EXTERNAL_TERMINAL_LABEL : 'Terminal',
-        iconClass: state.useExternalWt ? 'windows-terminal-icon' : 'terminal-icon',
-      })}
-      ${renderToolDropdownItems()}
-    `,
-    outsideClickHandler: handleDropdownOutsideClick,
-  });
-
-  bindMenuActions(dropdown, {
-    'new-terminal': () => createNewTerminalTab(),
-    ...Object.fromEntries(
-      Object.values(TOOL_TABS).map((tool) => [tool.action, () => createToolTab(tool.key)])
-    ),
-  }, hideTabDropdown);
-}
-
-function hideTabDropdown() {
-  const existing = document.getElementById('tab-dropdown');
-  if (existing) existing.remove();
-  document.removeEventListener('click', handleDropdownOutsideClick);
-}
-
-function handleDropdownOutsideClick(e) {
-  const dropdown = document.getElementById('tab-dropdown');
-  if (dropdown && !dropdown.contains(e.target) && !dom.tabNewBtn.contains(e.target)) {
-    hideTabDropdown();
-  }
-}
-
 function showWorktreeContextMenu(project, wt, x, y) {
   hideWorktreeContextMenu();
   hideProjectOptionsMenu();
-  hideTabDropdown();
   hideSelectionContextMenu();
   const canAddSubWorktree = getDomainCanCreateNestedWorktree(project, wt);
   const canDeleteBranch = Boolean(wt.branch) && !wt.detached && !wt.bare;
@@ -2050,8 +791,6 @@ function showWorktreeContextMenu(project, wt, x, y) {
     x,
     y,
     html: `
-      ${menuItemHTML({ action: 'open-terminal', icon: icons.terminal, label: 'Open in Terminal' })}
-      ${menuDividerHTML()}
       ${canAddSubWorktree ? `${menuItemHTML({ action: 'add-sub-worktree', icon: icons.plus, label: 'Add nested worktree' })}${menuDividerHTML()}` : ''}
       ${menuItemHTML({ action: 'merge-to-local-branch', icon: icons.gitBranch, label: 'Merge to local branch' })}
       ${menuDividerHTML()}
@@ -2061,10 +800,6 @@ function showWorktreeContextMenu(project, wt, x, y) {
   });
 
   bindMenuActions(menu, {
-    'open-terminal': () => {
-      switchWorktreeContext(wt.path);
-      showTerminalScreen();
-    },
     'add-sub-worktree': () => showAddSubWorktreeModal(project, wt),
     'merge-to-local-branch': () => showMergeWorktreeModal(project, wt),
     'force-remove-worktree': () => showForceRemoveWorktreeModal(project, wt),
@@ -2087,7 +822,6 @@ function handleWorktreeContextMenuOutsideClick(e) {
 function showProjectOptionsMenu(project, x, y) {
   hideProjectOptionsMenu();
   hideWorktreeContextMenu();
-  hideTabDropdown();
   hideSelectionContextMenu();
 
   const menu = showPositionedMenu({
@@ -2125,7 +859,14 @@ function showProjectOptionsMenu(project, x, y) {
       if (result.success) await loadWorkspaces();
     },
     'remove': async () => {
+      const removedWtPaths = new Set((project.worktrees || []).map((w: any) => w.path));
       await window.api.removeProject(project.path);
+      if (state.selectedProjectPath === project.path) {
+        state.selectedProjectPath = null;
+      }
+      if (state.activeWorktreePath && (state.activeWorktreePath === project.path || removedWtPaths.has(state.activeWorktreePath))) {
+        state.activeWorktreePath = null;
+      }
       showToast(`Removed: ${project.name}`, 'info');
       await loadWorkspaces();
     },
@@ -2148,7 +889,6 @@ function handleProjectOptionsMenuOutsideClick(e) {
 function showSelectionContextMenu(x, y, text) {
   hideWorktreeContextMenu();
   hideProjectOptionsMenu();
-  hideTabDropdown();
   hideSelectionContextMenu();
 
   const menu = showPositionedMenu({
@@ -2181,18 +921,7 @@ function handleSelectionContextMenuOutsideClick(e) {
   }
 }
 
-// New tab button — show dropdown menu
-dom.tabNewBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const existing = document.getElementById('tab-dropdown');
-  if (existing) {
-    hideTabDropdown();
-  } else {
-    showTabDropdown();
-  }
-});
-
-// Tab bar external tool buttons
+// Workspace external tool buttons
 bindWorktreeQuickAction(dom.btnAntigravity, (wtPath) => window.api.openInAntigravity(wtPath), 'Opening Antigravity...');
 bindWorktreeQuickAction(dom.btnAntigravityAgent, (wtPath) => window.api.openInAntigravityAgent(wtPath), 'Opening Agent Manager...');
 bindWorktreeQuickAction(dom.btnVsCode, (wtPath) => window.api.openInVsCode(wtPath), 'Opening VS Code...');
@@ -2323,12 +1052,14 @@ function updateSidebarResourcesButton(activeProject?: any) {
   }
   const figmaUrl = (activeProject?.figmaUrl || '').trim();
   const firebaseUrl = (activeProject?.firebaseUrl || '').trim();
+  const planeUrl = (activeProject?.planeUrl || '').trim();
   const prdUrl = (activeProject?.legacyPrdUrl || '').trim();
   const checklistUrl = (activeProject?.legacyChecklistUrl || '').trim();
 
   let linkedCount = 0;
   if (figmaUrl) linkedCount++;
   if (firebaseUrl) linkedCount++;
+  if (planeUrl) linkedCount++;
   if (prdUrl) linkedCount++;
   if (checklistUrl) linkedCount++;
 
@@ -2337,15 +1068,15 @@ function updateSidebarResourcesButton(activeProject?: any) {
 
   if (linkedCount > 0) {
     const name = activeProject?.name || 'Project';
-    btn.title = `Project Resources: ${name} (${linkedCount}/4 linked)\nFigma: ${figmaUrl || 'None'}\nFirebase: ${firebaseUrl || 'None'}\nPRD: ${prdUrl || 'None'}\nChecklist: ${checklistUrl || 'None'}`;
+    btn.title = `Project Resources: ${name} (${linkedCount}/5 linked)\nFigma: ${figmaUrl || 'None'}\nFirebase: ${firebaseUrl || 'None'}\nPlane: ${planeUrl || 'None'}\nPRD: ${prdUrl || 'None'}\nChecklist: ${checklistUrl || 'None'}`;
     btn.classList.add('has-link');
     if (badge) {
-      badge.textContent = linkedCount === 4 ? 'All Linked' : `${linkedCount}/4 Linked`;
+      badge.textContent = linkedCount === 5 ? 'All Linked' : `${linkedCount}/5 Linked`;
       badge.className = 'workspace-tool-pill connected';
       badge.style.display = 'inline-flex';
     }
   } else {
-    btn.title = 'Project Resources (Figma, Firebase, Legacy Docs)';
+    btn.title = 'Project Resources (Figma, Firebase, Plane, Legacy Docs)';
     btn.classList.remove('has-link');
     if (badge) {
       badge.style.display = 'none';
@@ -2521,6 +1252,7 @@ async function saveProjectFirebaseUrl(activeProject: any, url: string, successMs
     showToast(successMsg, url ? 'success' : 'info');
     activeProject.firebaseUrl = url;
     renderDashboardFirebase(activeProject);
+    updateSidebarResourcesButton(activeProject);
   } else {
     showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
   }
@@ -2687,6 +1419,187 @@ function renderFirebaseInlineEdit(activeProject: any, currentUrl: string) {
   });
 }
 
+async function saveProjectPlaneUrl(activeProject: any, url: string, successMsg: string) {
+  const res = await window.api.updateProjectMetadata(activeProject.path, { planeUrl: url });
+  if (res?.success) {
+    showToast(successMsg, url ? 'success' : 'info');
+    activeProject.planeUrl = url;
+    renderDashboardPlane(activeProject);
+    updateSidebarResourcesButton(activeProject);
+  } else {
+    showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
+  }
+}
+
+function renderDashboardPlane(activeProject: any) {
+  if (!dom.dashPlaneBody) return;
+  const planeUrl = (activeProject.planeUrl || '').trim();
+
+  if (!planeUrl) {
+    if (dom.dashPlaneStatusPill) {
+      dom.dashPlaneStatusPill.textContent = 'Not Linked';
+      dom.dashPlaneStatusPill.className = 'dash-status-pill';
+    }
+    if (dom.dashBtnBrowserPlane) dom.dashBtnBrowserPlane.style.display = 'none';
+
+    dom.dashPlaneBody.innerHTML = `
+      <div class="dash-figma-empty-showcase plane">
+        <div class="dash-figma-empty-icon-wrap">
+          <div class="dash-figma-empty-icon" title="Plane">
+            ${PLANE_COLORED_LOGO}
+          </div>
+        </div>
+        <div class="dash-figma-empty-content">
+          <div class="dash-figma-input-wrapper">
+            <input type="text" class="dash-figma-input" id="dash-plane-quick-input" placeholder="Paste Plane project link (e.g. https://plane.itgproduct.com/...)" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn-figma-link-submit plane" id="dash-plane-quick-save">Link</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const quickInput = dom.dashPlaneBody.querySelector('#dash-plane-quick-input') as HTMLInputElement;
+    const quickSave = dom.dashPlaneBody.querySelector('#dash-plane-quick-save') as HTMLButtonElement;
+    quickSave?.addEventListener('click', () => {
+      const rawUrl = quickInput?.value.trim();
+      if (!rawUrl) {
+        showToast('Please enter a Plane project URL', 'error');
+        return;
+      }
+      const parsed = parsePlaneUrl(rawUrl);
+      if (!parsed) {
+        showToast('That does not look like a valid URL', 'error');
+        return;
+      }
+      void saveProjectPlaneUrl(activeProject, parsed.url, 'Plane project link saved');
+    });
+    quickInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') quickSave?.click();
+    });
+    return;
+  }
+
+  if (dom.dashPlaneStatusPill) {
+    dom.dashPlaneStatusPill.textContent = 'Linked';
+    dom.dashPlaneStatusPill.className = 'dash-status-pill connected';
+  }
+  if (dom.dashBtnBrowserPlane) dom.dashBtnBrowserPlane.style.display = 'inline-flex';
+
+  const parsed = parsePlaneUrl(planeUrl);
+  const displayName = parsed?.workspace
+    ? `${activeProject.name || 'Project'} (${parsed.workspace})`
+    : `${activeProject.name || 'Project'} Plane`;
+  const displayUrl = formatDisplayUrl(planeUrl);
+
+  dom.dashPlaneBody.innerHTML = `
+    <div class="dash-figma-showcase plane">
+      <div class="dash-figma-accent-bar"></div>
+      <div class="dash-figma-top-bar">
+        <div class="dash-figma-tag-group">
+          <span class="dash-figma-type-pill plane">
+            <span class="dash-figma-pulse-dot"></span>
+            ${esc(parsed?.section || 'Project')}
+          </span>
+          ${parsed?.host ? `<span class="dash-figma-sub-pill">${esc(parsed.host)}</span>` : ''}
+        </div>
+        <div class="dash-figma-top-actions">
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-copy-plane" title="Copy Plane Link" aria-label="Copy Plane Link">
+            ${icons.copy || ''}
+          </button>
+          <button type="button" class="dash-figma-icon-btn" id="dash-btn-edit-inline-plane" title="Edit Plane Link" aria-label="Edit Plane Link">
+            ${EDIT_PENCIL_SVG}
+          </button>
+          <button type="button" class="dash-figma-icon-btn danger" id="dash-btn-clear-plane" title="Clear Plane Link" aria-label="Clear Plane Link">
+            ${icons.trash || ''}
+          </button>
+        </div>
+      </div>
+
+      <div class="dash-figma-main-info">
+        <div class="dash-figma-brand-emblem" title="Plane">
+          ${PLANE_COLORED_LOGO}
+        </div>
+        <div class="dash-figma-meta">
+          <h4 class="dash-figma-title" title="${esc(displayName)}">${esc(displayName)}</h4>
+          <a href="${esc(planeUrl)}" class="dash-figma-url-pill" id="dash-plane-url-anchor" title="${esc(planeUrl)}" target="_blank">
+            <span class="dash-figma-url-text">${esc(displayUrl)}</span>
+            ${icons.link || ''}
+          </a>
+        </div>
+      </div>
+
+      <div class="dash-figma-action-footer">
+        <button type="button" class="btn-figma-launch plane" id="dash-btn-card-open-plane" title="Open Plane project in browser">
+          ${icons.task || ''}
+          <span>Open Plane</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const openPlane = () => { void window.api.openExternal(planeUrl); };
+  dom.dashPlaneBody.querySelector('#dash-btn-card-open-plane')?.addEventListener('click', openPlane);
+  dom.dashPlaneBody.querySelector('#dash-plane-url-anchor')?.addEventListener('click', (e: Event) => {
+    e.preventDefault();
+    openPlane();
+  });
+  dom.dashPlaneBody.querySelector('#dash-btn-copy-plane')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(planeUrl);
+    showToast('Plane URL copied to clipboard', 'info');
+  });
+  dom.dashPlaneBody.querySelector('#dash-btn-edit-inline-plane')?.addEventListener('click', () => {
+    renderPlaneInlineEdit(activeProject, planeUrl);
+  });
+  dom.dashPlaneBody.querySelector('#dash-btn-clear-plane')?.addEventListener('click', () => {
+    void saveProjectPlaneUrl(activeProject, '', 'Plane link cleared');
+  });
+}
+
+function renderPlaneInlineEdit(activeProject: any, currentUrl: string) {
+  if (!dom.dashPlaneBody) return;
+  dom.dashPlaneBody.innerHTML = `
+    <div class="dash-figma-edit-showcase">
+      <div class="dash-figma-edit-header">
+        ${icons.task || ''}
+        <span>Edit Plane Project Link</span>
+      </div>
+      <div class="dash-figma-input-wrapper">
+        <input type="text" class="dash-figma-input" id="dash-plane-edit-input" value="${esc(currentUrl)}" placeholder="https://plane.itgproduct.com/..." autocomplete="off" spellcheck="false" />
+        <button type="button" class="btn-figma-link-submit plane" id="dash-plane-edit-save">Save</button>
+        <button type="button" class="btn-secondary btn-small" id="dash-plane-edit-cancel">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  const editInput = dom.dashPlaneBody.querySelector('#dash-plane-edit-input') as HTMLInputElement;
+  const editSave = dom.dashPlaneBody.querySelector('#dash-plane-edit-save') as HTMLButtonElement;
+  const editCancel = dom.dashPlaneBody.querySelector('#dash-plane-edit-cancel') as HTMLButtonElement;
+
+  editInput?.focus();
+  editInput?.select();
+
+  editSave?.addEventListener('click', () => {
+    const rawUrl = editInput?.value.trim() || '';
+    if (rawUrl) {
+      const parsed = parsePlaneUrl(rawUrl);
+      if (!parsed) {
+        showToast('That does not look like a valid URL', 'error');
+        return;
+      }
+      void saveProjectPlaneUrl(activeProject, parsed.url, 'Plane project link updated');
+      return;
+    }
+    void saveProjectPlaneUrl(activeProject, '', 'Plane link cleared');
+  });
+  editCancel?.addEventListener('click', () => {
+    renderDashboardPlane(activeProject);
+  });
+  editInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') editSave?.click();
+    else if (e.key === 'Escape') editCancel?.click();
+  });
+}
+
 function renderFigmaInlineEdit(activeProject: any, currentUrl: string) {
   if (!dom.dashFigmaBody) return;
   dom.dashFigmaBody.innerHTML = `
@@ -2717,8 +1630,6 @@ function renderFigmaInlineEdit(activeProject: any, currentUrl: string) {
       showToast(url ? 'Figma link updated' : 'Figma link cleared', 'success');
       activeProject.figmaUrl = url;
       renderDashboardFigma(activeProject);
-      const { activeWt } = getActiveProjectAndWorktree();
-      renderDashboardChecklist(activeProject, activeWt);
     } else {
       showToast(`Failed to update: ${res?.error || 'Unknown error'}`, 'error');
     }
@@ -2765,8 +1676,6 @@ async function saveProjectLegacyPrdUrl(activeProject: any, url: string, successM
     showToast(successMsg, url ? 'success' : 'info');
     activeProject.legacyPrdUrl = url;
     renderDashboardLegacyDocs(activeProject);
-    const { activeWt } = getActiveProjectAndWorktree();
-    renderDashboardChecklist(activeProject, activeWt);
   } else {
     showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
   }
@@ -2778,8 +1687,6 @@ async function saveProjectLegacyChecklistUrl(activeProject: any, url: string, su
     showToast(successMsg, url ? 'success' : 'info');
     activeProject.legacyChecklistUrl = url;
     renderDashboardLegacyDocs(activeProject);
-    const { activeWt } = getActiveProjectAndWorktree();
-    renderDashboardChecklist(activeProject, activeWt);
   } else {
     showToast(`Failed to save: ${res?.error || 'Unknown error'}`, 'error');
   }
@@ -3306,7 +2213,6 @@ if (window.api.onCompetitorDecodeProgress) {
 }
 
 function renderDashboardCompetitors(activeProject: any, activeWt: any) {
-  renderDashboardChecklist(activeProject, activeWt);
   if (!dom.dashCompetitorList) return;
   const competitors = Array.isArray(activeProject.competitors) ? activeProject.competitors : [];
 
@@ -3356,7 +2262,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
     const initials = getCompetitorInitials(comp.name);
     const urlInfo = formatCompetitorUrlLabel(comp.url);
     const target = comp.packageName || comp.name;
-    const isCodeOnly = comp.analysisMode === 'code-only';
+    const isCodeOnly = comp.analysisMode !== 'hybrid';
     const competitorCmd = buildBenchmarkSlashCommand(target, '', { codeOnly: isCodeOnly });
     const featureExtractorCmd = buildFeatureExtractorSlashCommand(target, { codeOnly: isCodeOnly });
     const hasIcon = Boolean(comp.iconUrl);
@@ -3514,14 +2420,14 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
             <div class="dash-comp-busy-banner">
               <div class="dash-comp-spinner"></div>
               <div class="dash-comp-busy-info">
-                <span class="dash-comp-busy-title">Downloading APK via ReaKit...</span>
+                <span class="dash-comp-busy-title">Downloading APK...</span>
                 <span class="dash-comp-busy-sub">Fetching Android package artifacts</span>
               </div>
             </div>
           ` : `
             <div class="dash-comp-no-apk-row">
               ${comp.packageName ? `
-                <button type="button" class="dash-comp-btn-reakit-download" data-action="comp-reakit-download" data-comp-id="${esc(comp.id)}" data-comp-name="${esc(comp.name)}" data-pkg="${esc(comp.packageName)}" title="Download APK for ${esc(comp.packageName)} via ReaKit">
+                <button type="button" class="dash-comp-btn-reakit-download" data-action="comp-reakit-download" data-comp-id="${esc(comp.id)}" data-comp-name="${esc(comp.name)}" data-pkg="${esc(comp.packageName)}" title="Download APK for ${esc(comp.packageName)}">
                   ${icons.download}
                   <span>Download APK</span>
                 </button>
@@ -3547,14 +2453,14 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 </span>
               </div>
               <div class="dash-comp-bench-header-right">
-                <div class="dash-comp-mode-toggle" title="Toggle Mobilerun On (Live Device + Code) or Off (--code-only static extraction)">
-                  <button type="button" class="dash-comp-mode-btn ${isCodeOnly ? '' : 'active'}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="hybrid" title="Mobilerun On: Drives app on connected Android device + decoded code">
-                    ${icons.android || ''}
-                    <span>Mobilerun</span>
-                  </button>
+                <div class="dash-comp-mode-toggle" title="Toggle Code-Only (--code-only static extraction) or Mobilerun (Live Device + Code)">
                   <button type="button" class="dash-comp-mode-btn ${isCodeOnly ? 'active' : ''}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="code-only" title="Mobilerun Off: Static decompiled code extraction without device (--code-only)">
                     ${icons.code || ''}
                     <span>Code-Only</span>
+                  </button>
+                  <button type="button" class="dash-comp-mode-btn ${isCodeOnly ? '' : 'active'}" data-action="set-comp-bench-mode" data-id="${esc(comp.id)}" data-mode="hybrid" title="Mobilerun On: Drives app on connected Android device + decoded code">
+                    ${icons.android || ''}
+                    <span>Mobilerun</span>
                   </button>
                 </div>
               </div>
@@ -3684,9 +2590,10 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       e.stopPropagation();
       const target = e.currentTarget as HTMLElement;
       const id = target.dataset.id;
-      const mode = target.dataset.mode || 'hybrid';
+      const mode = target.dataset.mode || 'code-only';
       const comp = (activeProject?.competitors || []).find((c: any) => c.id === id);
-      if (comp && comp.analysisMode !== mode) {
+      const currentMode = comp?.analysisMode || 'code-only';
+      if (comp && currentMode !== mode) {
         comp.analysisMode = mode;
         if (activeProject?.path) {
           void window.api.updateProjectCompetitor(activeProject.path, comp);
@@ -3701,12 +2608,13 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           try {
             if (mode === 'code-only') {
               const anyOtherNeedsMobilerun = (activeProject?.competitors || []).some(
-                (c: any) => c.id !== id && c.analysisMode !== 'code-only'
+                (c: any) => c.id !== id && c.analysisMode === 'hybrid'
               );
               if (!anyOtherNeedsMobilerun) {
                 const unreg = await window.api.unregisterMobilerunMcp({ worktreePath: wtPath });
                 if (unreg?.success) {
                   showToast('Mobilerun Off (Code-Only): Disabled mobilerun MCP plugin for this worktree to save agent tokens.', 'info');
+                  void refreshAgentToolkitStatus({ force: true });
                 }
               } else {
                 showToast('Mobilerun Off (--code-only) active for this app (other competitors still use Mobilerun).', 'info');
@@ -3715,6 +2623,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
               const reg = await window.api.registerMobilerunMcp({ worktreePath: wtPath });
               if (reg?.success) {
                 showToast('Mobilerun On: Enabled mobilerun MCP plugin in this worktree.', 'success');
+                void refreshAgentToolkitStatus({ force: true });
               }
             }
           } catch (mcpErr: any) {
@@ -3945,7 +2854,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
 
       reakitBusy.set(compId, 'downloading');
       renderDashboardCompetitors(activeProject, activeWt);
-      showToast(`Downloading APK for ${compName} via ReaKit...`, 'info');
+      showToast(`Downloading APK for ${compName}...`, 'info');
 
       try {
         const res = await window.api.downloadCompetitorApk({
@@ -4172,238 +3081,35 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
   }
 }
 
-function renderDashboardChecklist(activeProject: any, activeWt: any) {
-  if (!dom.dashChecklistBody) return;
-  const competitors = Array.isArray(activeProject?.competitors) ? activeProject.competitors : [];
-  const readyJadxCount = competitors.filter((c: any) => c.jadxStatus === 'ready' || Boolean(c.jadxSourcePath)).length;
-  const figmaUrl = (activeProject?.figmaUrl || '').trim();
-  const prdUrl = (activeProject?.legacyPrdUrl || '').trim();
-  const checklistUrl = (activeProject?.legacyChecklistUrl || '').trim();
-  const scopes = parseBenchmarkFlows(activeProject?.checklistScope || '');
-
-  if (dom.dashChecklistBadge) {
-    dom.dashChecklistBadge.textContent = scopes.length > 0
-      ? `${scopes.length} Module${scopes.length === 1 ? '' : 's'}`
-      : 'All Product';
-  }
-
-  if (dom.dashBtnChecklistOpenLink) {
-    if (checklistUrl) {
-      dom.dashBtnChecklistOpenLink.classList.remove('hidden');
-    } else {
-      dom.dashBtnChecklistOpenLink.classList.add('hidden');
-    }
-  }
-
-  const fullChecklistCmd = buildChecklistSlashCommand();
-  const projectSlug = formatFlowSlug(activeProject?.name || 'project') || 'project';
-
-  const moduleRowsHtml = scopes.length > 0 ? (() => {
-    const cmdItems: Array<{ slashCmd: string; label: string; isAll: boolean; idx: number }> = scopes.map((scope: string, idx: number) => ({
-      slashCmd: buildChecklistSlashCommand(scope),
-      label: scope,
-      isAll: false,
-      idx,
-    }));
-    if (scopes.length > 1) {
-      cmdItems.push({
-        slashCmd: buildChecklistSlashCommand(scopes),
-        label: `All ${scopes.length} modules`,
-        isAll: true,
-        idx: -1,
-      });
-    }
-    return cmdItems.map((item) => `
-      <div class="dash-comp-cmd-item" data-action="copy-checklist-cmd" data-cmd="${esc(item.slashCmd)}" title="Module Scope: ${esc(item.label)} — Click to copy: ${esc(item.slashCmd)}">
-        <div class="dash-comp-cmd-left">
-          <span class="dash-comp-cmd-num ${item.isAll ? 'all' : ''}" title="${item.isAll ? 'Combined command for all target modules' : `Module #${item.idx + 1}: ${esc(item.label)}`}">${item.isAll ? '★' : item.idx + 1}</span>
-          <code class="dash-comp-cmd-code">${esc(item.slashCmd)}</code>
-          <span class="dash-checklist-scope-label">${esc(item.label)}</span>
-        </div>
-        <div class="dash-comp-cmd-right">
-          <span class="dash-comp-cmd-copy-btn" title="Copy command">
-            <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
-          </span>
-          ${!item.isAll ? `
-            <button type="button" class="dash-checklist-scope-del" data-action="remove-checklist-scope" data-index="${item.idx}" title="Remove module ${esc(item.label)}">
-              ${icons.close || '×'}
-            </button>
-          ` : ''}
-        </div>
-      </div>
-    `).join('');
-  })() : '';
-
-  dom.dashChecklistBody.innerHTML = `
-    <div class="dash-checklist-workbench">
-      <div class="dash-checklist-sources-bar">
-        <span class="dash-checklist-sources-label">Synthesis Sources:</span>
-        <span class="dash-checklist-source-pill ${competitors.length > 0 ? 'ready' : 'idle'}" title="Competitor evidence under docs/BA/competitor/">
-          <span>Competitors: ${competitors.length}${readyJadxCount > 0 ? ` (${readyJadxCount} decoded)` : ''}</span>
-        </span>
-        <span class="dash-checklist-source-pill ${figmaUrl ? 'ready' : 'idle'}" title="${figmaUrl ? esc(figmaUrl) : 'Link Figma in Project Resources'}">
-          <span>${figmaUrl ? 'Figma Linked' : 'No Figma'}</span>
-        </span>
-        <span class="dash-checklist-source-pill ${prdUrl ? 'ready' : 'idle'}" title="${prdUrl ? esc(prdUrl) : 'Link PRD in Project Resources'}">
-          <span>${prdUrl ? 'PRD Linked' : 'No PRD'}</span>
-        </span>
-        <span class="dash-checklist-source-pill ${checklistUrl ? 'ready' : 'local'}" title="${checklistUrl ? esc(checklistUrl) : `Writes to docs/BA/checklist/${projectSlug}_checklist_YYYYMMDD_v1.md`}">
-          <span>${checklistUrl ? 'External Sheet Linked' : `docs/BA/checklist/${esc(projectSlug)}_checklist_v1.md`}</span>
-        </span>
-      </div>
-
-      <div class="dash-comp-cmd-list">
-        <div class="dash-comp-cmd-item checklist" data-action="copy-checklist-cmd" data-cmd="${esc(fullChecklistCmd)}" title="Synthesize our product's full Feature Checklist from Competitor evidence, Figma, PRD &amp; PO decisions — Click to copy: ${esc(fullChecklistCmd)}">
-          <div class="dash-comp-cmd-left">
-            <span class="dash-comp-cmd-num checklist" title="Target Product Feature Checklist (ba-checklist)">${icons.check || '✓'}</span>
-            <code class="dash-comp-cmd-code">${esc(fullChecklistCmd)}</code>
-            <span class="dash-checklist-scope-label">Full Product Checklist (12-column standard)</span>
-          </div>
-          <div class="dash-comp-cmd-right">
-            <span class="dash-comp-cmd-tag checklist">ba-checklist</span>
-            <span class="dash-comp-cmd-copy-btn" title="Copy command">
-              <span class="dash-comp-bench-icon-state">${icons.copy || ''}</span>
-            </span>
-          </div>
-        </div>
-
-        ${moduleRowsHtml}
-
-        <div class="dash-comp-inline-add-wrap" id="dash-checklist-inline-add" style="display: none;">
-          <div class="dash-comp-inline-input-row">
-            <input type="text" class="dash-comp-inline-input" id="dash-checklist-inline-input" placeholder="e.g. onboarding, ai-voice-changer, paywall-iap (press Enter)..." autocomplete="off" spellcheck="false" />
-            <button type="button" class="dash-comp-inline-submit-btn" id="dash-checklist-inline-submit" title="Add module scope">Add</button>
-            <button type="button" class="dash-comp-inline-cancel-btn" id="dash-checklist-inline-cancel" title="Cancel">✕</button>
-          </div>
-          <div class="dash-comp-inline-hint-row">
-            <span>Tip: Add one or comma-separated target modules to generate scoped /ba-checklist commands</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  dom.dashChecklistBody.querySelectorAll('[data-action="copy-checklist-cmd"]').forEach((el: Element) => {
-    el.addEventListener('click', (e: Event) => {
-      if ((e.target as HTMLElement).closest('[data-action="remove-checklist-scope"]')) return;
-      e.stopPropagation();
-      const target = e.currentTarget as HTMLElement;
-      const cmd = target.dataset.cmd;
-      if (!cmd) return;
-
-      void navigator.clipboard.writeText(cmd);
-      showToast(`Copied command: ${cmd} — paste into Antigravity!`, 'success');
-
-      if (activeProject?.path) {
-        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path })
-          .then((res: any) => {
-            if (!res?.success) showToast(`Config sync failed: ${res?.error || 'Unknown error'}`, 'error');
-          });
-      }
-
-      target.classList.add('copied');
-      const iconState = target.querySelector('.dash-comp-bench-icon-state') as HTMLElement;
-      const origHtml = iconState?.innerHTML;
-      if (iconState) {
-        iconState.innerHTML = `<span class="dash-bench-copied-text">✓ Copied</span>`;
-      }
-      setTimeout(() => {
-        target.classList.remove('copied');
-        if (iconState && origHtml) {
-          iconState.innerHTML = origHtml;
-        }
-      }, 1400);
-    });
-  });
-
-  dom.dashChecklistBody.querySelectorAll('[data-action="remove-checklist-scope"]').forEach((btnEl: Element) => {
-    btnEl.addEventListener('click', async (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const idx = Number((e.currentTarget as HTMLElement).dataset.index);
-      if (isNaN(idx) || idx < 0 || idx >= scopes.length) return;
-      const nextScopes = scopes.filter((_: string, i: number) => i !== idx);
-      const nextScopeStr = nextScopes.join('\n');
-      activeProject.checklistScope = nextScopeStr;
-      if (activeProject?.path) {
-        await window.api.updateProjectMetadata(activeProject.path, { checklistScope: nextScopeStr });
-        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
-      }
-      renderDashboardChecklist(activeProject, activeWt);
-    });
-  });
-
-  const inlineWrap = dom.dashChecklistBody.querySelector('#dash-checklist-inline-add') as HTMLElement;
-  const inlineInput = dom.dashChecklistBody.querySelector('#dash-checklist-inline-input') as HTMLInputElement;
-  const inlineSubmit = dom.dashChecklistBody.querySelector('#dash-checklist-inline-submit') as HTMLButtonElement;
-  const inlineCancel = dom.dashChecklistBody.querySelector('#dash-checklist-inline-cancel') as HTMLButtonElement;
-
-  const submitScope = async () => {
-    const raw = inlineInput?.value.trim() || '';
-    if (!raw) {
-      showToast('Please enter a module or scope name', 'info');
-      inlineInput?.focus();
-      return;
-    }
-    const parsedNew = parseBenchmarkFlows(raw);
-    const toAdd = parsedNew.length > 0 ? parsedNew : [raw];
-    const nextScopes = [...scopes];
-    let added = 0;
-    for (const item of toAdd) {
-      const clean = item.trim();
-      if (clean && !nextScopes.some((s: string) => s.toLowerCase() === clean.toLowerCase())) {
-        nextScopes.push(clean);
-        added++;
-      }
-    }
-    if (added === 0) {
-      showToast('Module already in list', 'info');
-      if (inlineInput) inlineInput.value = '';
-      return;
-    }
-    const nextScopeStr = nextScopes.join('\n');
-    activeProject.checklistScope = nextScopeStr;
-    if (activeProject?.path) {
-      await window.api.updateProjectMetadata(activeProject.path, { checklistScope: nextScopeStr });
-      void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
-    }
-    showToast(`Added checklist module: ${toAdd.join(', ')}`, 'success');
-    renderDashboardChecklist(activeProject, activeWt);
-  };
-
-  inlineSubmit?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    void submitScope();
-  });
-
-  inlineCancel?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    if (inlineWrap) inlineWrap.style.display = 'none';
-    if (inlineInput) inlineInput.value = '';
-  });
-
-  inlineInput?.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      void submitScope();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      if (inlineWrap) inlineWrap.style.display = 'none';
-      inlineInput.value = '';
-    }
-  });
+function hideProjectDependentScreens() {
+  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
 }
 
 function renderDashboardViewer() {
+  const hasProjects = Array.isArray(state.projects) && state.projects.length > 0;
+  document.body.classList.toggle('no-projects-mode', !hasProjects);
+
   const { activeProject, activeWt } = getActiveProjectAndWorktree();
 
   if (!dom.dashboardViewer || !dom.dashboardEmptyState) return;
 
-  if (!activeProject) {
+  if (!hasProjects || !activeProject) {
+    hideProjectDependentScreens();
+    lastAgentToolkitWorktreePath = null;
     updateSidebarFigmaButton(null);
     updateSidebarResourcesButton(null);
     dom.dashboardEmptyState.style.display = 'flex';
     dom.dashboardViewer.style.display = 'none';
+    const settingsOpen = dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden');
+    const modalOpen = dom.modalOverlay && dom.modalOverlay.style.display !== 'none';
+    if (!settingsOpen && !modalOpen && dom.btnDashboardAddFirst instanceof HTMLElement) {
+      dom.btnDashboardAddFirst.focus({ preventScroll: true });
+    }
     return;
   }
 
@@ -4419,7 +3125,7 @@ function renderDashboardViewer() {
     dom.dashProjectPath.textContent = currentPath;
     dom.dashProjectPath.title = currentPath;
   }
-  renderDashboardChecklist(activeProject, activeWt);
+  void refreshAgentToolkitStatus();
   renderDashboardCompetitors(activeProject, activeWt);
   renderProjectResourcesScreen();
 }
@@ -4428,6 +3134,12 @@ function renderDashboardViewer() {
 if (dom.btnDashboardAddFirst) {
   dom.btnDashboardAddFirst.addEventListener('click', () => {
     if (dom.btnAddProject) dom.btnAddProject.click();
+  });
+}
+
+if (dom.btnDashboardEmptySettings) {
+  dom.btnDashboardEmptySettings.addEventListener('click', () => {
+    void showSettingsScreen();
   });
 }
 
@@ -4650,6 +3362,15 @@ if (dom.dashBtnBrowserFirebase) {
   });
 }
 
+if (dom.dashBtnBrowserPlane) {
+  dom.dashBtnBrowserPlane.addEventListener('click', async () => {
+    const { activeProject } = getActiveProjectAndWorktree();
+    if (activeProject?.planeUrl) {
+      await window.api.openExternal(activeProject.planeUrl);
+    }
+  });
+}
+
 if (dom.dashBtnBrowserPrd) {
   dom.dashBtnBrowserPrd.addEventListener('click', async () => {
     const { activeProject } = getActiveProjectAndWorktree();
@@ -4664,32 +3385,6 @@ if (dom.dashBtnBrowserChecklist) {
     const { activeProject } = getActiveProjectAndWorktree();
     if (activeProject?.legacyChecklistUrl) {
       await window.api.openExternal(activeProject.legacyChecklistUrl);
-    }
-  });
-}
-
-if (dom.dashBtnChecklistOpenLink) {
-  dom.dashBtnChecklistOpenLink.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
-    if (activeProject?.legacyChecklistUrl) {
-      await window.api.openExternal(activeProject.legacyChecklistUrl);
-    }
-  });
-}
-
-if (dom.dashBtnChecklistResources) {
-  dom.dashBtnChecklistResources.addEventListener('click', () => {
-    showProjectResourcesScreen();
-  });
-}
-
-if (dom.dashBtnAddChecklistScope) {
-  dom.dashBtnAddChecklistScope.addEventListener('click', () => {
-    const inlineWrap = dom.dashChecklistBody?.querySelector('#dash-checklist-inline-add') as HTMLElement | null;
-    const inlineInput = dom.dashChecklistBody?.querySelector('#dash-checklist-inline-input') as HTMLInputElement | null;
-    if (inlineWrap) {
-      inlineWrap.style.display = 'flex';
-      inlineInput?.focus();
     }
   });
 }
@@ -4740,30 +3435,6 @@ if (dom.dashBtnSyncConfig) {
   });
 }
 
-// Terminal screen controls
-if (dom.btnTerminalScreen) {
-  dom.btnTerminalScreen.addEventListener('click', () => {
-    if (isTerminalScreenVisible()) {
-      hideTerminalScreen();
-    } else {
-      void showTerminalScreen();
-    }
-  });
-}
-if (dom.btnCloseTerminalScreen) {
-  dom.btnCloseTerminalScreen.addEventListener('click', hideTerminalScreen);
-}
-if (dom.btnTerminalScreenNew) {
-  dom.btnTerminalScreenNew.addEventListener('click', () => {
-    createNewTerminalTab();
-  });
-}
-if (dom.btnTerminalEmptyNew) {
-  dom.btnTerminalEmptyNew.addEventListener('click', () => {
-    createNewTerminalTab();
-  });
-}
-
 if (dom.btnManageSymlinks) {
   dom.btnManageSymlinks.addEventListener('click', () => {
     const activeWorktreePath = getRequiredActiveWorktreePath();
@@ -4789,6 +3460,11 @@ async function loadWorkspaces() {
   dom.loadingState.style.display = 'none';
   dom.projectsContainer.style.display = '';
 
+  if (state.projects.length === 0) {
+    state.selectedProjectPath = null;
+    state.activeWorktreePath = null;
+  }
+
   if (state.expandedProjects.size === 0) {
     state.projects.forEach((p) => state.expandedProjects.add(p.path));
   }
@@ -4797,7 +3473,7 @@ async function loadWorkspaces() {
   // Automatically select and open the first project on startup
   if (!state.activeWorktreePath && state.projects.length > 0) {
     const targetProjPath = state.selectedProjectPath || state.projects[0].path;
-    await openProjectWorkspaceAndTerminal(targetProjPath);
+    await openProjectWorkspace(targetProjPath);
   }
 }
 
@@ -4806,6 +3482,9 @@ function renderSidebar() {
     dom.projectsContainer.innerHTML = '';
     dom.projectsContainer.style.display = 'none';
     dom.emptyState.style.display = '';
+    state.selectedProjectPath = null;
+    state.activeWorktreePath = null;
+    updateSidebarActiveState();
     return;
   }
   dom.emptyState.style.display = 'none';
@@ -4852,7 +3531,7 @@ function renderSidebar() {
         if (!projectPath) return;
         state.selectedProjectPath = projectPath;
         renderSidebar();
-        await openProjectWorkspaceAndTerminal(projectPath);
+        await openProjectWorkspace(projectPath);
       });
       navEl.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -5051,7 +3730,7 @@ function attachSelectedProjectEvents(project) {
     showProjectOptionsMenu(project, (e as MouseEvent).clientX, (e as MouseEvent).clientY);
   });
 
-  // Worktree items → open terminal or switch to worktree context
+  // Worktree items → switch to worktree context
   container.querySelectorAll('.sidebar-wt-item').forEach((wtEl) => {
     if (!(wtEl instanceof HTMLElement)) return;
     wtEl.addEventListener('contextmenu', (e) => {
@@ -5291,7 +3970,6 @@ async function saveSettingsFromUI() {
     antigravityAgentPath: dom.settingsAntigravityAgentPath ? cleanVal(dom.settingsAntigravityAgentPath.value) : '',
     claudeDesktopPath: dom.settingsClaudeDesktopPath ? cleanVal(dom.settingsClaudeDesktopPath.value) : '',
     vscodePath: dom.settingsVsCodePath ? cleanVal(dom.settingsVsCodePath.value) : '',
-    planeApiKey: dom.settingsPlaneApiKey ? dom.settingsPlaneApiKey.value.trim() : (state.settings?.planeApiKey || ''),
     androidStudioPath: dom.settingsAndroidStudioPath ? cleanVal(dom.settingsAndroidStudioPath.value) : '',
     figmaPath: dom.settingsFigmaPath ? cleanVal(dom.settingsFigmaPath.value) : '',
     figmaUrl: dom.settingsFigmaUrl ? dom.settingsFigmaUrl.value.trim() : (state.settings?.figmaUrl || 'https://www.figma.com'),
@@ -5306,13 +3984,11 @@ async function saveSettingsFromUI() {
 }
 
 async function showSettingsScreen() {
-  concealPlaneTaskScreen();
   if (state.settings) {
     if (dom.settingsAntigravityPath) dom.settingsAntigravityPath.value = state.settings.antigravityPath || 'detecting...';
     if (dom.settingsAntigravityAgentPath) dom.settingsAntigravityAgentPath.value = state.settings.antigravityAgentPath || 'detecting...';
     if (dom.settingsClaudeDesktopPath) dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || 'detecting...';
     if (dom.settingsVsCodePath) dom.settingsVsCodePath.value = state.settings.vscodePath || 'detecting...';
-    if (dom.settingsPlaneApiKey) dom.settingsPlaneApiKey.value = state.settings.planeApiKey || '';
     if (dom.settingsAndroidStudioPath) dom.settingsAndroidStudioPath.value = state.settings.androidStudioPath || 'detecting...';
     if (dom.settingsFigmaPath) dom.settingsFigmaPath.value = state.settings.figmaPath || '';
     if (dom.settingsFigmaUrl) dom.settingsFigmaUrl.value = state.settings.figmaUrl || 'https://www.figma.com';
@@ -5322,10 +3998,7 @@ async function showSettingsScreen() {
     if (dom.settingsReaKitPath) dom.settingsReaKitPath.value = state.settings.reakitPath || 'detecting...';
   }
 
-  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
-  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
@@ -5408,23 +4081,18 @@ async function showSettingsScreen() {
 async function hideSettingsScreen() {
   await saveSettingsFromUI();
   dom.settingsScreen.classList.add('hidden');
-  fitActiveTerminal();
   startAutoRefreshLoop();
 }
 
 // ── Symlink Screen ─────────────────────────────────────
 async function showSymlinkScreen() {
-  concealPlaneTaskScreen();
   const activeWorktreePath = state.activeWorktreePath;
   const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'No active project';
 
   if (dom.symlinkScreenActiveName) dom.symlinkScreenActiveName.textContent = activeWorktreeName;
   if (dom.symlinkScreenActivePath) dom.symlinkScreenActivePath.textContent = activeWorktreePath || 'Please select a worktree first.';
 
-  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
-  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   dom.settingsScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
@@ -5473,7 +4141,6 @@ async function showSymlinkScreen() {
 
 function hideSymlinkScreen() {
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  fitActiveTerminal();
   startAutoRefreshLoop();
 }
 
@@ -5803,39 +4470,56 @@ async function showForceRemoveWorktreeModal(project, wt) {
     withAsyncButtonState,
     refreshProjectWorkspaces,
     icons,
-    closeWorktreeOwnedSessions,
-    releaseWorktreeOwnedSessions,
   });
 }
 
-// ── Agent Toolkit Screen ───────────────────────────────────
-async function showAgentToolkitScreen() {
-  concealPlaneTaskScreen();
-  const activeWorktreePath = state.activeWorktreePath;
-  const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'No active project';
+// ── Dashboard Collapsible BA Agent Toolkit ─────────────────
+const DASHBOARD_TOOLKIT_COLLAPSED_KEY = 'baspace_dashboard_toolkit_collapsed';
 
-  if (dom.agentToolkitActiveName) dom.agentToolkitActiveName.textContent = activeWorktreeName;
-  if (dom.agentToolkitActivePath) dom.agentToolkitActivePath.textContent = activeWorktreePath || 'Please select a worktree first.';
-
-  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
-  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
-  dom.settingsScreen.classList.add('hidden');
-  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
-  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
-  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
-  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
-  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.remove('hidden');
-
-  await refreshAgentToolkitStatus();
+function loadDashboardToolkitCollapsed(): boolean {
+  try {
+    const val = localStorage.getItem(DASHBOARD_TOOLKIT_COLLAPSED_KEY);
+    return val === null ? true : val === 'true';
+  } catch {
+    return true;
+  }
 }
 
-function hideAgentToolkitScreen() {
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-  fitActiveTerminal();
-  startAutoRefreshLoop();
+function setDashboardToolkitCollapsed(collapsed: boolean, { persist = true } = {}) {
+  if (!dom.dashSectionAgentToolkit) return;
+  dom.dashSectionAgentToolkit.classList.toggle('collapsed', collapsed);
+  if (dom.dashToolkitHeader) {
+    dom.dashToolkitHeader.setAttribute('aria-expanded', String(!collapsed));
+  }
+  if (dom.dashToolkitBody) {
+    dom.dashToolkitBody.inert = collapsed;
+  }
+  if (persist) {
+    try {
+      localStorage.setItem(DASHBOARD_TOOLKIT_COLLAPSED_KEY, collapsed ? 'true' : 'false');
+    } catch {}
+  }
 }
+
+if (dom.dashToolkitHeader) {
+  dom.dashToolkitHeader.addEventListener('click', (e: Event) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('.dash-section-actions, button')) return;
+    const isCollapsed = dom.dashSectionAgentToolkit?.classList.contains('collapsed') ?? true;
+    setDashboardToolkitCollapsed(!isCollapsed);
+  });
+
+  dom.dashToolkitHeader.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('.dash-section-actions, button')) return;
+    e.preventDefault();
+    const isCollapsed = dom.dashSectionAgentToolkit?.classList.contains('collapsed') ?? true;
+    setDashboardToolkitCollapsed(!isCollapsed);
+  });
+}
+
+setDashboardToolkitCollapsed(loadDashboardToolkitCollapsed(), { persist: false });
 
 // ── Device Manager Screen ──────────────────────────────────
 const deviceManagerScreen = new DeviceManagerScreen({
@@ -5845,58 +4529,37 @@ const deviceManagerScreen = new DeviceManagerScreen({
   icons,
 });
 
-// ── Plane Task Screen ──────────────────────────────────
-const planeTaskScreen = createPlaneTaskScreen({
-  dom,
-  icons,
-  getProjects: () => state.projects,
-  getSettings: () => state.settings,
-  updateSettings: async (settings) => {
-    state.settings = await window.api.updateSettings(settings);
-  },
-  getActiveWorktreePath: () => state.activeWorktreePath,
-  showToast,
-  showModal,
-  hideModal,
-  configureModalFooter,
-  openSettings: () => {
-    void showSettingsScreen();
-    setTimeout(() => {
-      dom.settingsPlaneApiKey?.focus();
-      dom.settingsPlaneApiKey?.select();
-    }, 60);
-  },
-  hideOtherScreens: () => {
-    if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
-    if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
-    dom.settingsScreen?.classList.add('hidden');
-    if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-    if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
-    if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
-    if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
-    if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
-    if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
-    if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
-  },
-  onHidden: () => {
-    fitActiveTerminal();
-    startAutoRefreshLoop();
-  },
-});
+async function toggleDashboardAgentToolkit() {
+  const otherScreenOpen = Boolean(
+    (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) ||
+    deviceManagerScreen.isRemoteScreenVisible() ||
+    (dom.symlinkScreen && !dom.symlinkScreen.classList.contains('hidden')) ||
+    (dom.deviceManagerScreen && !dom.deviceManagerScreen.classList.contains('hidden')) ||
+    (dom.deviceRemoteScreen && !dom.deviceRemoteScreen.classList.contains('hidden')) ||
+    (dom.projectResourcesScreen && !dom.projectResourcesScreen.classList.contains('hidden'))
+  );
 
-// Plain DOM toggle with no planeTaskScreen reference, so any screen function can call it safely.
-function concealPlaneTaskScreen() {
-  if (dom.planeTaskScreen) dom.planeTaskScreen.classList.add('hidden');
-  if (dom.btnPlaneTasks) dom.btnPlaneTasks.classList.remove('active');
+  if (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) {
+    await hideSettingsScreen();
+  }
+  if (deviceManagerScreen.isRemoteScreenVisible()) {
+    await deviceManagerScreen.closeRemoteScreen(true);
+  }
+  hideProjectDependentScreens();
+
+  const isCollapsed = dom.dashSectionAgentToolkit?.classList.contains('collapsed') ?? true;
+  const nextCollapsed = otherScreenOpen ? false : !isCollapsed;
+  setDashboardToolkitCollapsed(nextCollapsed);
+
+  if (!nextCollapsed) {
+    await refreshAgentToolkitStatus();
+    dom.dashSectionAgentToolkit?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 async function showDeviceManagerScreen() {
-  concealPlaneTaskScreen();
-  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
-  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   dom.settingsScreen?.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
   if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
@@ -5908,11 +4571,10 @@ async function showDeviceManagerScreen() {
 function hideDeviceManagerScreen() {
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   deviceManagerScreen.hide();
-  fitActiveTerminal();
   startAutoRefreshLoop();
 }
 
-// ── Project Resources Screen (Figma, Firebase, Legacy Docs) ──
+// ── Project Resources Screen (Figma, Firebase, Plane, Legacy Docs) ──
 function renderProjectResourcesScreen() {
   const { activeProject, activeWt } = getActiveProjectAndWorktree();
   if (dom.resourcesProjectName) {
@@ -5929,18 +4591,15 @@ function renderProjectResourcesScreen() {
   if (activeProject) {
     renderDashboardFigma(activeProject);
     renderDashboardFirebase(activeProject);
+    renderDashboardPlane(activeProject);
     renderDashboardLegacyDocs(activeProject);
   }
   updateSidebarResourcesButton(activeProject);
 }
 
 function showProjectResourcesScreen() {
-  concealPlaneTaskScreen();
-  if (dom.terminalScreen) dom.terminalScreen.classList.add('hidden');
-  if (dom.btnTerminalScreen) dom.btnTerminalScreen.classList.remove('active');
   dom.settingsScreen?.classList.add('hidden');
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  if (dom.agentToolkitScreen) dom.agentToolkitScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
@@ -5954,7 +4613,6 @@ function showProjectResourcesScreen() {
 function hideProjectResourcesScreen() {
   if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
   if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
-  fitActiveTerminal();
   startAutoRefreshLoop();
 }
 
@@ -6087,37 +4745,106 @@ const BAKIT_COMPONENTS = [
     gitExcludePatterns: []
   },
   {
-    id: 'bakit_mobilerun_mcp',
-    toolkit: 'bakit',
-    kind: 'mcp',
-    name: 'Mobilerun MCP (workspace plugin)',
-    description: 'Adds the mobilerun server as an Antigravity plugin in this worktree (.agents/plugins/mobilerun) so agents can drive competitor apps on the connected Android device. Other workspaces are not affected.',
-    gitExcludePatterns: []
-  },
-  {
     id: 'bakit_figma_mcp',
     toolkit: 'bakit',
     kind: 'mcp',
     name: 'Figma MCP (workspace plugin)',
     description: 'Adds figma-mcp-android (npx) as an Antigravity plugin in this worktree (.agents/plugins/figma) so /ba-figma can read the design open in Figma Desktop. Uses the bundled Node.js; needs the figma-mcp-android plugin running in Figma Desktop. Skipped when already registered globally.',
     gitExcludePatterns: []
+  },
+  {
+    id: 'bakit_mobilerun_mcp',
+    toolkit: 'bakit',
+    kind: 'mcp',
+    optional: true,
+    name: 'Mobilerun MCP (workspace plugin)',
+    description: 'Optional — only needed when driving a connected Android device (Mobilerun mode). Adds the mobilerun server as an Antigravity plugin in this worktree (.agents/plugins/mobilerun); not auto-enabled when applying the harness so Code-Only saves agent tokens.',
+    gitExcludePatterns: []
   }
 ];
 
 const TOOLKIT_COMPONENTS = [...BAKIT_COMPONENTS];
+let agentToolkitRefreshSeq = 0;
+let lastAgentToolkitWorktreePath: string | null = null;
+let activeToolkitMutations = 0;
 
-async function refreshAgentToolkitStatus() {
-  const activeWorktreePath = state.activeWorktreePath;
-  const projectPath = state.selectedProjectPath || (state.projects[0] ? state.projects[0].path : null);
-  
-  if (!activeWorktreePath || !projectPath) {
-    if (dom.agentToolkitListContainer) {
-      dom.agentToolkitListContainer.innerHTML = `<div class="symlink-empty-state">No Active Worktree or Project path found.</div>`;
+function updateDashboardToolkitBadges(statuses: Array<{ id: string; exists: boolean }> | null, loading = false) {
+  if (loading) {
+    if (dom.dashToolkitStatusPill) {
+      dom.dashToolkitStatusPill.textContent = 'Checking...';
+      dom.dashToolkitStatusPill.className = 'dash-status-pill';
+    }
+    if (dom.dashToolkitCountBadge) {
+      dom.dashToolkitCountBadge.style.display = 'none';
     }
     return;
   }
 
+  if (!statuses) {
+    if (dom.dashToolkitStatusPill) {
+      dom.dashToolkitStatusPill.textContent = 'Idle';
+      dom.dashToolkitStatusPill.className = 'dash-status-pill';
+    }
+    if (dom.dashToolkitCountBadge) {
+      dom.dashToolkitCountBadge.style.display = 'none';
+    }
+    return;
+  }
+
+  const totalCount = TOOLKIT_COMPONENTS.length;
+  const activeCount = statuses.filter(s => s.exists).length;
+  const bakitActive = BAKIT_COMPONENTS.some(b => b.kind !== 'mcp' && statuses.some(s => s.id === b.id && s.exists));
+
+  if (dom.dashToolkitStatusPill) {
+    if (activeCount === totalCount && totalCount > 0) {
+      dom.dashToolkitStatusPill.textContent = 'All Active';
+      dom.dashToolkitStatusPill.className = 'dash-status-pill connected';
+    } else if (bakitActive) {
+      dom.dashToolkitStatusPill.textContent = 'Harness Active';
+      dom.dashToolkitStatusPill.className = 'dash-status-pill connected';
+    } else if (activeCount > 0) {
+      dom.dashToolkitStatusPill.textContent = 'Partial';
+      dom.dashToolkitStatusPill.className = 'dash-status-pill partial';
+    } else {
+      dom.dashToolkitStatusPill.textContent = 'Idle';
+      dom.dashToolkitStatusPill.className = 'dash-status-pill';
+    }
+  }
+
+  if (dom.dashToolkitCountBadge) {
+    dom.dashToolkitCountBadge.textContent = `${activeCount}/${totalCount} Active`;
+    dom.dashToolkitCountBadge.style.display = 'inline-flex';
+  }
+}
+
+async function refreshAgentToolkitStatus({ force = false } = {}) {
+  if (activeToolkitMutations > 0 && !force) return;
+
+  const { activeProject, activeWt } = getActiveProjectAndWorktree();
+  const activeWorktreePath = activeWt ? activeWt.path : (activeProject ? activeProject.path : state.activeWorktreePath);
+  const projectPath = activeProject ? activeProject.path : (state.selectedProjectPath || (state.projects[0] ? state.projects[0].path : null));
+
+  const listContainer = dom.agentToolkitListContainer;
+  if (!listContainer) return;
+
+  if (!activeWorktreePath || !projectPath) {
+    lastAgentToolkitWorktreePath = null;
+    updateDashboardToolkitBadges(null);
+    listContainer.innerHTML = `<div class="symlink-empty-state">No Active Worktree or Project path found.</div>`;
+    return;
+  }
+
+  const refreshSeq = ++agentToolkitRefreshSeq;
+  const switchedWorktree = lastAgentToolkitWorktreePath !== activeWorktreePath;
+  lastAgentToolkitWorktreePath = activeWorktreePath;
+
   const pPath = projectPath.replace(/[\\/]+$/, '');
+  const savedScrollTop = listContainer.scrollTop;
+
+  if (switchedWorktree || !listContainer.innerHTML || listContainer.innerHTML.includes('No Active Worktree') || listContainer.innerHTML.includes('No active project')) {
+    updateDashboardToolkitBadges(null, true);
+    listContainer.innerHTML = `<div style="display:flex; justify-content:center; padding:16px; align-items:center; gap:8px;"><span class="spinner"></span> Checking status...</div>`;
+  }
 
   // 1. Determine toolkit source directories
   const defaultSources = await window.api.getDefaultToolkitSources();
@@ -6128,15 +4855,6 @@ async function refreshAgentToolkitStatus() {
   }
 
   const srcBaseFor = (_comp: any) => bakitPath;
-
-  const listContainer = dom.agentToolkitListContainer;
-  if (!listContainer) return;
-
-  const savedScrollTop = listContainer.scrollTop;
-
-  if (!listContainer.innerHTML || listContainer.innerHTML.includes('No Active Worktree') || listContainer.innerHTML.includes('No active project')) {
-    listContainer.innerHTML = `<div style="display:flex; justify-content:center; padding:16px; align-items:center; gap:8px;"><span class="spinner"></span> Checking status...</div>`;
-  }
 
   try {
     // Fetch statuses for all components
@@ -6225,6 +4943,11 @@ async function refreshAgentToolkitStatus() {
       };
     }));
 
+    if (refreshSeq !== agentToolkitRefreshSeq) return;
+    if (activeToolkitMutations > 0 && !force) return;
+
+    updateDashboardToolkitBadges(statuses);
+
     const getStatus = (id: string): any => statuses.find(s => s.id === id) || { exists: false, sourceExists: false };
 
     function renderComponentItem(compItem: any) {
@@ -6266,12 +4989,12 @@ async function refreshAgentToolkitStatus() {
       }
 
       return `
-        <div class="symlink-item" style="margin-bottom: 8px; border-radius: var(--radius-md); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-elevated); border: 1px solid var(--border-subtle); ${opacityStyle}">
+        <div class="symlink-item" style="border-radius: var(--radius-md); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-elevated); border: 1px solid var(--border-subtle); ${opacityStyle}">
           <label class="symlink-label" style="cursor: ${stateItem.sourceExists ? 'pointer' : 'not-allowed'}; display: flex; align-items: center; gap: 8px; width: 100%;">
-            <input type="checkbox" class="agent-toolkit-checkbox" data-id="${compItem.id}" ${stateItem.needsInstall ? 'data-needs-install="true"' : ''} ${checked} ${disabledAttr} style="margin-right: 4px;" />
+            <input type="checkbox" class="agent-toolkit-checkbox" data-id="${compItem.id}" ${compItem.optional ? 'data-optional="true"' : ''} ${stateItem.needsInstall ? 'data-needs-install="true"' : ''} ${checked} ${disabledAttr} style="margin-right: 4px;" />
             ${compIcon}
             <div class="symlink-info">
-              <span class="symlink-name" style="font-size: 13px; font-weight: 600; color: var(--text-default);">${compItem.name}</span>
+              <span class="symlink-name" style="font-size: 13px; font-weight: 600; color: var(--text-default);">${compItem.name}${compItem.optional ? ' <span style="margin-left: 4px; font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: var(--text-tertiary); border: 1px solid var(--border-subtle); vertical-align: middle;">Optional</span>' : ''}</span>
               <div style="font-size: 11px; color: var(--text-tertiary);">${compItem.description || ''}</div>
             </div>
           </label>
@@ -6284,34 +5007,15 @@ async function refreshAgentToolkitStatus() {
 
     // Generate BAKit HTML Group
     const bakitItemsHtml = BAKIT_COMPONENTS.map(b => renderComponentItem(b)).join('');
-    const bakitActive = BAKIT_COMPONENTS.some(b => b.kind !== 'mcp' && getStatus(b.id).exists);
-    const bakitBadge = bakitActive
-      ? `<span class="symlink-status-badge symlink-status-linked" style="background: rgba(16, 185, 129, 0.15); color: rgb(52, 211, 153); font-size: 10px; padding: 2px 6px;">Harness Active</span>`
-      : `<span class="symlink-status-badge symlink-status-unlinked" style="font-size: 10px; padding: 2px 6px;">Idle</span>`;
-
-    const bakitHtml = `
-      <div style="display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px 20px; background: var(--bg-default); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="color: var(--accent-default); display: flex; align-items: center; font-size: 18px;">
-              ${icons.agentToolkit}
-            </div>
-            <div class="symlink-info">
-              <span class="symlink-name" style="font-size: 15px; font-weight: 700; color: var(--text-default);">BAKit — Antigravity BA Toolkit</span>
-              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">BA agents, template catalog, competitor app analysis over the mobilerun MCP server, and Figma design analysis over figma-mcp-android.</div>
-            </div>
-          </div>
-          ${bakitBadge}
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-subtle); padding-top: 14px; margin-top: 6px;">
-          ${bakitItemsHtml}
-        </div>
-      </div>
-    `;
 
     listContainer.innerHTML = `
-      <div style="display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%;">
-        ${bakitHtml}
+      <div class="dash-toolkit-summary">
+        <div class="dash-toolkit-summary-text">
+          <strong>BAKit — Antigravity BA Toolkit</strong> · BA agents, template catalog, competitor app analysis over mobilerun MCP, and Figma design analysis over figma-mcp-android.
+        </div>
+      </div>
+      <div class="dash-toolkit-items">
+        ${bakitItemsHtml}
       </div>
     `;
 
@@ -6326,6 +5030,7 @@ async function refreshAgentToolkitStatus() {
 
         if (!comp) return;
         target.disabled = true;
+        activeToolkitMutations++;
 
         const srcBase = srcBaseFor(comp);
 
@@ -6451,22 +5156,31 @@ async function refreshAgentToolkitStatus() {
           target.checked = !isChecked;
         } finally {
           target.disabled = false;
-          await refreshAgentToolkitStatus();
+          activeToolkitMutations = Math.max(0, activeToolkitMutations - 1);
+          if (activeToolkitMutations === 0) {
+            await refreshAgentToolkitStatus({ force: true });
+          }
         }
       });
     });
 
   } catch (err: any) {
+    if (refreshSeq !== agentToolkitRefreshSeq) return;
+    updateDashboardToolkitBadges(null);
     listContainer.innerHTML = `<div style="color:var(--danger-default); padding:16px;">Failed to load status: ${err.message}</div>`;
   }
 }
 
 if (dom.btnAgentToolkitApplyAll) {
-  dom.btnAgentToolkitApplyAll.addEventListener('click', async () => {
+  dom.btnAgentToolkitApplyAll.addEventListener('click', async (e: Event) => {
+    e.stopPropagation();
     const listContainer = dom.agentToolkitListContainer;
     if (!listContainer) return;
-    // Items that need Mobilerun setup open an install dialog, so Apply All leaves them to the user.
-    const unchecked = Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:not(:checked):not(:disabled):not([data-needs-install])')) as HTMLInputElement[];
+    if (listContainer.querySelectorAll('.agent-toolkit-checkbox').length === 0) {
+      await refreshAgentToolkitStatus({ force: true });
+    }
+    // Optional components (e.g. Mobilerun MCP) and items that need setup are opt-in and skipped when applying the harness.
+    const unchecked = Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:not(:checked):not(:disabled):not([data-needs-install]):not([data-optional="true"])')) as HTMLInputElement[];
     const targets = unchecked.length > 0
       ? unchecked
       : Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:checked:not(:disabled):not([data-needs-install])')) as HTMLInputElement[];
@@ -6482,15 +5196,11 @@ if (dom.btnAgentToolkitApplyAll) {
   });
 }
 
-if (dom.btnCloseAgentToolkitScreen) {
-  dom.btnCloseAgentToolkitScreen.addEventListener('click', hideAgentToolkitScreen);
-}
-
 if (dom.btnAgentToolkit) {
   dom.btnAgentToolkit.addEventListener('click', () => {
     const activeWorktreePath = getRequiredActiveWorktreePath();
     if (!activeWorktreePath) return;
-    showAgentToolkitScreen();
+    void toggleDashboardAgentToolkit();
   });
 }
 
@@ -6562,13 +5272,7 @@ function startAutoRefreshLoop() {
 initializeRendererLifecycle({
   loadWorkspaceSidebarCollapsed,
   setWorkspaceSidebarCollapsed,
-  loadTabSidebarCollapsed,
-  setTabSidebarCollapsed,
   loadWorkspaces,
-  PREWARM_TOOLS,
-  cleanupPrewarm,
-  state,
-  ptyKill: window.api.ptyKill,
 });
 
 startAutoRefreshLoop();
@@ -6582,10 +5286,6 @@ window.addEventListener('keydown', (e) => {
       dom.modalCloseBtn?.click();
       return;
     }
-    if (dom.terminalScreen && !dom.terminalScreen.classList.contains('hidden')) {
-      hideTerminalScreen();
-      return;
-    }
     if (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) {
       dom.btnCloseSettings?.click();
       return;
@@ -6594,20 +5294,12 @@ window.addEventListener('keydown', (e) => {
       dom.btnCloseSymlinkScreen?.click();
       return;
     }
-    if (dom.agentToolkitScreen && !dom.agentToolkitScreen.classList.contains('hidden')) {
-      dom.btnCloseAgentToolkitScreen?.click();
-      return;
-    }
     if (deviceManagerScreen.isRemoteScreenVisible()) {
       void deviceManagerScreen.closeRemoteScreen(true);
       return;
     }
     if (dom.deviceManagerScreen && !dom.deviceManagerScreen.classList.contains('hidden')) {
       dom.btnCloseDeviceManagerScreen?.click();
-      return;
-    }
-    if (planeTaskScreen.isVisible()) {
-      planeTaskScreen.hide();
       return;
     }
     if (dom.projectResourcesScreen && !dom.projectResourcesScreen.classList.contains('hidden')) {
@@ -6623,17 +5315,6 @@ window.addEventListener('keydown', (e) => {
       showSettingsScreen();
     } else if (dom.settingsScreen) {
       hideSettingsScreen();
-    }
-    return;
-  }
-
-  // 3. Ctrl+N / Cmd+N opens terminal screen or creates a new tab
-  if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
-    e.preventDefault();
-    if (!isTerminalScreenVisible()) {
-      void showTerminalScreen();
-    } else {
-      createNewTerminalTab();
     }
     return;
   }

@@ -166,6 +166,9 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     if (metadata.firebaseUrl !== undefined) {
       project.firebaseUrl = String(metadata.firebaseUrl || '').trim();
     }
+    if (metadata.planeUrl !== undefined) {
+      project.planeUrl = String(metadata.planeUrl || '').trim();
+    }
     if (metadata.legacyPrdUrl !== undefined) {
       project.legacyPrdUrl = String(metadata.legacyPrdUrl || '').trim();
     }
@@ -238,7 +241,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       jadxSourcePath: typeof competitor.jadxSourcePath === 'string' ? competitor.jadxSourcePath.trim() : '',
       jadxStatus: typeof competitor.jadxStatus === 'string' ? competitor.jadxStatus.trim() : '',
       notes: (competitor.notes || '').trim(),
-      analysisMode: competitor.analysisMode === 'code-only' ? 'code-only' : 'hybrid',
+      analysisMode: competitor.analysisMode === 'hybrid' ? 'hybrid' : 'code-only',
       addedAt: competitor.addedAt || now(),
     };
     project.competitors.push(compEntry);
@@ -272,7 +275,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       jadxSourcePath: competitor.jadxSourcePath !== undefined ? (typeof competitor.jadxSourcePath === 'string' ? competitor.jadxSourcePath.trim() : '') : (existing.jadxSourcePath || ''),
       jadxStatus: competitor.jadxStatus !== undefined ? (typeof competitor.jadxStatus === 'string' ? competitor.jadxStatus.trim() : '') : (existing.jadxStatus || ''),
       notes: (competitor.notes !== undefined ? competitor.notes : existing.notes).trim(),
-      analysisMode: competitor.analysisMode !== undefined ? competitor.analysisMode : (existing.analysisMode || 'hybrid'),
+      analysisMode: competitor.analysisMode !== undefined ? competitor.analysisMode : (existing.analysisMode || 'code-only'),
     };
     enrichCompetitorFromDisk(projectPath, project.competitors[index]);
     configStore.saveConfig();
@@ -366,11 +369,27 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
         }
       }
 
+      // Update Plane Project URL if provided
+      if (project.planeUrl) {
+        const planeRow = `| Plane | \`${project.planeUrl}\` | Project issues, sprints & tasks |`;
+        if (/\| Plane \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/\| Plane \|.*\|.*\|/i, planeRow);
+        } else if (/\| Firebase \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Firebase \|.*\|.*\|)/i, `$1\n${planeRow}`);
+        } else if (/\| Figma \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Figma \|.*\|.*\|)/i, `$1\n${planeRow}`);
+        } else if (/## 2\. Links & Resources/i.test(content)) {
+          content = content.replace(/(## 2\. Links & Resources[\s\S]*?\| :--- \| :--- \| :--- \|\r?\n)/i, `$1${planeRow}\n`);
+        }
+      }
+
       // Update Legacy PRD URL if provided
       if (project.legacyPrdUrl) {
         const prdRow = `| Legacy PRD | \`${project.legacyPrdUrl}\` | Product Requirement Document (legacy) |`;
         if (/\| Legacy PRD \|.*\|.*\|/i.test(content)) {
           content = content.replace(/\| Legacy PRD \|.*\|.*\|/i, prdRow);
+        } else if (/\| Plane \|.*\|.*\|/i.test(content)) {
+          content = content.replace(/(\| Plane \|.*\|.*\|)/i, `$1\n${prdRow}`);
         } else if (/\| Firebase \|.*\|.*\|/i.test(content)) {
           content = content.replace(/(\| Firebase \|.*\|.*\|)/i, `$1\n${prdRow}`);
         } else if (/\| Figma \|.*\|.*\|/i.test(content)) {

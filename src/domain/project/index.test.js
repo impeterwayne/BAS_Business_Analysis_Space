@@ -12,6 +12,7 @@ const {
   normalizeProjectMetadata,
   parseFigmaUrl,
   parseFirebaseUrl,
+  parsePlaneUrl,
   parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,
@@ -189,6 +190,12 @@ test('normalizeProjectMetadata validates and normalizes figmaUrl, apkFiles, and 
   assert.strictEqual(normalized.competitors[0].apkSize, 45000000);
   assert.strictEqual(normalized.competitors[0].jadxSourcePath, '');
   assert.strictEqual(normalized.competitors[0].jadxStatus, '');
+  assert.strictEqual(normalized.competitors[0].analysisMode, 'code-only');
+
+  const withHybrid = normalizeProjectMetadata({
+    competitors: [{ name: 'ZaloPay', analysisMode: 'hybrid' }],
+  });
+  assert.strictEqual(withHybrid.competitors[0].analysisMode, 'hybrid');
 });
 
 test('parseFigmaUrl extracts file type, key, title and node-id', () => {
@@ -245,6 +252,36 @@ test('parseFirebaseUrl extracts project id and console section', () => {
   assert.strictEqual(parseFirebaseUrl('not-a-valid-url'), null);
   assert.strictEqual(parseFirebaseUrl(''), null);
   assert.strictEqual(parseFirebaseUrl(null), null);
+});
+
+test('normalizeProjectMetadata trims planeUrl and defaults it to empty', () => {
+  assert.strictEqual(
+    normalizeProjectMetadata({ planeUrl: '  https://plane.itgproduct.com/product/projects/abc-123/issues  ' }).planeUrl,
+    'https://plane.itgproduct.com/product/projects/abc-123/issues'
+  );
+  assert.strictEqual(normalizeProjectMetadata({}).planeUrl, '');
+  assert.strictEqual(normalizeProjectMetadata({ planeUrl: 42 }).planeUrl, '');
+});
+
+test('parsePlaneUrl extracts workspace, project id, and section', () => {
+  const issues = parsePlaneUrl('https://plane.itgproduct.com/product/projects/proj-123/issues');
+  assert.strictEqual(issues.host, 'plane.itgproduct.com');
+  assert.strictEqual(issues.workspace, 'product');
+  assert.strictEqual(issues.projectId, 'proj-123');
+  assert.strictEqual(issues.section, 'Work Items');
+
+  const cycles = parsePlaneUrl('https://app.plane.so/acme/projects/shop-app/cycles');
+  assert.strictEqual(cycles.workspace, 'acme');
+  assert.strictEqual(cycles.projectId, 'shop-app');
+  assert.strictEqual(cycles.section, 'Cycles');
+
+  const bare = parsePlaneUrl('plane.itgproduct.com/product/projects/proj-123');
+  assert.strictEqual(bare.url, 'https://plane.itgproduct.com/product/projects/proj-123');
+  assert.strictEqual(bare.section, 'Project');
+
+  assert.strictEqual(parsePlaneUrl('not-a-valid-url'), null);
+  assert.strictEqual(parsePlaneUrl(''), null);
+  assert.strictEqual(parsePlaneUrl(null), null);
 });
 
 test('normalizeProjectMetadata trims legacyPrdUrl and legacyChecklistUrl and defaults them to empty', () => {

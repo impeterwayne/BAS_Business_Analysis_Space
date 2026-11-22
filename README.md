@@ -16,13 +16,12 @@
 - **BA Agent Roster**: `ba-lead`, `competitor-analyst`, `ba-researcher`, `ba-brainstormer`, `ba-spec-writer`.
 - **Template Catalog**: FSD, use case, user stories, feature brief, test cases, readiness review, competitor analysis and gap analysis — deliverables in Vietnamese.
 - **Competitor App Analysis**: drives a competitor Android app through the `mobilerun` MCP server (registered in Antigravity's global MCP config) and writes evidence-backed BA documents.
-- **Batch Toolkit Deployment**: One-click "Apply Selected Toolkits" to provision worktrees with BAKit harnesses.
+- **Batch Toolkit Deployment**: One-click "Apply all" to provision worktrees with BAKit harnesses.
 
 ### 3. BA Quick Launchers & External Integrations
 - **Antigravity IDE & Agent Manager**: Jump straight into Antigravity with your current worktree context.
 - **VS Code & Obsidian**: One-click launcher for Visual Studio Code, plus seamless Obsidian vault integration opening the workspace's `docs/` folder directly under the workspace name with pre-seeded BA plugins and settings.
 - **Figma Integration**: Launch Figma desktop app or navigate to custom project design URLs.
-- **Embedded & External Terminals**: Integrated xterm.js tabs with AI CLI launchers (Antigravity CLI with `--dangerously-skip-permissions`, OpenCode, Codex YOLO, Claude), alongside external terminal support (Windows Terminal on Windows, Terminal.app on macOS, default terminal emulator on Linux).
 
 ---
 
@@ -33,7 +32,7 @@
   - **Windows**: Windows 10 / 11 (x64)
   - **macOS**: macOS 12 Monterey or later (Apple Silicon `arm64` & Intel `x64`)
   - **Linux**: Ubuntu 20.04+, Debian 11+, Fedora, or equivalent modern distribution (x64)
-- **Bundled runtimes**: installers ship Python 3.12, a Java 21 JRE and Node.js 26 LTS (with npm/npx), so the harness scripts, ReaKit/jadx and the npx-launched MCP servers (mobilerun, Figma) need nothing installed. In the embedded terminals, a Node.js you installed yourself still takes precedence over the bundled one.
+- **Bundled runtimes**: installers ship Python 3.12, a Java 21 JRE and Node.js 26 LTS (with npm/npx), so the harness scripts, ReaKit/jadx and the npx-launched MCP servers (mobilerun, Figma) need nothing installed.
 - **Node.js** (development only): v20+ (Node.js 22 recommended) and npm, to build and run from source
 - **Git**: Installed and on system PATH
 - **ADB & Scrcpy**: Required for device mirroring and UI capture features (`scrcpy` and `adb` available on system PATH or standard SDK / Homebrew install paths)

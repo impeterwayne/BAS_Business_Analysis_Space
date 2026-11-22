@@ -191,7 +191,7 @@ async function openMergeWorktreeModal({ project, wt, dom, api, showToast, esc, b
   });
 }
 
-async function openForceRemoveWorktreeModal({ project, wt, dom, api, showToast, esc, configureModalFooter, showModal, hideModal, withAsyncButtonState, refreshProjectWorkspaces, icons, closeWorktreeOwnedSessions, releaseWorktreeOwnedSessions }) {
+async function openForceRemoveWorktreeModal({ project, wt, dom, api, showToast, esc, configureModalFooter, showModal, hideModal, withAsyncButtonState, refreshProjectWorkspaces, icons }) {
   if (wt.path === project.path) {
     showToast('Cannot force remove the primary project worktree', 'error');
     return;
@@ -246,8 +246,7 @@ async function openForceRemoveWorktreeModal({ project, wt, dom, api, showToast, 
   cancelBtn.addEventListener('click', hideModal);
   confirmBtn.addEventListener('click', async () => {
     const deleteBranch = Boolean(deleteBranchToggle && deleteBranchToggle.checked);
-    const result = await withAsyncButtonState(confirmBtn, 'Closing sessions and removing...', async () => {
-      await closeWorktreeOwnedSessions(wt.path);
+    const result = await withAsyncButtonState(confirmBtn, 'Removing...', async () => {
       return api.forceRemoveWorktree({
         projectPath: project.path,
         wtPath: wt.path,
@@ -259,11 +258,9 @@ async function openForceRemoveWorktreeModal({ project, wt, dom, api, showToast, 
       showToast(deleteBranch ? `Removed worktree and deleted branch: ${wt.name}` : `Force removed: ${wt.name}`, 'success');
       hideModal();
       await refreshProjectWorkspaces(project.path);
-      await releaseWorktreeOwnedSessions(wt.path);
       return;
     }
 
-    await releaseWorktreeOwnedSessions(wt.path);
     showToast(`Failed: ${result.error}`, 'error');
   });
 }

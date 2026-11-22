@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BA Space</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="xterm.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
@@ -91,19 +90,30 @@
 
         <!-- ─── Empty State (When no projects exist) ─── -->
         <div id="dashboard-empty-state" class="dashboard-empty-state" style="display: none;">
-          <div class="welcome-hero">
-            <h2 class="welcome-title">BA Space</h2>
-            <div style="margin-top: 16px;">
-              <button type="button" class="btn-primary" id="btn-dashboard-add-first">
-                <img src="icons/plus.svg" width="14" height="14" alt="" />
-                <span>Add Your First Project</span>
+          <div class="empty-onboarding-card">
+            <div class="welcome-logo-badge empty-onboarding-icon">
+              <img src="icons/folder-plus.svg" width="26" height="26" alt="" />
+            </div>
+            <span class="welcome-badge-tag">BA Space</span>
+            <h2 class="welcome-title empty-onboarding-title">Add Your First Project</h2>
+            <p class="welcome-subtitle empty-onboarding-desc">
+              Choose a local folder or Git repository to set up your Business Analysis workspace.
+            </p>
+            <div class="empty-onboarding-actions">
+              <button type="button" class="btn-primary btn-large empty-add-project-btn" id="btn-dashboard-add-first">
+                <img src="icons/plus.svg" width="15" height="15" alt="" />
+                <span>Add Project</span>
+              </button>
+              <button type="button" class="btn-secondary empty-settings-btn" id="btn-dashboard-empty-settings" title="Open Settings (Ctrl+,)">
+                <img src="icons/settings.svg" width="14" height="14" alt="" />
+                <span>Settings</span>
               </button>
             </div>
           </div>
         </div>
 
         <!-- ─── Active Project & BA Asset Viewer ─── -->
-        <div id="dashboard-viewer" class="dashboard-viewer dash-grid-mode">
+        <div id="dashboard-viewer" class="dashboard-viewer dash-grid-mode" style="display: none;">
 
           <!-- ── Project Overview Header ── -->
           <div class="dash-header-card">
@@ -129,41 +139,45 @@
             </div>
           </div>
 
-          <!-- ── Main Viewer Content Sections: Product Feature Checklist & Competitors ── -->
+          <!-- ── Main Viewer Content Sections: BA Agent Toolkit & Competitors ── -->
           <div class="dash-sections-container">
 
-            <!-- Product Feature Checklist Section -->
-            <section class="dash-section-card" id="dash-section-checklist">
-              <div class="dash-section-header">
+            <!-- BA Agent Toolkit Section (Collapsible) -->
+            <section class="dash-section-card dash-section-collapsible collapsed" id="dash-section-agent-toolkit">
+              <div
+                class="dash-section-header dash-collapsible-header"
+                id="dash-toolkit-header"
+                role="button"
+                tabindex="0"
+                aria-expanded="false"
+                aria-controls="dash-toolkit-body"
+              >
                 <div class="dash-section-title-group">
-                  <div class="dash-section-icon checklist-tint">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="m9 11 3 3L22 4"></path>
-                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                    </svg>
+                  <span class="dash-collapse-chevron" aria-hidden="true">
+                    <img src="icons/chevron.svg" width="14" height="14" alt="" />
+                  </span>
+                  <div class="dash-section-icon toolkit-tint">
+                    <img src="icons/agent-toolkit.svg" width="16" height="16" alt="" />
                   </div>
                   <div class="dash-title-with-badge">
-                    <h3 class="dash-section-title">Product Feature Checklist</h3>
-                    <span class="dash-count-badge" id="dash-checklist-badge">All Product</span>
+                    <h3 class="dash-section-title">BA Agent Toolkit</h3>
+                    <span class="dash-status-pill" id="dash-toolkit-status-pill">Idle</span>
+                    <span class="dash-count-badge" id="dash-toolkit-count-badge" style="display: none;">0/6 Active</span>
                   </div>
                 </div>
                 <div class="dash-section-actions">
-                  <button type="button" class="btn-secondary btn-small hidden" id="dash-btn-checklist-open-link" title="Open linked external Feature Checklist">
-                    <img src="icons/link.svg" width="12" height="12" alt="" />
-                    <span>Open Sheet</span>
-                  </button>
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-checklist-resources" title="Manage Feature Checklist link &amp; source docs in Project Resources">
-                    <img src="icons/folder.svg" width="12" height="12" alt="" />
-                    <span>Resources</span>
-                  </button>
-                  <button type="button" class="btn-primary btn-small" id="dash-btn-add-checklist-scope" title="Add target product module / scope slug for /ba-checklist">
-                    <img src="icons/plus.svg" width="12" height="12" alt="" />
-                    <span>Add Module</span>
+                  <button type="button" class="btn-secondary btn-small" id="btn-agent-toolkit-apply-all" title="Activate core toolkit components (optional MCPs like Mobilerun are opt-in) or sync active ones">
+                    <img src="icons/check.svg" width="12" height="12" alt="" />
+                    <span>Apply all</span>
                   </button>
                 </div>
               </div>
-              <div class="dash-section-body" id="dash-checklist-body">
-                <!-- Rendered dynamically by JS -->
+              <div class="dash-section-body dash-collapsible-body" id="dash-toolkit-body" inert>
+                <div class="dash-collapsible-inner">
+                  <div id="agent-toolkit-list-container" style="width: 100%;">
+                    <!-- Dynamic checklist rendered in JS -->
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -180,7 +194,7 @@
                   </div>
                 </div>
                 <div class="dash-section-actions">
-                  <button type="button" class="btn-secondary btn-small" id="dash-btn-sync-config" title="Sync Figma, Firebase, Legacy Docs & competitors to .agents/config/ba-project-config.md">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-sync-config" title="Sync Figma, Firebase, Plane, Legacy Docs & competitors to .agents/config/ba-project-config.md">
                     <img src="icons/refresh.svg" width="12" height="12" alt="" />
                     <span>Sync to Config</span>
                   </button>
@@ -197,63 +211,6 @@
               </div>
             </section>
 
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ Center — Terminal Management Screen ═══ -->
-      <div id="terminal-screen" class="hidden">
-        <header class="terminal-screen-header">
-          <div class="terminal-screen-title-group">
-            <div class="terminal-screen-title-row">
-              <span class="terminal-screen-badge-icon"><img src="icons/terminal.svg" width="14" height="14" alt="" /></span>
-              <h2 class="terminal-screen-title">Terminal Management</h2>
-            </div>
-          </div>
-          <div class="terminal-screen-actions">
-            <button type="button" class="btn-secondary btn-small" id="btn-terminal-screen-new" title="New Terminal (Ctrl+N)">
-              <img src="icons/plus.svg" width="12" height="12" alt="" />
-              <span>New Terminal</span>
-            </button>
-            <button type="button" class="btn-close-settings" id="btn-close-terminal-screen" title="Close Terminal (Esc)" aria-label="Close Terminal">
-              <img src="icons/close.svg" width="16" height="16" alt="" />
-            </button>
-          </div>
-        </header>
-
-        <div class="terminal-screen-content">
-          <!-- Vertical Tab Sidebar -->
-          <div id="terminal-tabs" class="terminal-tabs">
-            <div class="tab-sidebar-controls">
-              <button type="button" class="tab-new-btn" id="tab-new-btn" title="New terminal">
-                <img src="icons/plus.svg" width="12" height="12" alt="" />
-                <span class="tab-new-label">New Tab</span>
-              </button>
-              <button type="button" class="tab-collapse-btn" id="tab-collapse-btn" title="Collapse tabs">
-                <img src="icons/chevron.svg" width="12" height="12" alt="" />
-              </button>
-            </div>
-            <div class="tab-list-scroll" id="tab-list-scroll">
-              <!-- Tabs injected dynamically -->
-            </div>
-          </div>
-          <div class="tab-resize-handle" id="tab-resize-handle"></div>
-
-          <!-- Terminal container (xterm renders here) -->
-          <div id="terminal-container" class="terminal-container">
-            <div id="terminal-empty-state" class="terminal-empty-state hidden">
-              <div class="terminal-empty-icon">
-                <img src="icons/terminal.svg" width="32" height="32" alt="" />
-              </div>
-              <h3>No Active Terminal</h3>
-              <p>There are no open terminal sessions for this worktree.</p>
-              <div class="terminal-empty-actions" style="display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 4px;">
-                <button type="button" class="btn-primary btn-small" id="btn-terminal-empty-new">
-                  <img src="icons/plus.svg" width="12" height="12" alt="" />
-                  <span>Launch New Terminal</span>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -372,32 +329,6 @@
             </div>
           </div>
 
-          <!-- Plane Integration Card (Global) -->
-          <div class="settings-card">
-            <div class="settings-card-header">
-              <div class="settings-card-icon">
-                <img src="icons/task.svg" width="16" height="16" alt="" />
-              </div>
-              <h3 class="settings-card-title">Plane Integration (Global)</h3>
-            </div>
-            <div class="settings-card-body">
-              <div class="form-group-col">
-                <label class="form-label">Plane API Key</label>
-                <div class="input-browse-group">
-                  <input type="password" id="settings-plane-api-key" class="settings-input" placeholder="plane_api_..." autocomplete="off" spellcheck="false" />
-                  <button type="button" class="btn-browse" id="btn-copy-plane-api-key" title="Copy Plane API Key" aria-label="Copy Plane API Key">
-                    <img src="icons/copy.svg" width="14" height="14" alt="" />
-                    <span>Copy</span>
-                  </button>
-                  <button type="button" class="btn-browse btn-browse-primary" id="btn-save-plane-api-key" title="Save Plane API Key" aria-label="Save Plane API Key">
-                    <img src="icons/check.svg" width="14" height="14" alt="" />
-                    <span>Save</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
       </div>
@@ -470,52 +401,6 @@
             </div>
           </div>
 
-        </div>
-      </div>
-
-      <!-- ═══ Center — Agent Toolkit Screen ═══ -->
-      <div id="agent-toolkit-screen" class="hidden">
-        <div class="settings-container">
-          <header class="settings-header">
-            <div class="settings-title-group">
-              <h2 class="settings-title">BA Agent Toolkits</h2>
-              <p class="settings-subtitle">Deploy BA agent rosters and templates (BAKit) to your active project.</p>
-            </div>
-            <button type="button" class="btn-close-settings" id="btn-close-agent-toolkit-screen" title="Close toolkit setup" aria-label="Close toolkit setup">
-              <img src="icons/close.svg" width="16" height="16" alt="" />
-            </button>
-          </header>
-
-          <div style="background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
-            <div>
-              <span style="font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); font-weight: 600; display: block;">Active Worktree</span>
-              <span id="agent-toolkit-active-worktree-name" style="font-size: 14px; font-weight: 600; color: var(--accent-color);">No active project</span>
-              <div id="agent-toolkit-active-worktree-path" style="font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); margin-top: 2px;">Please select a worktree first.</div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-              <button type="button" class="btn-secondary" id="btn-agent-toolkit-apply-all" style="padding: 8px 16px;">
-                <img src="icons/check.svg" width="14" height="14" alt="" />
-                Apply Selected Toolkits
-              </button>
-            </div>
-          </div>
-
-          <!-- Core Components & Platforms -->
-          <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
-            <div class="settings-card" style="width: 100%; margin: 0;">
-              <div class="settings-card-header">
-                <div class="settings-card-icon">
-                  <img src="icons/agent-toolkit.svg" width="16" height="16" alt="" />
-                </div>
-                <h3 class="settings-card-title">Toolkit Components & Git Exclude</h3>
-              </div>
-              <div class="settings-card-body" style="gap: 16px; width: 100%; margin-top: 12px;">
-                <div id="agent-toolkit-list-container" style="width: 100%;">
-                  <!-- Dynamic checklist rendered in JS -->
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -899,7 +784,7 @@
         </div>
       </div>
 
-      <!-- ═══ Center — Project Resources Screen (Figma, Firebase, Legacy Docs) ═══ -->
+      <!-- ═══ Center — Project Resources Screen (Figma, Firebase, Plane, Legacy Docs) ═══ -->
       <div id="project-resources-screen" class="hidden">
         <div class="settings-container">
           <header class="settings-header">
@@ -909,7 +794,7 @@
               </div>
               <div class="screen-title-text">
                 <h2 class="screen-title">Project Resources</h2>
-                <p class="screen-subtitle">Manage Figma designs, Firebase console, and Legacy PRD &amp; Checklists for the active project.</p>
+                <p class="screen-subtitle">Manage Figma designs, Firebase console, Plane project, and Legacy PRD &amp; Checklists for the active project.</p>
               </div>
             </div>
             <div class="screen-header-actions">
@@ -936,7 +821,7 @@
                   <span>List</span>
                 </button>
               </div>
-              <button type="button" class="btn-secondary btn-small" id="btn-sync-resources-config" title="Sync Figma, Firebase, and Legacy Docs to .agents/config/ba-project-config.md">
+              <button type="button" class="btn-secondary btn-small" id="btn-sync-resources-config" title="Sync Figma, Firebase, Plane, and Legacy Docs to .agents/config/ba-project-config.md">
                 <img src="icons/refresh.svg" width="13" height="13" alt="" />
                 <span>Sync to Config</span>
               </button>
@@ -1015,7 +900,31 @@
               </div>
             </section>
 
-            <!-- Section 3: Legacy Docs -->
+            <!-- Section 3: Plane Project -->
+            <section class="dash-section-card" id="dash-section-plane">
+              <div class="dash-section-header">
+                <div class="dash-section-title-group">
+                  <div class="dash-section-icon plane-tint">
+                    <img src="icons/task.svg" width="16" height="16" alt="" />
+                  </div>
+                  <div class="dash-title-with-badge">
+                    <h3 class="dash-section-title">Plane</h3>
+                    <span class="dash-status-pill" id="dash-plane-status-pill">Not Linked</span>
+                  </div>
+                </div>
+                <div class="dash-section-actions">
+                  <button type="button" class="btn-secondary btn-small" id="dash-btn-browser-plane" title="Open Plane project in web browser" style="display:none;">
+                    <img src="icons/link.svg" width="12" height="12" alt="" />
+                    <span>Open Plane</span>
+                  </button>
+                </div>
+              </div>
+              <div class="dash-section-body" id="dash-plane-body">
+                <!-- Injected dynamically by JS (view card or empty state) -->
+              </div>
+            </section>
+
+            <!-- Section 4: Legacy Docs -->
             <section class="dash-section-card" id="dash-section-legacy-docs">
               <div class="dash-section-header">
                 <div class="dash-section-title-group">
@@ -1051,125 +960,6 @@
           </div>
         </div>
       </div>
-
-      <!-- ═══ Center — Plane Task Management Screen ═══ -->
-      <div id="plane-task-screen" class="hidden">
-        <header class="settings-header plane-task-header">
-          <div class="settings-title-group">
-            <h2 class="settings-title" style="display: flex; align-items: center; gap: 10px;">
-              <span>Plane Task Management</span>
-              <span id="plane-status-badge" class="plane-badge badge-success" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 12px;">Connected 🟢</span>
-            </h2>
-          </div>
-          <button type="button" class="btn-close-settings" id="btn-close-plane-task-screen" title="Close Plane Tasks" aria-label="Close Plane Tasks">
-            <img src="icons/close.svg" width="16" height="16" alt="" />
-          </button>
-        </header>
-
-        <div class="plane-task-body">
-          <!-- Plane Project Setup -->
-          <div class="plane-setup-card">
-            <div class="plane-setup-content">
-              <!-- Active Worktree Info -->
-              <div class="plane-setup-worktree">
-                <span class="plane-setup-label">Active Worktree</span>
-                <div class="plane-worktree-badge">
-                  <img src="icons/folder.svg" width="14" height="14" alt="" />
-                  <span id="plane-active-worktree-name">No active project</span>
-                </div>
-              </div>
-
-              <!-- Plane Project Picker (saved for the whole repo: main worktree + every linked worktree) -->
-              <div class="plane-setup-input-group">
-                <label for="plane-project-search" class="plane-setup-label">
-                  <span>Plane Project</span>
-                </label>
-                <div class="plane-input-wrapper branch-combo">
-                  <input type="text" id="plane-project-search" class="settings-input plane-project-id-field" placeholder="Set your Plane API key first…" disabled autocomplete="off" spellcheck="false" />
-                  <div id="plane-project-dropdown" class="branch-combo-dropdown"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Filter Pills & Search Bar -->
-          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
-            <!-- Category Filter Pills -->
-            <div class="plane-filter-group" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-              <button type="button" class="plane-filter-pill active" data-category="all">All (<span id="count-all">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="backlog">🔴 Backlog (<span id="count-backlog">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="todo">🟡 Todo (<span id="count-todo">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="in_progress">🔵 In Progress (<span id="count-in-progress">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="on_testing">🟣 On Testing (<span id="count-on-testing">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="done">🟢 Done (<span id="count-done">0</span>)</button>
-              <button type="button" class="plane-filter-pill" data-category="cancelled">⚪ Cancelled (<span id="count-cancelled">0</span>)</button>
-            </div>
-
-            <!-- Search & Sorting Toolbar -->
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-              <div class="plane-search-wrapper">
-                <img src="icons/search.svg" width="14" height="14" alt="" class="plane-search-icon" />
-                <input type="text" id="plane-search-input" class="settings-input" placeholder="Search tasks by ID, name, or keywords..." style="width: 100%; height: 34px; font-size: 13px; padding-left: 32px;" />
-              </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <label style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">Sort By:</label>
-                <select id="plane-sort-select" class="settings-input" style="height: 34px; font-size: 12px; padding: 0 10px; cursor: pointer;">
-                  <option value="priority-desc">Priority (High ➔ Low)</option>
-                  <option value="priority-asc">Priority (Low ➔ High)</option>
-                  <option value="id-asc">Sequence ID (1 ➔ N)</option>
-                  <option value="id-desc">Sequence ID (N ➔ 1)</option>
-                  <option value="title-asc">Title (A ➔ Z)</option>
-                  <option value="updated-desc">Recently Updated</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Action Buttons Row -->
-            <div class="plane-setup-actions">
-              <button type="button" class="btn-secondary plane-action-btn" id="btn-refresh-plane-tasks" title="Fetch latest tasks from Plane REST API">
-                <img src="icons/refresh.svg" width="14" height="14" alt="" />
-                <span>Fetch Tasks</span>
-              </button>
-              <button type="button" class="btn-primary plane-action-btn plane-action-btn-primary" id="btn-export-plane-tasks" title="Export tasks to plane/TASK_LIST.md">
-                <img src="icons/download.svg" width="14" height="14" alt="" />
-                <span>Export</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Table Toolbar & Interactive Table -->
-          <div class="settings-card" style="width: 100%; margin: 0; padding: 0; overflow: hidden;">
-            <div style="padding: 12px 16px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <img src="icons/task.svg" width="14" height="14" alt="" class="plane-preview-icon" />
-                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Task List</span>
-                <span style="font-size: 12px; color: var(--text-tertiary);">Click a task for details and links</span>
-              </div>
-              <div id="plane-table-loading" class="spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
-            </div>
-
-            <div style="overflow-x: auto; max-height: calc(100vh - 280px); min-height: 350px; overflow-y: auto;">
-              <table id="plane-tasks-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-                <thead>
-                  <tr style="background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); font-size: 11px; text-transform: uppercase; color: var(--text-tertiary); letter-spacing: 0.05em; sticky: top; top: 0;">
-                    <th style="padding: 10px 14px; width: 110px;">ID</th>
-                    <th style="padding: 10px 14px;">Task Name</th>
-                    <th style="padding: 10px 14px; width: 130px;">Status</th>
-                    <th style="padding: 10px 14px; width: 110px;">Priority</th>
-                    <th style="padding: 10px 14px; width: 110px;">Start Date</th>
-                    <th style="padding: 10px 14px; width: 130px;">Updated</th>
-                    <th style="padding: 10px 14px; width: 56px;" aria-label="Open in Plane"></th>
-                  </tr>
-                </thead>
-                <tbody id="plane-tasks-tbody">
-                  <!-- Dynamically populated in app.ts -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-      </div>
     </main>
 
     <aside id="workspace-sidebar" class="workspace-sidebar-collapsed">
@@ -1189,15 +979,6 @@
       </div>
 
       <div class="workspace-sidebar-body">
-        <section class="workspace-section">
-          <h3 class="workspace-section-title">Launch Mode</h3>
-          <label class="workspace-toggle" title="Open worktrees in external Windows Terminal">
-            <input type="checkbox" id="toggle-external-wt" />
-            <span class="workspace-toggle-slider"></span>
-            <span class="workspace-toggle-label" data-label-expanded="External WT" data-label-collapsed="Ext">External WT</span>
-          </label>
-        </section>
-
         <section class="workspace-section">
           <h3 class="workspace-section-title">Spec & Agents</h3>
           <div class="workspace-tool-list">
@@ -1222,7 +1003,7 @@
               <span class="workspace-tool-text">Figma</span>
               <span class="workspace-tool-pill" id="btn-figma-badge" style="display: none;">Linked</span>
             </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-project-resources" title="Project Resources (Figma, Firebase, Legacy Docs)" aria-label="Project Resources">
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-project-resources" title="Project Resources (Figma, Firebase, Plane, Legacy Docs)" aria-label="Project Resources">
               <span class="workspace-tool-icon"><img src="icons/resources.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Resources &amp; Docs</span>
               <span class="workspace-tool-pill" id="btn-resources-badge" style="display: none;">Linked</span>
@@ -1230,11 +1011,6 @@
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-obsidian" title="Open in Obsidian" aria-label="Open in Obsidian">
               <span class="workspace-tool-icon"><img src="icons/obsidian.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Obsidian</span>
-            </button>
-            <div class="workspace-tool-separator"></div>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-plane-tasks" title="Plane Task Management" aria-label="Plane Task Management">
-              <span class="workspace-tool-icon"><img src="icons/task.svg" width="16" height="16" alt="" /></span>
-              <span class="workspace-tool-text">Plane Tasks</span>
             </button>
           </div>
         </section>
@@ -1256,15 +1032,11 @@
               <span class="workspace-tool-icon"><img src="icons/folder.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Explorer</span>
             </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-terminal-screen" title="Terminal Management" aria-label="Terminal Management">
-              <span class="workspace-tool-icon"><img src="icons/terminal.svg" width="16" height="16" alt="" /></span>
-              <span class="workspace-tool-text">Terminal</span>
-            </button>
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-manage-symlinks" title="Manage Symlinks" aria-label="Manage Symlinks">
               <span class="workspace-tool-icon"><img src="icons/link.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Symlinks</span>
             </button>
-            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-agent-toolkit" title="BA Agent Toolkit Setup (BAKit)" aria-label="Agent Toolkit Setup">
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-agent-toolkit" title="BA Agent Toolkit (BAKit) — Toggle on Dashboard" aria-label="BA Agent Toolkit">
               <span class="workspace-tool-icon"><img src="icons/agent-toolkit.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Toolkit Setup</span>
             </button>

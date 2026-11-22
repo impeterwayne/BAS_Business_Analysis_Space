@@ -1,10 +1,3 @@
-type OpenWindowsTerminalOptions = {
-  cwd: string;
-  sessionName?: string;
-  launchCommand?: string;
-  launchArgs?: string[];
-};
-
 type WorktreeRemovalOptions = {
   projectPath: string;
   wtPath: string;
@@ -42,7 +35,6 @@ declare global {
       refreshWorktrees: (path: string) => Promise<any>;
       getGitInfo: (path: string) => Promise<any>;
       getRecentCommits: (path: string) => Promise<any>;
-      openWindowsTerminal: (opts: OpenWindowsTerminalOptions) => Promise<any>;
       openInExplorer: (path: string) => Promise<any>;
       openExternal: (url: string) => Promise<any>;
       openInAndroidStudio: (path: string) => Promise<any>;
@@ -64,14 +56,6 @@ declare global {
         error?: string;
       }>;
       scrcpyDeviceList: () => Promise<{ success: boolean; devices: string[]; raw?: string; error?: string }>;
-      ptyCreate: (opts: any) => Promise<any>;
-      ptyCreateTool: (opts: any) => Promise<any>;
-      resolveToolLaunch: (opts: { command: string; args?: string[] }) => Promise<any>;
-      ptyWrite: (id: string, data: string) => void;
-      ptyResize: (id: string, cols: number, rows: number) => void;
-      ptyKill: (id: string) => Promise<any>;
-      onPtyData: (callback: (payload: { id: string; data: string }) => void) => () => void;
-      onPtyExit: (callback: (payload: { id: string; exitCode: number }) => void) => () => void;
       getSettings: () => Promise<{
         subworktreeBranchParents?: Record<string, string>;
         vscodePath?: string;
@@ -87,10 +71,6 @@ declare global {
         reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
-        planeApiKey?: string;
-        planeBaseUrl?: string;
-        planeWorkspaceSlug?: string;
-        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }>;
       updateSettings: (settings: {
@@ -108,10 +88,6 @@ declare global {
         reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
-        planeApiKey?: string;
-        planeBaseUrl?: string;
-        planeWorkspaceSlug?: string;
-        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }) => Promise<{
         subworktreeBranchParents?: Record<string, string>;
@@ -128,10 +104,6 @@ declare global {
         reakitPath?: string;
         autoRefreshCurrentProject?: boolean;
         autoRefreshInterval?: number;
-        planeApiKey?: string;
-        planeBaseUrl?: string;
-        planeWorkspaceSlug?: string;
-        projectPlaneIds?: Record<string, string>;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
       }>;
       selectExecutable: () => Promise<string | null>;
@@ -188,14 +160,13 @@ declare global {
       getAgentsMdBlockStatus: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ installed: boolean; current: boolean; sourceExists: boolean; agentsMdPath: string }>;
       applyAgentsMdBlock: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ success: boolean; created?: boolean; agentsMdPath?: string; error?: string }>;
       removeAgentsMdBlock: (opts: { worktreePath: string }) => Promise<{ success: boolean; deleted?: boolean; agentsMdPath?: string; error?: string }>;
-      writeProjectFile: (opts: { worktreePath: string; filename: string; content: string }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
-      downloadFile: (opts: { url: string; targetFilePath: string }) => Promise<{ success: boolean; cached?: boolean; filePath?: string; error?: string }>;
 
       // ── Project Metadata, Assets & ADB ──
       updateProjectMetadata: (projectPath: string, metadata: {
         name?: string;
         figmaUrl?: string;
         firebaseUrl?: string;
+        planeUrl?: string;
         legacyPrdUrl?: string;
         legacyChecklistUrl?: string;
         checklistScope?: string;

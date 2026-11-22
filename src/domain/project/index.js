@@ -277,6 +277,7 @@ function normalizeProjectMetadata(metadata) {
   return {
     figmaUrl: typeof meta.figmaUrl === 'string' ? meta.figmaUrl.trim() : '',
     firebaseUrl: typeof meta.firebaseUrl === 'string' ? meta.firebaseUrl.trim() : '',
+    planeUrl: typeof meta.planeUrl === 'string' ? meta.planeUrl.trim() : '',
     legacyPrdUrl: typeof meta.legacyPrdUrl === 'string' ? meta.legacyPrdUrl.trim() : '',
     legacyChecklistUrl: typeof meta.legacyChecklistUrl === 'string' ? meta.legacyChecklistUrl.trim() : '',
     checklistScope: typeof meta.checklistScope === 'string' ? meta.checklistScope.trim() : '',
@@ -309,7 +310,7 @@ function normalizeProjectMetadata(metadata) {
             jadxSourcePath: typeof c.jadxSourcePath === 'string' ? c.jadxSourcePath.trim() : '',
             jadxStatus: typeof c.jadxStatus === 'string' ? c.jadxStatus.trim() : '',
             notes: typeof c.notes === 'string' ? c.notes.trim() : '',
-            analysisMode: c.analysisMode === 'code-only' ? 'code-only' : 'hybrid',
+            analysisMode: c.analysisMode === 'hybrid' ? 'hybrid' : 'code-only',
             addedAt: typeof c.addedAt === 'number' ? c.addedAt : Date.now(),
           }))
       : [],
@@ -401,6 +402,51 @@ function parseFirebaseUrl(url) {
       projectId,
       section,
       url: trimmed,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const PLANE_SECTION_LABELS = {
+  issues: 'Work Items',
+  'work-items': 'Work Items',
+  cycles: 'Cycles',
+  modules: 'Modules',
+  views: 'Views',
+  pages: 'Pages',
+  intake: 'Intake',
+  inbox: 'Intake',
+  settings: 'Settings',
+  analytics: 'Analytics',
+};
+
+function parsePlaneUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    const normalized = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    if (!host || !host.includes('.')) return null;
+
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const projectsIdx = parts.findIndex((p) => p.toLowerCase() === 'projects');
+    const workspace = projectsIdx > 0 ? decodeURIComponent(parts[projectsIdx - 1]) : (parts[0] ? decodeURIComponent(parts[0]) : '');
+    const projectId = projectsIdx >= 0 && parts[projectsIdx + 1] ? decodeURIComponent(parts[projectsIdx + 1]) : '';
+    const sectionKey = projectsIdx >= 0 && parts[projectsIdx + 2] ? parts[projectsIdx + 2].toLowerCase() : '';
+    const section = sectionKey
+      ? (PLANE_SECTION_LABELS[sectionKey] || sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1))
+      : 'Project';
+
+    return {
+      host,
+      workspace,
+      projectId,
+      section,
+      url: parsed.href,
     };
   } catch {
     return null;
@@ -582,6 +628,7 @@ module.exports = {
   normalizeProjectMetadata,
   parseFigmaUrl,
   parseFirebaseUrl,
+  parsePlaneUrl,
   parseDocUrl,
   formatDisplayUrl,
   parseBenchmarkFlows,

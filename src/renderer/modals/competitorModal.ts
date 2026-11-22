@@ -73,7 +73,7 @@ export async function openCompetitorModal({
 
   let currentJadxSourcePath = competitor?.jadxSourcePath || '';
   let currentJadxStatus = competitor?.jadxStatus || '';
-  const currentAnalysisMode = competitor?.analysisMode || 'hybrid';
+  const currentAnalysisMode = competitor?.analysisMode || 'code-only';
   let isLocalDecoding = false;
   let activeDecodeProgress: { stage: string; percent: number; detail: string; elapsedSec: number } | null = null;
 
@@ -394,6 +394,7 @@ export async function openCompetitorModal({
       });
     } else {
       const targetPkg = pkgInput.value.trim() || competitor?.packageName || '';
+      const canDownloadApk = isEditing && Boolean(targetPkg);
       apkContainerEl.innerHTML = `
         <div class="comp-modal-apk-empty" id="comp-modal-apk-dropzone">
           <div class="comp-modal-apk-empty-inner">
@@ -404,11 +405,11 @@ export async function openCompetitorModal({
               <span>Drop <strong>.apk / .xapk</strong> here, or <button type="button" class="dash-inline-link" id="comp-modal-btn-browse-apk">browse file</button></span>
             </div>
           </div>
-          ${targetPkg ? `
+          ${canDownloadApk ? `
             <div class="comp-modal-apk-empty-actions">
-              <button type="button" class="dash-comp-btn-reakit-download" id="comp-modal-btn-download-apk" title="Download APK for ${escapeHtml(targetPkg)} via ReaKit (apkd)">
+              <button type="button" class="dash-comp-btn-reakit-download" id="comp-modal-btn-download-apk" title="Download APK for ${escapeHtml(targetPkg)}">
                 ${icons.download || ''}
-                <span>Download APK (ReaKit)</span>
+                <span>Download APK</span>
               </button>
             </div>
           ` : ''}
@@ -433,7 +434,7 @@ export async function openCompetitorModal({
       });
 
       const downloadBtn = apkContainerEl.querySelector('#comp-modal-btn-download-apk') as HTMLElement;
-      if (downloadBtn) {
+      if (downloadBtn && isEditing && competitor?.id) {
         downloadBtn.addEventListener('click', async (e: Event) => {
           e.preventDefault();
           const pkg = pkgInput.value.trim() || competitor?.packageName || '';
@@ -444,11 +445,11 @@ export async function openCompetitorModal({
           const origHtml = downloadBtn.innerHTML;
           downloadBtn.setAttribute('disabled', 'true');
           downloadBtn.innerHTML = `<span class="spinner" style="width:11px; height:11px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:4px;"></span> Downloading...`;
-          showToast(`Downloading APK for ${pkg} via ReaKit...`, 'info');
+          showToast(`Downloading APK for ${pkg}...`, 'info');
           try {
             const res = await window.api.downloadCompetitorApk({
               projectPath: project.path,
-              competitorId: competitor?.id || 'temp',
+              competitorId: competitor.id!,
               packageName: pkg,
             });
             if (res?.success && res.apkPath) {
@@ -564,7 +565,7 @@ export async function openCompetitorModal({
   });
 
   pkgInput.addEventListener('input', () => {
-    if (!currentApkPath) {
+    if (isEditing && !currentApkPath) {
       renderApkSection();
     }
     void checkAndSyncReakitStatus();
@@ -585,7 +586,7 @@ export async function openCompetitorModal({
     if (quickPkg) {
       if (!pkgInput.value.trim() || force || !userEditedName) {
         pkgInput.value = quickPkg;
-        if (!currentApkPath) renderApkSection();
+        if (isEditing && !currentApkPath) renderApkSection();
         void checkAndSyncReakitStatus();
       }
       const quickInferred = inferAppNameFromPackage(quickPkg);
@@ -610,7 +611,7 @@ export async function openCompetitorModal({
         }
         if (res.packageName && (!pkgInput.value.trim() || force || !userEditedName)) {
           pkgInput.value = res.packageName;
-          if (!currentApkPath) renderApkSection();
+          if (isEditing && !currentApkPath) renderApkSection();
           void checkAndSyncReakitStatus();
         }
         if (res.iconUrl) {
@@ -675,7 +676,7 @@ export async function openCompetitorModal({
         nameInput.value = inferred;
         if (!currentIconUrl) modalInitials.textContent = getCompetitorInitials(inferred);
       }
-      if (!currentApkPath) renderApkSection();
+      if (isEditing && !currentApkPath) renderApkSection();
       void checkAndSyncReakitStatus();
     }
 

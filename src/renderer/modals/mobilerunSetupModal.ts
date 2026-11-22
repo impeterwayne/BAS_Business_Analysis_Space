@@ -54,7 +54,7 @@ async function openMobilerunSetupModal({ dom, configureModalFooter, showModal, h
       row(!!status.cliPath, 'mobilerun CLI (Portal setup)', status.cliPath || `Not installed: goes to ${joinPath(status.installRoot, 'cli')}`),
     ].join('');
     hintEl.textContent = ready
-      ? 'Everything is installed. You can register the Mobilerun MCP in a worktree from the BAKit toolkit screen.'
+      ? 'Everything is installed. You can register the Mobilerun MCP in a worktree from the BA Agent Toolkit section on the dashboard.'
       : 'The first install downloads Python packages (about 1.2 GB on disk) and takes a few minutes.';
     installBtn.style.display = ready ? 'none' : '';
     if (!status.installing) installBtn.textContent = status.mcpPython && status.mcpOutdated ? 'Update' : 'Install';

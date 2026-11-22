@@ -1,12 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-type OpenWindowsTerminalOptions = {
-  cwd: string;
-  sessionName?: string;
-  launchCommand?: string;
-  launchArgs?: string[];
-};
-
 contextBridge.exposeInMainWorld('api', {
   // 'win32' | 'darwin' | 'linux': the renderer adapts window chrome and labels to it.
   platform: process.platform,
@@ -29,7 +22,6 @@ contextBridge.exposeInMainWorld('api', {
   getRecentCommits: (path) => ipcRenderer.invoke('get-recent-commits', path),
 
   // ── Launch actions ──
-  openWindowsTerminal: (opts: OpenWindowsTerminalOptions) => ipcRenderer.invoke('open-wt', opts),
   openInExplorer: (path) => ipcRenderer.invoke('open-in-explorer', path),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openInAndroidStudio: (path) => ipcRenderer.invoke('open-in-android-studio', path),
@@ -43,24 +35,6 @@ contextBridge.exposeInMainWorld('api', {
   scrcpyMirror: (serial) => ipcRenderer.invoke('scrcpy:mirror', serial),
   scrcpyCaptureUi: (opts) => ipcRenderer.invoke('scrcpy:capture-ui', opts),
   scrcpyDeviceList: () => ipcRenderer.invoke('scrcpy:device-list'),
-
-  // ── Embedded terminal (PTY) ──
-  ptyCreate: (opts) => ipcRenderer.invoke('pty:create', opts),
-  ptyCreateTool: (opts) => ipcRenderer.invoke('pty:create-tool', opts),
-  resolveToolLaunch: (opts) => ipcRenderer.invoke('tool:resolve-launch', opts),
-  ptyWrite: (id, data) => ipcRenderer.send('pty:write', { id, data }),
-  ptyResize: (id, cols, rows) => ipcRenderer.send('pty:resize', { id, cols, rows }),
-  ptyKill: (id) => ipcRenderer.invoke('pty:kill', { id }),
-  onPtyData: (callback) => {
-    const listener = (_, payload) => callback(payload);
-    ipcRenderer.on('pty:data', listener);
-    return () => ipcRenderer.removeListener('pty:data', listener);
-  },
-  onPtyExit: (callback) => {
-    const listener = (_, payload) => callback(payload);
-    ipcRenderer.on('pty:exit', listener);
-    return () => ipcRenderer.removeListener('pty:exit', listener);
-  },
 
   // ── Git operations ──
   gitPull: (path) => ipcRenderer.invoke('git-pull', path),
@@ -109,10 +83,6 @@ contextBridge.exposeInMainWorld('api', {
   getAgentsMdBlockStatus: (opts) => ipcRenderer.invoke('bakit:agents-md-status', opts),
   applyAgentsMdBlock: (opts) => ipcRenderer.invoke('bakit:agents-md-apply', opts),
   removeAgentsMdBlock: (opts) => ipcRenderer.invoke('bakit:agents-md-remove', opts),
-
-  // ── Project File Operations ──
-  writeProjectFile: (opts) => ipcRenderer.invoke('project:write-file', opts),
-  downloadFile: (opts) => ipcRenderer.invoke('project:download-file', opts),
 
   // ── Project Metadata, Assets & ADB ──
   updateProjectMetadata: (projectPath: string, metadata: any) => ipcRenderer.invoke('project:update-metadata', { projectPath, metadata }),
