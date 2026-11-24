@@ -55,7 +55,7 @@ docs/BA/figma/{feature-slug}/
    the document open in Figma Desktop.
 3. Convert node ids from the URL: `node-id=102-456` or `102%3A456` → `102:456`.
 4. No node id? `get_selection` if the user selected frames, else `search_nodes` with the screen name and
-   `nodeTypes: ['FRAME', 'SECTION', 'COMPONENT']`. Several matches → list them and ask.
+   `types: ['FRAME', 'SECTION', 'COMPONENT']`. Several matches → list them and ask.
 5. List **every frame in scope** before going deeper (a flow is normal). Finding frame 6 after the analysis is
    written costs a second pass over all of them.
 
@@ -65,10 +65,11 @@ docs/BA/figma/{feature-slug}/
 NEVER call `get_document`. A whole file exhausts the context window and ends the task.
 </HARD-GATE>
 
-1. `get_design_context` with `depth: 2, detail: 'minimal'` per frame — the skeleton (header, content, footer).
-2. `get_design_context` with `depth: 3, detail: 'compact', dedupe_components: true` on the containers that hold
+1. `get_node` / `get_nodes_info` with `depth: 2, detail: 'minimal'` per frame ID (or `get_design_context` with
+   `depth: 2, detail: 'minimal', dedupe_components: true` when exploring the current selection or active page without node IDs) — the skeleton (header, content, footer).
+2. `get_node` / `get_nodes_info` with `depth: 3, detail: 'compact'` on the containers that hold
    inputs, lists, dialogs and CTAs. Skip pure decoration.
-3. `get_node` only for one node whose exact properties you need (a disabled variant, a helper text).
+3. `get_node` with `detail: 'full'` only for one node whose exact properties you need (a disabled variant, a helper text).
 
 Log every call in §1 and name the branches you skipped. If the scope is too large for one pass (more than
 ~8 frames), analyse the first coherent sub-flow fully and propose the split — **a complete analysis of one
@@ -101,8 +102,8 @@ checkbox, list item template, chip…), call `save_screenshots` on the element's
 
 | What | Tool | Goes to |
 | :--- | :--- | :--- |
-| All text: labels, CTAs, placeholders, helper and error text, dialogs, toasts | `scan_text_nodes` `{nodeId, depth: 4}` | §4 Elements, §5, §7 |
-| Interactive elements: buttons, fields, toggles, tabs, list items | `scan_nodes_by_types` `['INSTANCE', 'COMPONENT', 'FRAME']` + component names | §4 Elements |
+| All text: labels, CTAs, placeholders, helper and error text, dialogs, toasts | `scan_text_nodes` `{nodeId}` | §4 Elements, §5, §7 |
+| Interactive elements: buttons, fields, toggles, tabs, list items | `scan_nodes_by_types` `{nodeId, types: ['INSTANCE', 'COMPONENT', 'FRAME']}` + component names | §4 Elements |
 | Navigation and triggers | `get_reactions` on every clickable node | §3 flow, §4 Actions |
 | Designer notes, Dev Mode specs | `get_annotations` on each frame | §9, then override §4–§8 |
 | Variants (disabled, error, selected, pressed) | `get_local_components`, then `get_nodes_info` on variant ids in one call | §6 |

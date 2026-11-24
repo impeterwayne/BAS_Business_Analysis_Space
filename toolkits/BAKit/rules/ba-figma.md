@@ -27,7 +27,7 @@ The steps, the MCP call budget and the output shape live in the `figma-ba-analys
    with a connection error, stop and ask the user to open the file and run the plugin.
 2. **Convert the node-id.** URLs encode the colon as `%3A` or `-`: `node-id=123-456` is `123:456` in every call.
 3. **Never call `get_document`.** A whole Figma file exhausts the context window and ends the task. Use
-   bounded `get_design_context` only.
+   bounded `get_node` / `get_nodes_info` (by ID) or `get_design_context` (current selection/page) only.
 4. **`save_screenshots` takes absolute output paths** with forward slashes. The server's working directory is
    not the workspace.
 5. **Element images.** Besides one image per screen / state (`screens/`), export one image per interactive

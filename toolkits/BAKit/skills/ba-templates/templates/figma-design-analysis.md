@@ -20,8 +20,8 @@ Nhãn bằng chứng (Evidence grades): **[Design]** thấy trực tiếp trong 
 
 ```
 get_metadata                                 -> file {name}, page {page}
-get_design_context depth=2 detail=minimal    -> skeleton of {123:456}
-scan_text_nodes    {123:456} depth=4         -> {n} text nodes
+get_node           {123:456} depth=2 detail=minimal -> skeleton of {123:456}
+scan_text_nodes    {123:456}                 -> {n} text nodes
 get_reactions      {123:470}                 -> {n} reactions
 ```
 

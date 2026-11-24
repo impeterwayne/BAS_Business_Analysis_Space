@@ -12,20 +12,6 @@ tools:
   - grep_search
   - find_by_name
   - run_command
-  - mcp_figma-mcp-android_figma-mcp-android_get_metadata
-  - mcp_figma-mcp-android_figma-mcp-android_get_pages
-  - mcp_figma-mcp-android_figma-mcp-android_get_selection
-  - mcp_figma-mcp-android_figma-mcp-android_search_nodes
-  - mcp_figma-mcp-android_figma-mcp-android_get_design_context
-  - mcp_figma-mcp-android_figma-mcp-android_get_node
-  - mcp_figma-mcp-android_figma-mcp-android_get_nodes_info
-  - mcp_figma-mcp-android_figma-mcp-android_scan_text_nodes
-  - mcp_figma-mcp-android_figma-mcp-android_scan_nodes_by_types
-  - mcp_figma-mcp-android_figma-mcp-android_get_local_components
-  - mcp_figma-mcp-android_figma-mcp-android_get_reactions
-  - mcp_figma-mcp-android_figma-mcp-android_get_annotations
-  - mcp_figma-mcp-android_figma-mcp-android_save_screenshots
-  - mcp_figma-mcp-android_figma-mcp-android_get_screenshot
 skills:
   - figma-ba-analysis
   - ba-templates
@@ -49,8 +35,7 @@ Figma access goes through the `figma-mcp-android` MCP tools (`get_metadata`, `ge
 A Figma tree is unbounded and the design is the largest thing that will enter your context.
 
 - **Never call `get_document`.**
-- Skeleton first (`get_design_context` `depth: 2`, `detail: 'minimal'`), then descend only into containers that
-  hold inputs, lists, dialogs and CTAs.
+- Skeleton first (`get_node` / `get_nodes_info` with `depth: 2`, `detail: 'minimal'` by node ID, or `get_design_context` on the current selection/page), then descend into containers that hold inputs, lists, dialogs and CTAs with `get_node` (`depth: 3`, `detail: 'compact'`).
 - If the frames in scope do not fit one pass, finish one coherent sub-flow completely and return the proposed
   split. A shallow analysis of everything is worse than a complete one of one flow.
 

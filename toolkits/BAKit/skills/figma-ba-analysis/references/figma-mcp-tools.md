@@ -11,18 +11,18 @@ token is needed. Only one server can hold the port, so run it in one Antigravity
 | :--- | :--- | :--- |
 | `get_metadata` | — | First call: confirms the bridge is connected and which file is open |
 | `get_pages` | — | Finding the page that holds the flow ("App", "Mobile UI", …) |
-| `get_selection` | — | Frames the user selected in Figma |
-| `search_nodes` | `query`, `nodeTypes` | Locating a screen by name when no node id is given |
-| `get_design_context` | `nodeId`, `depth` (2–3), `detail` (`minimal` / `compact` / `full`), `dedupe_components` | Bounded tree of a frame — the main exploration tool |
-| `get_node` | `nodeId`, `depth` | Exact properties of one node |
-| `get_nodes_info` | `nodeIds[]` | Several nodes in one call (variant sweep) |
-| `scan_text_nodes` | `nodeId`, `depth` | Every string on a screen — labels, errors, dialogs |
-| `scan_nodes_by_types` | `nodeId`, `nodeTypes[]` | Interactive instances, components, frames |
+| `get_selection` | `depth`, `detail` (optional) | Frames the user selected in Figma |
+| `search_nodes` | `query`, `types`, `nodeId`, `limit` | Locating a screen by name when no node id is given |
+| `get_design_context` | `depth` (default `2`), `detail` (`minimal` / `compact` / `full`), `dedupe_components` | Bounded tree of the current selection or active page (does **not** take `nodeId`) |
+| `get_node` | `nodeId`, `depth` (default `2`), `detail` (`minimal` / `compact` / `full`) | Bounded subtree or exact properties of one node by ID |
+| `get_nodes_info` | `nodeIds[]`, `depth`, `detail` | Several nodes in one call (variant sweep or batch frame skeletons) |
+| `scan_text_nodes` | `nodeId` | Every string on a screen — labels, errors, dialogs |
+| `scan_nodes_by_types` | `nodeId`, `types[]` | Interactive instances, components, frames |
 | `get_local_components` | — | Component definitions and variant sets (states) |
 | `get_reactions` | `nodeId` | Prototype interactions: trigger, action, destination |
 | `get_annotations` | `nodeId` | Designer notes and Dev Mode annotations |
 | `save_screenshots` | `items[{nodeId, outputPath, format, scale}]` | Reference PNGs on disk (absolute `outputPath`) |
-| `get_screenshot` | `nodeId` | A quick look inside the conversation (not saved) |
+| `get_screenshot` | `nodeIds[]`, `format`, `scale` | A quick look inside the conversation (not saved) |
 
 ## Tools a BA analysis does not use
 
@@ -37,13 +37,15 @@ token is needed. Only one server can hold the port, so run it in one Antigravity
 
 ```
 get_metadata
-get_design_context  {nodeId: "102:456", depth: 2, detail: "minimal"}
+get_node            {nodeId: "102:456", depth: 2, detail: "minimal"}
 save_screenshots    {format: "PNG", scale: 2, items: [{nodeId: "102:456", outputPath: "<project>/docs/BA/figma/login/screens/01-login.png"}]}
-get_design_context  {nodeId: "102:470", depth: 3, detail: "compact", dedupe_components: true}
-scan_text_nodes     {nodeId: "102:456", depth: 4}
+get_node            {nodeId: "102:470", depth: 3, detail: "compact"}
+scan_text_nodes     {nodeId: "102:456"}
 get_reactions       {nodeId: "102:480"}
 get_annotations     {nodeId: "102:456"}
 ```
+
+(When exploring the current selection or active page without a `nodeId`, call `get_design_context {depth: 2, detail: "minimal", dedupe_components: true}`.)
 
 ## Errors
 
