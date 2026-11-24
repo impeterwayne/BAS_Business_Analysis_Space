@@ -99,7 +99,6 @@ const dom = {
   btnAndroidStudio: $('#btn-android-studio'),
   btnAntigravity: $('#btn-antigravity'),
   btnAntigravityAgent: $('#btn-antigravity-agent'),
-  btnFigma: $('#btn-figma'),
   btnProjectResources: $('#btn-project-resources'),
   btnResourcesBadge: $('#btn-resources-badge'),
   projectResourcesScreen: $('#project-resources-screen'),
@@ -945,26 +944,6 @@ if (dom.btnProjectResources) {
   });
 }
 
-if (dom.btnFigma) {
-  dom.btnFigma.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
-    const figmaUrl = (activeProject?.figmaUrl || '').trim();
-    if (figmaUrl) {
-      showToast(`Opening Figma for ${activeProject?.name || 'project'}...`, 'info');
-      const res = await window.api.openInFigma(figmaUrl);
-      if (res && !res.success && res.error) {
-        showToast(`Failed to open Figma: ${res.error}`, 'error');
-      }
-    } else {
-      showToast('Opening Figma Desktop...', 'info');
-      const res = await window.api.openInFigma();
-      if (res && !res.success && res.error) {
-        showToast(`Failed to open Figma: ${res.error}`, 'error');
-      }
-    }
-  });
-}
-
 if (dom.btnObsidian) {
   dom.btnObsidian.addEventListener('click', async () => {
     const wtPath = state.activeWorktreePath;
@@ -1017,33 +996,6 @@ function formatBytes(bytes: number, decimals = 1): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
-function updateSidebarFigmaButton(activeProject?: any) {
-  if (!dom.btnFigma) return;
-  if (!activeProject) {
-    const res = getActiveProjectAndWorktree();
-    activeProject = res.activeProject;
-  }
-  const figmaUrl = (activeProject?.figmaUrl || '').trim();
-  const figmaBadge = document.getElementById('btn-figma-badge');
-
-  if (figmaUrl) {
-    const name = activeProject?.name || 'Project';
-    dom.btnFigma.title = `Open Figma: ${name}\n${figmaUrl}`;
-    dom.btnFigma.classList.add('has-link');
-    if (figmaBadge) {
-      figmaBadge.textContent = 'Linked';
-      figmaBadge.className = 'workspace-tool-pill connected';
-      figmaBadge.style.display = 'inline-flex';
-    }
-  } else {
-    dom.btnFigma.title = 'Open Figma Desktop (No link configured for active project)';
-    dom.btnFigma.classList.remove('has-link');
-    if (figmaBadge) {
-      figmaBadge.style.display = 'none';
-    }
-  }
-}
-
 function updateSidebarResourcesButton(activeProject?: any) {
   if (!dom.btnProjectResources) return;
   if (!activeProject) {
@@ -1085,7 +1037,6 @@ function updateSidebarResourcesButton(activeProject?: any) {
 }
 
 function renderDashboardFigma(activeProject: any) {
-  updateSidebarFigmaButton(activeProject);
   updateSidebarResourcesButton(activeProject);
   if (!dom.dashFigmaBody) return;
   const figmaUrl = (activeProject.figmaUrl || '').trim();
@@ -3101,7 +3052,6 @@ function renderDashboardViewer() {
   if (!hasProjects || !activeProject) {
     hideProjectDependentScreens();
     lastAgentToolkitWorktreePath = null;
-    updateSidebarFigmaButton(null);
     updateSidebarResourcesButton(null);
     dom.dashboardEmptyState.style.display = 'flex';
     dom.dashboardViewer.style.display = 'none';

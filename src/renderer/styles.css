@@ -962,24 +962,20 @@ img[src*="resources"] {
   color: var(--green);
 }
 
-#btn-project-resources.has-link,
-#btn-figma.has-link {
+#btn-project-resources.has-link {
   border-color: rgba(56, 189, 248, 0.35);
 }
 
-#btn-project-resources.has-link:hover,
-#btn-figma.has-link:hover {
+#btn-project-resources.has-link:hover {
   border-color: rgba(56, 189, 248, 0.65);
   background: rgba(56, 189, 248, 0.07);
 }
 
-#btn-project-resources.has-link .workspace-tool-icon,
-#btn-figma.has-link .workspace-tool-icon {
+#btn-project-resources.has-link .workspace-tool-icon {
   position: relative;
 }
 
-#btn-project-resources.has-link .workspace-tool-icon::after,
-#btn-figma.has-link .workspace-tool-icon::after {
+#btn-project-resources.has-link .workspace-tool-icon::after {
   content: '';
   position: absolute;
   bottom: -2px;
