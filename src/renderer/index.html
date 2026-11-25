@@ -23,11 +23,13 @@
       <div class="titlebar-crumb-pill" id="titlebar-crumb-pill">
         <span class="titlebar-crumb-dot"></span>
         <span class="titlebar-crumb-project" id="titlebar-crumb-project">BA Space</span>
-        <span class="titlebar-crumb-sep">/</span>
-        <span class="titlebar-crumb-branch" id="titlebar-crumb-branch">Workspace</span>
       </div>
     </div>
     <div class="titlebar-right">
+      <button type="button" class="titlebar-update-pill hidden" id="btn-titlebar-update" title="New update available — click to view">
+        <span class="titlebar-update-dot"></span>
+        <span id="titlebar-update-text">Update available</span>
+      </button>
       <button type="button" class="titlebar-btn" id="btn-minimize" aria-label="Minimize">
         <img src="icons/minimize.svg" width="12" height="12" alt="" />
       </button>
@@ -51,9 +53,6 @@
           <button type="button" class="sidebar-icon-btn" id="btn-settings" title="Settings" aria-label="Settings">
             <img src="icons/settings.svg" width="14" height="14" alt="" />
           </button>
-          <button type="button" class="sidebar-icon-btn" id="btn-refresh-all" title="Refresh all projects" aria-label="Refresh all projects">
-            <img src="icons/refresh.svg" width="14" height="14" alt="" />
-          </button>
           <button type="button" class="sidebar-icon-btn accent" id="btn-add-project" title="Add project">
             <img src="icons/plus.svg" width="14" height="14" alt="" />
           </button>
@@ -63,6 +62,7 @@
       <div class="sidebar-resize-handle" id="sidebar-resize-handle"></div>
 
       <div id="sidebar-scroll">
+        <div id="sidebar-discovered-banner" class="sidebar-discovered-banner" style="display:none;"></div>
         <div id="projects-container" style="display:none;"></div>
         <div id="loading-state" class="sidebar-empty">
           <div class="spinner" style="width: 24px; height: 24px; border-width: 3px; margin-bottom: 8px;"></div>
@@ -97,7 +97,7 @@
             <span class="welcome-badge-tag">BA Space</span>
             <h2 class="welcome-title empty-onboarding-title">Add Your First Project</h2>
             <p class="welcome-subtitle empty-onboarding-desc">
-              Choose a local folder or Git repository to set up your Business Analysis workspace.
+              Choose a local project folder to set up your Business Analysis workspace.
             </p>
             <div class="empty-onboarding-actions">
               <button type="button" class="btn-primary btn-large empty-add-project-btn" id="btn-dashboard-add-first">
@@ -121,7 +121,6 @@
               <div class="dash-project-info">
                 <div class="dash-title-row">
                   <h1 class="dash-project-title" id="dash-project-name">BA Space</h1>
-                  <span class="dash-badge-branch" id="dash-branch-badge">main</span>
                 </div>
                 <div class="dash-path-row">
                   <span class="dash-path-text" id="dash-project-path">D:\Quest\BA_Space</span>
@@ -130,9 +129,6 @@
                   </button>
                   <button type="button" class="dash-icon-btn" id="dash-btn-reveal-path" title="Reveal in Explorer">
                     <img src="icons/folder.svg" width="12" height="12" alt="" />
-                  </button>
-                  <button type="button" class="dash-icon-btn" id="dash-btn-refresh-project" title="Refresh project">
-                    <img src="icons/refresh.svg" width="12" height="12" alt="" />
                   </button>
                 </div>
               </div>
@@ -166,9 +162,11 @@
                   </div>
                 </div>
                 <div class="dash-section-actions">
-                  <button type="button" class="btn-secondary btn-small" id="btn-agent-toolkit-apply-all" title="Activate core toolkit components (optional MCPs like Mobilerun are opt-in) or sync active ones">
-                    <img src="icons/check.svg" width="12" height="12" alt="" />
-                    <span>Apply all</span>
+                  <button type="button" class="btn-secondary btn-small dash-toolkit-toggle-btn" id="btn-agent-toolkit-apply-all" role="switch" aria-checked="false" title="Apply all core toolkit components (optional MCPs like Mobilerun stay opt-in)">
+                    <span class="dash-toolkit-toggle-track" aria-hidden="true">
+                      <span class="dash-toolkit-toggle-thumb"></span>
+                    </span>
+                    <span class="dash-toolkit-toggle-label">Apply all</span>
                   </button>
                 </div>
               </div>
@@ -205,6 +203,7 @@
                 </div>
               </div>
               <div class="dash-section-body">
+                <div id="dash-comp-sync-conflict-banner" class="dash-comp-conflict-banner" style="display: none;"></div>
                 <div class="dash-competitor-list" id="dash-competitor-list">
                   <!-- Rendered dynamically by JS -->
                 </div>
@@ -230,6 +229,59 @@
 
         <div class="settings-grid">
 
+          <!-- App Updates Card -->
+          <div class="settings-card settings-card-full" id="settings-updates-card">
+            <div class="settings-card-header settings-update-header">
+              <div class="settings-update-header-left">
+                <div class="settings-card-icon">
+                  <img src="icons/download.svg" width="16" height="16" alt="" />
+                </div>
+                <h3 class="settings-card-title">App Updates</h3>
+              </div>
+              <div class="settings-update-header-right">
+                <span class="settings-update-version-badge" id="settings-update-current-version">v1.8.2</span>
+                <span class="update-status-pill" id="settings-update-status-pill">Idle</span>
+              </div>
+            </div>
+            <div class="settings-card-body">
+              <div class="settings-update-meta">
+                <div class="settings-update-summary" id="settings-update-summary">Check GitHub Releases for the latest version of BA Space.</div>
+                <div class="settings-update-last-checked" id="settings-update-last-checked">Not checked yet</div>
+              </div>
+
+              <div class="update-progress-section hidden" id="settings-update-progress-wrap">
+                <div class="update-progress-track">
+                  <div class="update-progress-fill" id="settings-update-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="update-progress-caption" id="settings-update-progress-text">Starting download...</div>
+              </div>
+
+              <div class="settings-update-error hidden" id="settings-update-error"></div>
+
+              <div class="settings-update-actions">
+                <button type="button" class="btn-secondary btn-small" id="btn-settings-check-updates">
+                  <img src="icons/refresh.svg" width="12" height="12" alt="" />
+                  <span>Check for Updates</span>
+                </button>
+                <button type="button" class="btn-primary btn-small hidden" id="btn-settings-open-update-modal">
+                  <img src="icons/download.svg" width="12" height="12" alt="" />
+                  <span>View Update</span>
+                </button>
+                <button type="button" class="btn-secondary btn-small" id="btn-settings-open-releases">
+                  <img src="icons/link.svg" width="12" height="12" alt="" />
+                  <span>GitHub Releases</span>
+                </button>
+              </div>
+
+              <div class="form-group-row">
+                <label class="form-label" for="settings-auto-check-updates" style="margin-bottom:0;">Check for updates automatically on startup</label>
+                <label class="switch-toggle">
+                  <input type="checkbox" id="settings-auto-check-updates" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
 
           <!-- Integrations Card -->
           <div class="settings-card">
@@ -333,6 +385,134 @@
       </div>
       </div>
 
+      <!-- ═══ Center — Project Sync (Syncthing) Screen ═══ -->
+      <div id="syncthing-screen" class="hidden">
+        <div class="settings-container syncthing-screen-container">
+          <header class="settings-header">
+            <div class="screen-title-group">
+              <div class="screen-header-badge syncthing-badge-tint">
+                <img src="icons/sync.svg" width="20" height="20" alt="Project Sync" />
+              </div>
+              <div class="screen-title-text">
+                <h2 class="screen-title">Project Sync (Syncthing)</h2>
+              </div>
+            </div>
+            <div class="screen-header-actions">
+              <span class="syncthing-version-tag" id="syncthing-version-tag" style="margin:0;">Checking Syncthing...</span>
+              <span class="dash-status-pill" id="syncthing-status-badge">Offline</span>
+              <div class="screen-header-divider"></div>
+              <button type="button" class="btn-close-settings" id="btn-close-syncthing-screen" title="Close Project Sync (Esc)" aria-label="Close Project Sync">
+                <img src="icons/close.svg" width="15" height="15" alt="" />
+              </button>
+            </div>
+          </header>
+
+          <div class="syncthing-top-grid">
+            <!-- Sync Folder & Scope Card -->
+            <div class="settings-card" id="settings-syncthing-card">
+              <div class="settings-card-header">
+                <div class="settings-card-icon">
+                  <img src="icons/sync.svg" width="16" height="16" alt="" />
+                </div>
+                <h3 class="settings-card-title">Sync Folder &amp; Scope</h3>
+              </div>
+              <div class="settings-card-body">
+                <div class="form-group-col">
+                  <label class="form-label">Projects Parent Folder (Sync Root)</label>
+                  <div class="input-browse-group">
+                    <input type="text" id="settings-syncthing-root-path" class="settings-input" placeholder="e.g. /home/user/BAProjects or D:\BAProjects" autocomplete="off" spellcheck="false" />
+                    <button type="button" class="btn-browse" id="btn-browse-syncthing-root" title="Browse projects parent folder">Browse</button>
+                  </div>
+                  <span class="form-hint">One Syncthing folder manages all project <code>docs/</code> and <code>.bas/</code> directories under this parent folder.</span>
+                </div>
+
+                <div class="syncthing-two-col">
+                  <div class="form-group-col">
+                    <label class="form-label">Syncthing Folder ID</label>
+                    <input type="text" id="settings-syncthing-folder-id" class="settings-input" placeholder="bas-projects" autocomplete="off" spellcheck="false" />
+                  </div>
+                  <div class="form-group-col">
+                    <label class="form-label">Sync Scope</label>
+                    <div class="segmented-control" id="syncthing-sync-mode-group">
+                      <button type="button" class="segmented-btn active" data-sync-mode="all">All Projects</button>
+                      <button type="button" class="segmented-btn" data-sync-mode="selected">Selected</button>
+                    </div>
+                  </div>
+                </div>
+                <span class="form-hint" id="syncthing-sync-mode-hint">All Projects mode syncs <code>docs/</code> and <code>.bas/</code> for every project folder inside the Sync Root.</span>
+
+                <div class="form-group-col">
+                  <label class="form-label">Syncthing Executable Path (Optional)</label>
+                  <div class="input-browse-group">
+                    <input type="text" id="settings-syncthing-path" class="settings-input" placeholder="Auto-detected from PATH" autocomplete="off" spellcheck="false" />
+                    <button type="button" class="btn-browse" id="btn-browse-syncthing-path" title="Browse syncthing executable">Browse</button>
+                  </div>
+                </div>
+
+                <div class="form-group-col">
+                  <label class="form-label">Syncthing API URL (Optional)</label>
+                  <input type="text" id="settings-syncthing-api-url" class="settings-input" placeholder="Auto from config.xml (e.g. http://127.0.0.1:8384)" autocomplete="off" spellcheck="false" />
+                </div>
+
+                <div class="syncthing-save-row">
+                  <button type="button" class="btn-primary" id="btn-syncthing-save-apply">Save &amp; Apply Sync</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Daemon & Paired Devices Card -->
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-icon">
+                  <img src="icons/device.svg" width="16" height="16" alt="" />
+                </div>
+                <h3 class="settings-card-title">Syncthing Daemon &amp; Devices</h3>
+              </div>
+              <div class="settings-card-body">
+                <div class="syncthing-daemon-box">
+                  <div class="syncthing-device-id-row">
+                    <span class="form-label" style="margin:0;">Device ID</span>
+                    <code class="syncthing-device-id-code" id="syncthing-device-id">—</code>
+                    <button type="button" class="btn-secondary btn-small" id="btn-syncthing-copy-id" title="Copy local Syncthing Device ID" disabled>Copy ID</button>
+                  </div>
+                  <div class="syncthing-daemon-actions">
+                    <button type="button" class="btn-secondary btn-small" id="btn-syncthing-start">Start Syncthing</button>
+                    <button type="button" class="btn-secondary btn-small" id="btn-syncthing-open-ui">Open Web UI</button>
+                    <button type="button" class="btn-secondary btn-small" id="btn-syncthing-refresh" title="Refresh Syncthing status">Refresh</button>
+                  </div>
+                </div>
+
+                <div class="form-group-col syncthing-devices-group">
+                  <label class="form-label">Paired Devices</label>
+                  <div id="syncthing-devices-list" class="syncthing-devices-list">
+                    <div class="syncthing-devices-empty">Start Syncthing or pair devices in Web UI to share this folder.</div>
+                  </div>
+                  <span class="form-hint">Checked devices are shared with the BA Space Syncthing folder when you click <strong>Save &amp; Apply Sync</strong>.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Synced Projects & Conflicts Card -->
+          <div class="settings-card syncthing-projects-card">
+            <div class="settings-card-header" style="justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="settings-card-icon">
+                  <img src="icons/folder.svg" width="16" height="16" alt="" />
+                </div>
+                <h3 class="settings-card-title">Projects &amp; Conflicts</h3>
+              </div>
+              <button type="button" class="btn-secondary btn-small" id="btn-syncthing-rescan">Rescan Now</button>
+            </div>
+            <div class="settings-card-body">
+              <div id="syncthing-projects-conflicts-list" class="syncthing-projects-list">
+                <div class="syncthing-devices-empty">No projects loaded.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ Center — Symlink Screen ═══ -->
       <div id="symlink-screen" class="hidden">
         <div class="settings-container">
@@ -352,11 +532,11 @@
                 <div class="settings-card-icon">
                   <img src="icons/folder.svg" width="16" height="16" alt="" />
                 </div>
-                <h3 class="settings-card-title">Active Worktree Target</h3>
+                <h3 class="settings-card-title">Active Project Target</h3>
               </div>
               <div style="margin-top: 12px;">
                 <div class="symlink-name" id="symlink-screen-active-name" style="font-size: 16px; font-weight: 600; color: var(--text-default);">No active project</div>
-                <div id="symlink-screen-active-path" style="font-size: 12px; color: var(--text-secondary); word-break: break-all; font-family: var(--font-mono); margin-top: 2px;">Please select a worktree first.</div>
+                <div id="symlink-screen-active-path" style="font-size: 12px; color: var(--text-secondary); word-break: break-all; font-family: var(--font-mono); margin-top: 2px;">Please select a project first.</div>
               </div>
             </div>
 
@@ -837,7 +1017,6 @@
             <div class="dash-project-info" style="margin: 0;">
               <div class="dash-title-row">
                 <h3 class="dash-project-title" id="resources-project-name" style="font-size: 14.5px;">BA Space</h3>
-                <span class="dash-badge-branch" id="resources-branch-badge">main</span>
               </div>
               <div class="dash-path-row">
                 <span class="dash-path-text" id="resources-project-path">D:\Quest\BA_Space</span>
@@ -1034,6 +1213,14 @@
             <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-agent-toolkit" title="BA Agent Toolkit (BAKit) — Toggle on Dashboard" aria-label="BA Agent Toolkit">
               <span class="workspace-tool-icon"><img src="icons/agent-toolkit.svg" width="16" height="16" alt="" /></span>
               <span class="workspace-tool-text">Toolkit Setup</span>
+            </button>
+            <button type="button" class="workspace-tool-btn brand-logo-btn" id="btn-workspace-syncthing" title="Project Sync (Syncthing)" aria-label="Project Sync">
+              <span class="workspace-tool-icon workspace-sync-icon-wrap">
+                <img src="icons/sync.svg" width="16" height="16" alt="" class="sidebar-sync-icon" />
+                <span class="sidebar-sync-dot is-unconfigured" id="sidebar-sync-dot"></span>
+              </span>
+              <span class="workspace-tool-text">Project Sync</span>
+              <span class="workspace-tool-pill" id="btn-workspace-syncthing-badge" style="display: none;">Synced</span>
             </button>
           </div>
         </section>

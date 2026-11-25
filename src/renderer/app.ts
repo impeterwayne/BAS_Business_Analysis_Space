@@ -3,14 +3,6 @@
    ═══════════════════════════════════════════════════════ */
 
 const {
-  getAvailableWorktreeBranches,
-  isInvalidGitBranchName,
-  getSuggestedWorktreePath,
-  getWorktreeBasePath: getDomainWorktreeBasePath,
-  getOfficialWorktreeBasePath,
-  classifyWorktreeLocation: getDomainClassifyWorktreeLocation,
-  canCreateNestedWorktree: getDomainCanCreateNestedWorktree,
-  buildWorktreeTree: getDomainBuildWorktreeTree,
   parseFigmaUrl,
   parseFirebaseUrl,
   parsePlaneUrl,
@@ -25,10 +17,9 @@ const {
 } = require('../domain');
 
 const { initializeRendererLifecycle } = require('./lifecycle');
-const { openCreateBranchModal } = require('./modals/createBranchModal');
-const { openAddWorktreeModal, openAddSubWorktreeModal, openMergeWorktreeModal, openForceRemoveWorktreeModal } = require('./modals/worktreeModals');
 const { openCompetitorModal } = require('./modals/competitorModal');
 const { openMobilerunSetupModal } = require('./modals/mobilerunSetupModal');
+const { openUpdateModal } = require('./modals/updateModal');
 const { createModalHelpers } = require('./ui/modalHelpers');
 const { createModalPrimitives } = require('./ui/modalPrimitives');
 const { DeviceManagerScreen } = require('./screens/deviceManagerScreen');
@@ -37,7 +28,6 @@ const { DeviceManagerScreen } = require('./screens/deviceManagerScreen');
 const state: {
   projects: any[];
   settings: {
-    subworktreeBranchParents?: Record<string, string>;
     vscodePath?: string;
     androidStudioPath?: string;
     antigravityPath?: string;
@@ -49,25 +39,27 @@ const state: {
     obsidianVault?: string;
     scrcpyPath?: string;
     reakitPath?: string;
-    autoRefreshCurrentProject?: boolean;
-    autoRefreshInterval?: number;
     symlinkTargets?: Array<{ name: string; targetPath: string }>;
+    syncthingPath?: string;
+    syncthingApiUrl?: string;
+    syncthingRootPath?: string;
+    syncthingFolderId?: string;
+    syncthingSyncMode?: 'selected' | 'all';
+    syncthingDeviceIds?: string[];
+    syncthingEnabledProjects?: string[];
+    autoCheckUpdates?: boolean;
   };
+  syncthing: SyncthingState | null;
+  update: AppUpdateState | null;
   workspaceSidebarCollapsed: boolean;
-  expandedProjects: Set<string>;
-  activeWorktreePath: string | null;
-  selectedProjectPath: string | null;
+  activeProjectPath: string | null;
 } = {
   projects: [],
-  settings: {
-    subworktreeBranchParents: {},
-    autoRefreshCurrentProject: false,
-    autoRefreshInterval: 10,
-  },
+  settings: {},
+  syncthing: null,
+  update: null,
   workspaceSidebarCollapsed: false,
-  expandedProjects: new Set(),
-  activeWorktreePath: null,
-  selectedProjectPath: null,
+  activeProjectPath: null,
 };
 
 // ── DOM Refs ───────────────────────────────────────────
@@ -81,7 +73,6 @@ const dom = {
   btnCloseSettings: $('#btn-close-settings'),
   btnAddProject: $('#btn-add-project'),
   btnAddFirst: $('#btn-add-first'),
-  btnRefreshAll: $('#btn-refresh-all'),
   projectsContainer: $('#projects-container'),
   loadingState: $('#loading-state'),
   emptyState: $('#empty-state'),
@@ -109,7 +100,6 @@ const dom = {
   resourcesBtnViewList: $('#resources-btn-view-list'),
   resourcesSectionsContainer: $('.resources-sections-container') as HTMLElement | null,
   resourcesProjectName: $('#resources-project-name'),
-  resourcesBranchBadge: $('#resources-branch-badge'),
   resourcesProjectPath: $('#resources-project-path'),
   btnObsidian: $('#btn-obsidian'),
   dashboardEmptyState: $('#dashboard-empty-state'),
@@ -117,11 +107,9 @@ const dom = {
   btnDashboardEmptySettings: $('#btn-dashboard-empty-settings'),
   dashboardViewer: $('#dashboard-viewer'),
   dashProjectName: $('#dash-project-name'),
-  dashBranchBadge: $('#dash-branch-badge'),
   dashProjectPath: $('#dash-project-path'),
   dashBtnCopyPath: $('#dash-btn-copy-path'),
   dashBtnRevealPath: $('#dash-btn-reveal-path'),
-  dashBtnRefreshProject: $('#dash-btn-refresh-project'),
   dashFigmaStatusPill: $('#dash-figma-status-pill'),
   dashFigmaActions: $('#dash-figma-actions'),
   dashFigmaBody: $('#dash-figma-body'),
@@ -152,7 +140,6 @@ const dom = {
   dashBtnViewGrid: $('#dash-btn-view-grid'),
   dashBtnViewList: $('#dash-btn-view-list'),
   titlebarCrumbProject: $('#titlebar-crumb-project'),
-  titlebarCrumbBranch: $('#titlebar-crumb-branch'),
   welcomeStatusName: $('#welcome-status-name'),
   btnManageSymlinks: $('#btn-manage-symlinks'),
   btnToggleWorkspaceSidebar: $('#btn-toggle-workspace-sidebar'),
@@ -180,7 +167,7 @@ const dom = {
   btnBrowseObsidianVault: $('#btn-browse-obsidian-vault'),
   btnBrowseScrcpy: $('#btn-browse-scrcpy'),
   btnBrowseReaKit: $('#btn-browse-reakit') as HTMLButtonElement | null,
-  btnAgentToolkitApplyAll: $('#btn-agent-toolkit-apply-all'),
+  btnAgentToolkitApplyAll: $('#btn-agent-toolkit-apply-all') as HTMLButtonElement | null,
   symlinkScreen: $('#symlink-screen'),
   btnCloseSymlinkScreen: $('#btn-close-symlink-screen'),
   symlinkScreenActiveName: $('#symlink-screen-active-name'),
@@ -200,6 +187,46 @@ const dom = {
   btnCloseDeviceRemoteScreen: $('#btn-close-device-remote-screen'),
   btnBackToDeviceList: $('#btn-dm-back-to-list'),
   btnClaudeDesktop: $('#btn-claude-desktop'),
+  btnWorkspaceSyncthing: $('#btn-workspace-syncthing'),
+  btnWorkspaceSyncthingBadge: $('#btn-workspace-syncthing-badge'),
+  sidebarSyncDot: $('#sidebar-sync-dot'),
+  sidebarDiscoveredBanner: $('#sidebar-discovered-banner') as HTMLElement | null,
+  syncthingScreen: $('#syncthing-screen'),
+  btnCloseSyncthingScreen: $('#btn-close-syncthing-screen'),
+  dashCompSyncConflictBanner: $('#dash-comp-sync-conflict-banner') as HTMLElement | null,
+  syncthingStatusBadge: $('#syncthing-status-badge'),
+  syncthingVersionTag: $('#syncthing-version-tag'),
+  syncthingDeviceId: $('#syncthing-device-id'),
+  btnSyncthingCopyId: $('#btn-syncthing-copy-id') as HTMLButtonElement | null,
+  btnSyncthingStart: $('#btn-syncthing-start') as HTMLButtonElement | null,
+  btnSyncthingOpenUi: $('#btn-syncthing-open-ui') as HTMLButtonElement | null,
+  btnSyncthingRefresh: $('#btn-syncthing-refresh') as HTMLButtonElement | null,
+  btnSyncthingRescan: $('#btn-syncthing-rescan') as HTMLButtonElement | null,
+  syncthingProjectsList: $('#syncthing-projects-conflicts-list'),
+  settingsSyncthingRootPath: $('#settings-syncthing-root-path') as HTMLInputElement | null,
+  btnBrowseSyncthingRoot: $('#btn-browse-syncthing-root') as HTMLButtonElement | null,
+  settingsSyncthingFolderId: $('#settings-syncthing-folder-id') as HTMLInputElement | null,
+  syncthingSyncModeGroup: $('#syncthing-sync-mode-group'),
+  syncthingSyncModeHint: $('#syncthing-sync-mode-hint'),
+  syncthingDevicesList: $('#syncthing-devices-list'),
+  settingsSyncthingPath: $('#settings-syncthing-path') as HTMLInputElement | null,
+  btnBrowseSyncthingPath: $('#btn-browse-syncthing-path') as HTMLButtonElement | null,
+  settingsSyncthingApiUrl: $('#settings-syncthing-api-url') as HTMLInputElement | null,
+  btnSyncthingSaveApply: $('#btn-syncthing-save-apply') as HTMLButtonElement | null,
+  btnTitlebarUpdate: $('#btn-titlebar-update') as HTMLButtonElement | null,
+  titlebarUpdateText: $('#titlebar-update-text'),
+  settingsUpdateStatusPill: $('#settings-update-status-pill'),
+  settingsUpdateCurrentVersion: $('#settings-update-current-version'),
+  settingsUpdateSummary: $('#settings-update-summary'),
+  settingsUpdateLastChecked: $('#settings-update-last-checked'),
+  settingsUpdateProgressWrap: $('#settings-update-progress-wrap'),
+  settingsUpdateProgressFill: $('#settings-update-progress-fill') as HTMLElement | null,
+  settingsUpdateProgressText: $('#settings-update-progress-text'),
+  settingsUpdateError: $('#settings-update-error'),
+  btnSettingsCheckUpdates: $('#btn-settings-check-updates') as HTMLButtonElement | null,
+  btnSettingsOpenUpdateModal: $('#btn-settings-open-update-modal') as HTMLButtonElement | null,
+  btnSettingsOpenReleases: $('#btn-settings-open-releases') as HTMLButtonElement | null,
+  settingsAutoCheckUpdates: $('#settings-auto-check-updates') as HTMLInputElement | null,
 };
 
 const WORKSPACE_SIDEBAR_COLLAPSED_KEY = 'codingspace.workspaceSidebarCollapsed';
@@ -312,45 +339,23 @@ async function addProject() {
   if (!result) return;
   if (result.error) {
     if (result.path) {
-      state.expandedProjects.add(result.path);
-      state.selectedProjectPath = result.path;
       if (state.workspaceSidebarCollapsed) {
         setWorkspaceSidebarCollapsed(false);
       }
-      renderSidebar();
-      await openProjectWorkspace(result.path);
+      switchProjectContext(result.path);
       scrollSelectedProjectIntoView(result.path);
     }
     showToast(result.error, result.path ? 'info' : 'error');
     return;
   }
-  state.expandedProjects.add(result.path);
-  state.selectedProjectPath = result.path;
+  state.activeProjectPath = result.path;
   if (state.workspaceSidebarCollapsed) {
     setWorkspaceSidebarCollapsed(false);
   }
   showToast(`Added project: ${result.name}`, 'success');
   await loadWorkspaces();
-  await openProjectWorkspace(result.path);
+  switchProjectContext(result.path);
   scrollSelectedProjectIntoView(result.path);
-}
-
-// ── Refresh All Projects ───────────────────────────────
-if (dom.btnRefreshAll) {
-  dom.btnRefreshAll.addEventListener('click', async () => {
-    const icon = dom.btnRefreshAll.querySelector('img, svg');
-    if (icon) icon.classList.add('spinning');
-    showToast('Refreshing workspaces...', 'info');
-    try {
-      for (const p of state.projects) await window.api.refreshWorktrees(p.path);
-      await loadWorkspaces();
-      showToast('All projects refreshed', 'success');
-    } catch (err) {
-      showToast('Failed to refresh workspaces', 'error');
-    } finally {
-      if (icon) icon.classList.remove('spinning');
-    }
-  });
 }
 
 // ── Sidebar Resize ─────────────────────────────────────
@@ -429,11 +434,9 @@ const iconRaw = {
   code: loadIcon('code'),
   codex: loadIcon('codex'),
   folder: loadIcon('folder'),
-  gitBranch: loadIcon('git-branch'),
   trash: loadIcon('trash'),
   plus: loadIcon('plus'),
   download: loadIcon('download'),
-  gitFork: loadIcon('git-fork'),
   chevron: loadIcon('chevron'),
   settings: loadIcon('settings'),
   close: loadIcon('close'),
@@ -463,12 +466,10 @@ const iconRaw = {
 const icons = {
   code: iconSvg(iconRaw.code, 12),
   folder: iconSvg(iconRaw.folder, 12),
-  gitBranch: iconSvg(iconRaw.gitBranch, 10),
   trash: iconSvg(iconRaw.trash, 12),
   plus: iconSvg(iconRaw.plus, 12),
   download: iconSvg(iconRaw.download, 12),
   play: iconSvg(iconRaw.play || '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>', 11),
-  gitFork: iconSvg(iconRaw.gitFork, 14),
   chevron: iconSvg(iconRaw.chevron, 10),
   settings: iconSvg(iconRaw.settings, 12),
   close: iconSvg(iconRaw.close, 8),
@@ -585,12 +586,12 @@ function bindMenuActions(menu, handlers, onFinally) {
   });
 }
 
-function bindWorktreeQuickAction(buttonEl, openFn, toastMessage) {
+function bindProjectQuickAction(buttonEl, openFn, toastMessage) {
   buttonEl.addEventListener('click', async () => {
-    const wtPath = getRequiredActiveWorktreePath();
-    if (!wtPath) return;
+    const projectPath = getRequiredActiveProjectPath();
+    if (!projectPath) return;
     showToast(toastMessage, 'info');
-    const res = await openFn(wtPath);
+    const res = await openFn(projectPath);
     if (res && res.success === false) {
       showToast(res.error || 'Failed to launch application', 'error');
     }
@@ -601,10 +602,6 @@ function sidebarActionButtonHTML({ action, path, title, icon, danger = false }) 
   return `<button class="sidebar-icon-btn${danger ? ' danger' : ''}" data-action="${action}" data-path="${esc(path)}" title="${title}">${icon}</button>`;
 }
 
-function sidebarEmptyStateHTML() {
-  return '<div style="padding:10px 16px 10px 44px;color:var(--text-muted);font-size:11px;">No worktrees</div>';
-}
-
 const {
   configureModalFooter,
   focusModalInputLater,
@@ -612,7 +609,12 @@ const {
   withAsyncButtonState,
 } = createModalHelpers(dom);
 
-const { showModal, hideModal, showToast, initializeModalPrimitives } = createModalPrimitives(dom);
+let activeUpdateModal: { update: (nextState: AppUpdateState) => void } | null = null;
+const { showModal, hideModal, showToast, initializeModalPrimitives } = createModalPrimitives(dom, {
+  onHide: () => {
+    activeUpdateModal = null;
+  },
+});
 initializeModalPrimitives();
 
 // ── Utilities ──────────────────────────────────────────
@@ -628,73 +630,24 @@ function esc(str: any) {
     .replace(/'/g, '&#39;');
 }
 
-function syncWorktreePathInput(pathInput, baseDir, projectName) {
-  return (branch) => {
-    pathInput.value = getSuggestedWorktreePath(baseDir, projectName, branch);
-  };
-}
-
-async function refreshProjectWorkspaces(projectPath) {
-  await window.api.refreshWorktrees(projectPath);
-  await loadWorkspaces();
-}
-
-function createWorktreeSubmitHandler({ project, combo, pathInput, button, buttonLabel, sourceWorktreePath, onSuccess }) {
-  return async () => {
-    const { branch: selectedBranch, isNew } = combo.getSelected();
-    if (!selectedBranch) { showToast('Please select or create a branch', 'error'); return; }
-    const wtPath = pathInput.value;
-    if (!wtPath) { showToast('Please specify a worktree path', 'error'); return; }
-    if (isNew && isInvalidGitBranchName(selectedBranch)) {
-      showToast('Invalid branch name', 'error');
-      return;
-    }
-
-    const result = await withAsyncButtonState(button, 'Creating...', async () => window.api.addWorktree({
-      projectPath: project.path,
-      sourceWorktreePath,
-      branchName: selectedBranch,
-      wtPath,
-      createBranch: isNew,
-    }), buttonLabel);
-
-    if (result.success) {
-      if (onSuccess) await onSuccess(selectedBranch);
-      showToast(`Worktree created: ${selectedBranch}`, 'success');
-      hideModal();
-      await refreshProjectWorkspaces(project.path);
-      return;
-    }
-
-    showToast(`Failed: ${result.error}`, 'error');
-  };
-}
-
 // ═══════════════════════════════════════════════════════
-// WORKTREE CONTEXT & WORKSPACE SWITCHING
+// PROJECT CONTEXT & WORKSPACE SWITCHING
 // ═══════════════════════════════════════════════════════
 
-/** Switch the active worktree context */
-function switchWorktreeContext(wtPath) {
+/** Switch the active project context */
+function switchProjectContext(projectPath: string) {
   // Exit other screens if active
   dom.settingsScreen.classList.add('hidden');
+  hideSyncthingScreen();
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
 
-  if (state.activeWorktreePath === wtPath) {
+  if (state.activeProjectPath === projectPath) {
     updateSidebarActiveState();
     return;
   }
 
-  state.activeWorktreePath = wtPath;
-
-  // Set selected project based on active worktree path
-  const project = state.projects?.find((p) => (p.worktrees || []).some((wt) => wt.path === wtPath));
-  if (project && state.selectedProjectPath !== project.path) {
-    state.selectedProjectPath = project.path;
-    renderSidebar(); // Redraw sidebar to show the selected project
-  }
-
+  state.activeProjectPath = projectPath;
   updateSidebarActiveState();
 
   // If other screens are open, update them
@@ -703,26 +656,13 @@ function switchWorktreeContext(wtPath) {
   }
 }
 
-async function openProjectWorkspace(projectPath) {
-  const project = state.projects.find((p) => p.path === projectPath);
-  if (!project || !project.worktrees || project.worktrees.length === 0) return;
-
-  const targetWt =
-    project.worktrees.find((w) => w.path === state.activeWorktreePath) ||
-    project.worktrees[0];
-
-  if (targetWt) {
-    switchWorktreeContext(targetWt.path);
-  }
-}
-
-function getRequiredActiveWorktreePath() {
-  if (!state.activeWorktreePath) {
-    showToast('Select a worktree first', 'info');
+function getRequiredActiveProjectPath() {
+  if (!state.activeProjectPath) {
+    showToast('Select a project first', 'info');
     return null;
   }
 
-  return state.activeWorktreePath;
+  return state.activeProjectPath;
 }
 
 function loadWorkspaceSidebarCollapsed() {
@@ -777,50 +717,8 @@ window.addEventListener('contextmenu', (e) => {
   }
 });
 
-function showWorktreeContextMenu(project, wt, x, y) {
-  hideWorktreeContextMenu();
-  hideProjectOptionsMenu();
-  hideSelectionContextMenu();
-  const canAddSubWorktree = getDomainCanCreateNestedWorktree(project, wt);
-  const canDeleteBranch = Boolean(wt.branch) && !wt.detached && !wt.bare;
-
-  const menu = showPositionedMenu({
-    id: 'worktree-context-menu',
-    className: 'worktree-context-menu tab-dropdown',
-    x,
-    y,
-    html: `
-      ${canAddSubWorktree ? `${menuItemHTML({ action: 'add-sub-worktree', icon: icons.plus, label: 'Add nested worktree' })}${menuDividerHTML()}` : ''}
-      ${menuItemHTML({ action: 'merge-to-local-branch', icon: icons.gitBranch, label: 'Merge to local branch' })}
-      ${menuDividerHTML()}
-      ${menuItemHTML({ action: 'force-remove-worktree', icon: icons.trash, label: 'Force remove worktree', title: canDeleteBranch ? `Force remove worktree. Modal can delete branch ${wt.branch}.` : 'Force remove worktree. Branch deletion unavailable for this worktree.', danger: true })}
-    `,
-    outsideClickHandler: handleWorktreeContextMenuOutsideClick,
-  });
-
-  bindMenuActions(menu, {
-    'add-sub-worktree': () => showAddSubWorktreeModal(project, wt),
-    'merge-to-local-branch': () => showMergeWorktreeModal(project, wt),
-    'force-remove-worktree': () => showForceRemoveWorktreeModal(project, wt),
-  }, hideWorktreeContextMenu);
-}
-
-function hideWorktreeContextMenu() {
-  const existing = document.getElementById('worktree-context-menu');
-  if (existing) existing.remove();
-  document.removeEventListener('click', handleWorktreeContextMenuOutsideClick);
-}
-
-function handleWorktreeContextMenuOutsideClick(e) {
-  const menu = document.getElementById('worktree-context-menu');
-  if (menu && !menu.contains(e.target)) {
-    hideWorktreeContextMenu();
-  }
-}
-
 function showProjectOptionsMenu(project, x, y) {
   hideProjectOptionsMenu();
-  hideWorktreeContextMenu();
   hideSelectionContextMenu();
 
   const menu = showPositionedMenu({
@@ -829,10 +727,7 @@ function showProjectOptionsMenu(project, x, y) {
     x,
     y,
     html: `
-      ${menuItemHTML({ action: 'refresh-project', icon: icons.refresh, label: 'Refresh project' })}
-      ${menuItemHTML({ action: 'add-wt', icon: icons.plus, label: 'Add worktree' })}
-      ${menuItemHTML({ action: 'create-branch', icon: icons.gitBranch, label: 'Create branch' })}
-      ${menuItemHTML({ action: 'fetch', icon: icons.download, label: 'Fetch' })}
+      ${menuItemHTML({ action: 'open-explorer', icon: icons.folder, label: `Open in ${FILE_MANAGER_LABEL}` })}
       ${menuDividerHTML()}
       ${menuItemHTML({ action: 'remove', icon: icons.trash, label: 'Remove project', danger: true })}
     `,
@@ -840,31 +735,13 @@ function showProjectOptionsMenu(project, x, y) {
   });
 
   bindMenuActions(menu, {
-    'refresh-project': async () => {
-      showToast(`Refreshing ${project.name}...`, 'info');
-      try {
-        await refreshProjectWorkspaces(project.path);
-        showToast(`Refreshed ${project.name}`, 'success');
-      } catch (err) {
-        showToast(`Failed to refresh ${project.name}`, 'error');
-      }
-    },
-    'create-branch': () => showCreateBranchModal(project),
-    'add-wt': () => showAddWorktreeModal(project),
-    'fetch': async () => {
-      showToast('Fetching...', 'info');
-      const result = await window.api.gitFetch(project.path);
-      showToast(result.success ? 'Fetch complete' : `Fetch failed: ${result.error}`, result.success ? 'success' : 'error');
-      if (result.success) await loadWorkspaces();
+    'open-explorer': async () => {
+      await window.api.openInExplorer(project.path);
     },
     'remove': async () => {
-      const removedWtPaths = new Set((project.worktrees || []).map((w: any) => w.path));
       await window.api.removeProject(project.path);
-      if (state.selectedProjectPath === project.path) {
-        state.selectedProjectPath = null;
-      }
-      if (state.activeWorktreePath && (state.activeWorktreePath === project.path || removedWtPaths.has(state.activeWorktreePath))) {
-        state.activeWorktreePath = null;
+      if (state.activeProjectPath === project.path) {
+        state.activeProjectPath = null;
       }
       showToast(`Removed: ${project.name}`, 'info');
       await loadWorkspaces();
@@ -886,7 +763,6 @@ function handleProjectOptionsMenuOutsideClick(e) {
 }
 
 function showSelectionContextMenu(x, y, text) {
-  hideWorktreeContextMenu();
   hideProjectOptionsMenu();
   hideSelectionContextMenu();
 
@@ -921,14 +797,14 @@ function handleSelectionContextMenuOutsideClick(e) {
 }
 
 // Workspace external tool buttons
-bindWorktreeQuickAction(dom.btnAntigravity, (wtPath) => window.api.openInAntigravity(wtPath), 'Opening Antigravity...');
-bindWorktreeQuickAction(dom.btnAntigravityAgent, (wtPath) => window.api.openInAntigravityAgent(wtPath), 'Opening Agent Manager...');
-bindWorktreeQuickAction(dom.btnVsCode, (wtPath) => window.api.openInVsCode(wtPath), 'Opening VS Code...');
+bindProjectQuickAction(dom.btnAntigravity, (projectPath) => window.api.openInAntigravity(projectPath), 'Opening Antigravity...');
+bindProjectQuickAction(dom.btnAntigravityAgent, (projectPath) => window.api.openInAntigravityAgent(projectPath), 'Opening Agent Manager...');
+bindProjectQuickAction(dom.btnVsCode, (projectPath) => window.api.openInVsCode(projectPath), 'Opening VS Code...');
 dom.btnClaudeDesktop?.addEventListener('click', async () => {
-  const wtPath = getRequiredActiveWorktreePath();
-  if (!wtPath) return;
+  const projectPath = getRequiredActiveProjectPath();
+  if (!projectPath) return;
   showToast('Opening Claude Desktop (Code mode)...', 'info');
-  const res = await window.api.openInClaudeDesktop(wtPath);
+  const res = await window.api.openInClaudeDesktop(projectPath);
   if (!res?.success) showToast(res?.error || 'Failed to open Claude Desktop', 'error');
 });
 
@@ -946,45 +822,28 @@ if (dom.btnProjectResources) {
 
 if (dom.btnObsidian) {
   dom.btnObsidian.addEventListener('click', async () => {
-    const wtPath = state.activeWorktreePath;
+    const projectPath = state.activeProjectPath;
     showToast('Opening Obsidian...', 'info');
-    const res = await window.api.openInObsidian(wtPath || undefined);
+    const res = await window.api.openInObsidian(projectPath || undefined);
     if (res && !res.success && res.error) {
       showToast(`Failed to open Obsidian: ${res.error}`, 'error');
     }
   });
 }
 
-bindWorktreeQuickAction(dom.btnExplorer, (wtPath) => window.api.openInExplorer(wtPath), `Opening ${FILE_MANAGER_LABEL}...`);
+bindProjectQuickAction(dom.btnExplorer, (projectPath) => window.api.openInExplorer(projectPath), `Opening ${FILE_MANAGER_LABEL}...`);
 
 // ═══════════════════════════════════════════════════════
 // DASHBOARD PROJECT & BA ASSET VIEWER
 // ═══════════════════════════════════════════════════════
 
-function getActiveProjectAndWorktree() {
-  const activeWtPath = state.activeWorktreePath;
-  let activeProject: any = null;
-  let activeWt: any = null;
-
-  if (activeWtPath && state.projects) {
-    for (const p of state.projects) {
-      const found = (p.worktrees || []).find((w: any) => w.path === activeWtPath);
-      if (found) {
-        activeProject = p;
-        activeWt = found;
-        break;
-      }
-    }
+function getActiveProject() {
+  if (!state.projects || state.projects.length === 0) return null;
+  if (state.activeProjectPath) {
+    const found = state.projects.find((p: any) => p.path === state.activeProjectPath);
+    if (found) return found;
   }
-
-  if (!activeProject && state.projects && state.projects.length > 0) {
-    activeProject = state.projects.find((p: any) => p.path === state.selectedProjectPath) || state.projects[0];
-    if (activeProject?.worktrees && activeProject.worktrees.length > 0) {
-      activeWt = activeProject.worktrees[0];
-    }
-  }
-
-  return { activeProject, activeWt };
+  return state.projects[0];
 }
 
 function formatBytes(bytes: number, decimals = 1): string {
@@ -999,8 +858,7 @@ function formatBytes(bytes: number, decimals = 1): string {
 function updateSidebarResourcesButton(activeProject?: any) {
   if (!dom.btnProjectResources) return;
   if (!activeProject) {
-    const res = getActiveProjectAndWorktree();
-    activeProject = res.activeProject;
+    activeProject = getActiveProject();
   }
   const figmaUrl = (activeProject?.figmaUrl || '').trim();
   const firebaseUrl = (activeProject?.firebaseUrl || '').trim();
@@ -1891,9 +1749,8 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
     copyCmdBtn?.addEventListener('click', () => {
       void navigator.clipboard.writeText(productChecklistCmd);
       showToast(`Copied command: ${productChecklistCmd} — paste into Antigravity!`, 'success');
-      const { activeWt } = getActiveProjectAndWorktree();
       if (activeProject?.path) {
-        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
+        void window.api.syncBaProjectConfig({ projectPath: activeProject.path });
       }
     });
 
@@ -1976,9 +1833,8 @@ function renderLegacyChecklistSlot(activeProject: any, isEditing = false) {
   slot.querySelector('#dash-btn-card-copy-checklist-cmd')?.addEventListener('click', () => {
     void navigator.clipboard.writeText(productChecklistCmd);
     showToast(`Copied command: ${productChecklistCmd} — paste into Antigravity!`, 'success');
-    const { activeWt } = getActiveProjectAndWorktree();
     if (activeProject?.path) {
-      void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path });
+      void window.api.syncBaProjectConfig({ projectPath: activeProject.path });
     }
   });
   slot.querySelector('#dash-checklist-url-anchor')?.addEventListener('click', (e: Event) => {
@@ -2146,13 +2002,13 @@ if (window.api.onCompetitorDecodeProgress) {
     if (data.stage === 'completed' || data.stage === 'failed') {
       competitorDecodeProgress.delete(data.competitorId);
       reakitBusy.delete(data.competitorId);
-      const { activeProject, activeWt } = getActiveProjectAndWorktree();
+      const activeProject = getActiveProject();
       if (activeProject) {
         const comp = (activeProject.competitors || []).find((c: any) => c.id === data.competitorId);
         if (comp && data.stage === 'completed') {
           comp.jadxStatus = 'ready';
         }
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       }
     } else {
       competitorDecodeProgress.set(data.competitorId, data);
@@ -2163,7 +2019,7 @@ if (window.api.onCompetitorDecodeProgress) {
   });
 }
 
-function renderDashboardCompetitors(activeProject: any, activeWt: any) {
+function renderDashboardCompetitors(activeProject: any) {
   if (!dom.dashCompetitorList) return;
   const competitors = Array.isArray(activeProject.competitors) ? activeProject.competitors : [];
 
@@ -2399,7 +2255,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
             <div class="dash-comp-bench-header">
               <div class="dash-comp-bench-header-left">
                 <span class="dash-comp-bench-title" title="Extract reference app features with apk-feature-extractor">Feature Extraction</span>
-                <span class="dash-comp-mcp-status ${isCodeOnly ? 'code-only' : 'hybrid'}" title="${isCodeOnly ? 'Mobilerun MCP disabled for this worktree to save agent tokens' : 'Mobilerun MCP active in workspace plugin'}">
+                <span class="dash-comp-mcp-status ${isCodeOnly ? 'code-only' : 'hybrid'}" title="${isCodeOnly ? 'Mobilerun MCP disabled for this project to save agent tokens' : 'Mobilerun MCP active in workspace plugin'}">
                   ${isCodeOnly ? 'MCP Off' : 'MCP On'}
                 </span>
               </div>
@@ -2512,9 +2368,9 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       showToast(`Copied command: ${cmd} — paste into Antigravity!`, 'success');
 
       // /ba-competitor and /apk-feature-extractor take the decoded-source path and mode from ba-project-config.md: refresh it now.
-      const { activeProject, activeWt } = getActiveProjectAndWorktree();
+      const activeProject = getActiveProject();
       if (activeProject) {
-        void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: activeWt?.path })
+        void window.api.syncBaProjectConfig({ projectPath: activeProject.path })
           .then((res: any) => {
             if (!res?.success) showToast(`Config sync failed: ${res?.error || 'Unknown error'}`, 'error');
           });
@@ -2550,30 +2406,30 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           void window.api.updateProjectCompetitor(activeProject.path, comp);
         }
 
-        const wtPath = activeWt?.path || state.activeWorktreePath;
+        const projPath = activeProject?.path || state.activeProjectPath;
         if (activeProject?.path) {
-          void window.api.syncBaProjectConfig({ projectPath: activeProject.path, worktreePath: wtPath });
+          void window.api.syncBaProjectConfig({ projectPath: activeProject.path });
         }
 
-        if (wtPath) {
+        if (projPath) {
           try {
             if (mode === 'code-only') {
               const anyOtherNeedsMobilerun = (activeProject?.competitors || []).some(
                 (c: any) => c.id !== id && c.analysisMode === 'hybrid'
               );
               if (!anyOtherNeedsMobilerun) {
-                const unreg = await window.api.unregisterMobilerunMcp({ worktreePath: wtPath });
+                const unreg = await window.api.unregisterMobilerunMcp({ projectPath: projPath });
                 if (unreg?.success) {
-                  showToast('Mobilerun Off (Code-Only): Disabled mobilerun MCP plugin for this worktree to save agent tokens.', 'info');
+                  showToast('Mobilerun Off (Code-Only): Disabled mobilerun MCP plugin for this project to save agent tokens.', 'info');
                   void refreshAgentToolkitStatus({ force: true });
                 }
               } else {
                 showToast('Mobilerun Off (--code-only) active for this app (other competitors still use Mobilerun).', 'info');
               }
             } else {
-              const reg = await window.api.registerMobilerunMcp({ worktreePath: wtPath });
+              const reg = await window.api.registerMobilerunMcp({ projectPath: projPath });
               if (reg?.success) {
-                showToast('Mobilerun On: Enabled mobilerun MCP plugin in this worktree.', 'success');
+                showToast('Mobilerun On: Enabled mobilerun MCP plugin in this project.', 'success');
                 void refreshAgentToolkitStatus({ force: true });
               }
             }
@@ -2582,7 +2438,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           }
         }
 
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       }
     });
   });
@@ -2607,7 +2463,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           withAsyncButtonState,
           onSuccess: async (updated: any) => {
             activeProject.competitors = updated.competitors;
-            renderDashboardCompetitors(activeProject, activeWt);
+            renderDashboardCompetitors(activeProject);
           },
         });
       }
@@ -2623,7 +2479,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       if (res?.success) {
         showToast('Competitor removed', 'info');
         activeProject.competitors = (activeProject.competitors || []).filter((c: any) => c.id !== id);
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       } else {
         showToast(`Failed: ${res?.error || 'Unknown error'}`, 'error');
       }
@@ -2661,7 +2517,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 id: compId,
                 packageName: res.packageName,
               });
-              renderDashboardCompetitors(activeProject, activeWt);
+              renderDashboardCompetitors(activeProject);
             }
           }
         } else {
@@ -2736,7 +2592,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           delete comp.apkName;
           delete comp.apkSize;
         }
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       } else {
         showToast(`Failed to unlink APK: ${res?.error || 'Unknown error'}`, 'error');
       }
@@ -2775,12 +2631,12 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
                 if (st?.hasJadx) {
                   comp.jadxStatus = 'ready';
                   comp.jadxSourcePath = st.jadxSourcePath;
-                  renderDashboardCompetitors(activeProject, activeWt);
+                  renderDashboardCompetitors(activeProject);
                 }
               }).catch(() => {});
             }
           }
-          renderDashboardCompetitors(activeProject, activeWt);
+          renderDashboardCompetitors(activeProject);
         } else {
           showToast(`Failed to link APK: ${res?.error || 'Unknown error'}`, 'error');
         }
@@ -2804,7 +2660,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       }
 
       reakitBusy.set(compId, 'downloading');
-      renderDashboardCompetitors(activeProject, activeWt);
+      renderDashboardCompetitors(activeProject);
       showToast(`Downloading APK for ${compName}...`, 'info');
 
       try {
@@ -2838,7 +2694,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
         showToast(`Download error: ${err?.message || String(err)}`, 'error');
       } finally {
         reakitBusy.delete(compId);
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       }
     });
   });
@@ -2867,7 +2723,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
           detail: 'Preparing JADX environment...',
           elapsedSec: 0,
         });
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
         showToast(`Decoding ${compName} APK sources with ReaKit... Progress will show on card`, 'info');
 
         const res = await window.api.decompileCompetitorJadx({
@@ -2898,7 +2754,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
       } finally {
         reakitBusy.delete(compId);
         competitorDecodeProgress.delete(compId);
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       }
     });
   });
@@ -2974,12 +2830,12 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
               if (st?.hasJadx) {
                 comp.jadxStatus = 'ready';
                 comp.jadxSourcePath = st.jadxSourcePath;
-                renderDashboardCompetitors(activeProject, activeWt);
+                renderDashboardCompetitors(activeProject);
               }
             }).catch(() => {});
           }
         }
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       } else {
         showToast(`Failed to link APK: ${res?.error || 'Unknown error'}`, 'error');
       }
@@ -3022,7 +2878,7 @@ function renderDashboardCompetitors(activeProject: any, activeWt: any) {
               jadxSourcePath: comp.jadxSourcePath,
               jadxStatus: comp.jadxStatus,
             });
-            renderDashboardCompetitors(activeProject, activeWt);
+            renderDashboardCompetitors(activeProject);
           }
         } catch (_) {} finally {
           inFlightReakitChecks.delete(comp.id);
@@ -3045,14 +2901,15 @@ function renderDashboardViewer() {
   const hasProjects = Array.isArray(state.projects) && state.projects.length > 0;
   document.body.classList.toggle('no-projects-mode', !hasProjects);
 
-  const { activeProject, activeWt } = getActiveProjectAndWorktree();
+  const activeProject = getActiveProject();
 
   if (!dom.dashboardViewer || !dom.dashboardEmptyState) return;
 
   if (!hasProjects || !activeProject) {
     hideProjectDependentScreens();
-    lastAgentToolkitWorktreePath = null;
+    lastAgentToolkitProjectPath = null;
     updateSidebarResourcesButton(null);
+    renderCompetitorConflictBanner(null);
     dom.dashboardEmptyState.style.display = 'flex';
     dom.dashboardViewer.style.display = 'none';
     const settingsOpen = dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden');
@@ -3067,16 +2924,14 @@ function renderDashboardViewer() {
   dom.dashboardViewer.style.display = 'flex';
 
   if (dom.dashProjectName) dom.dashProjectName.textContent = activeProject.name;
-  if (dom.dashBranchBadge) {
-    dom.dashBranchBadge.textContent = activeWt ? (activeWt.branch || activeWt.name) : 'main';
-  }
-  const currentPath = activeWt ? activeWt.path : activeProject.path;
+  const currentPath = activeProject.path;
   if (dom.dashProjectPath) {
     dom.dashProjectPath.textContent = currentPath;
     dom.dashProjectPath.title = currentPath;
   }
+  renderCompetitorConflictBanner(activeProject);
   void refreshAgentToolkitStatus();
-  renderDashboardCompetitors(activeProject, activeWt);
+  renderDashboardCompetitors(activeProject);
   renderProjectResourcesScreen();
 }
 
@@ -3095,8 +2950,8 @@ if (dom.btnDashboardEmptySettings) {
 
 if (dom.dashBtnCopyPath) {
   dom.dashBtnCopyPath.addEventListener('click', () => {
-    const { activeProject, activeWt } = getActiveProjectAndWorktree();
-    const currentPath = activeWt ? activeWt.path : activeProject?.path;
+    const activeProject = getActiveProject();
+    const currentPath = activeProject?.path;
     if (currentPath) {
       navigator.clipboard.writeText(currentPath);
       showToast('Project path copied to clipboard', 'info');
@@ -3106,29 +2961,10 @@ if (dom.dashBtnCopyPath) {
 
 if (dom.dashBtnRevealPath) {
   dom.dashBtnRevealPath.addEventListener('click', () => {
-    const { activeProject, activeWt } = getActiveProjectAndWorktree();
-    const currentPath = activeWt ? activeWt.path : activeProject?.path;
+    const activeProject = getActiveProject();
+    const currentPath = activeProject?.path;
     if (currentPath) {
       void window.api.openInExplorer(currentPath);
-    }
-  });
-}
-
-if (dom.dashBtnRefreshProject) {
-  dom.dashBtnRefreshProject.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
-    const proj = activeProject || (state.selectedProjectPath ? state.projects.find(p => p.path === state.selectedProjectPath) : (state.projects && state.projects[0] ? state.projects[0] : null));
-    if (!proj) return;
-    const icon = dom.dashBtnRefreshProject.querySelector('img, svg');
-    if (icon) icon.classList.add('spinning');
-    showToast(`Refreshing ${proj.name}...`, 'info');
-    try {
-      await refreshProjectWorkspaces(proj.path);
-      showToast(`Refreshed ${proj.name}`, 'success');
-    } catch (err) {
-      showToast(`Failed to refresh ${proj.name}`, 'error');
-    } finally {
-      if (icon) icon.classList.remove('spinning');
     }
   });
 }
@@ -3197,7 +3033,7 @@ if (dom.resourcesBtnViewList) {
 }
 
 async function handleImportCompetitorApk() {
-  const { activeProject, activeWt } = getActiveProjectAndWorktree();
+  const activeProject = getActiveProject();
   if (!activeProject) {
     showToast('Please select a project first', 'error');
     return;
@@ -3218,7 +3054,7 @@ async function handleImportCompetitorApk() {
       withAsyncButtonState,
       onSuccess: (updated: any) => {
         activeProject.competitors = updated.competitors;
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       },
     });
   }
@@ -3248,7 +3084,7 @@ if (dom.dashSectionCompetitors) {
     e.preventDefault();
     dom.dashSectionCompetitors.classList.remove('dragover');
 
-    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (!activeProject) {
       showToast('Please select a project first', 'error');
       return;
@@ -3280,7 +3116,7 @@ if (dom.dashSectionCompetitors) {
       withAsyncButtonState,
       onSuccess: (updated: any) => {
         activeProject.competitors = updated.competitors;
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       },
     });
   });
@@ -3288,7 +3124,7 @@ if (dom.dashSectionCompetitors) {
 
 if (dom.dashBtnOpenFigma) {
   dom.dashBtnOpenFigma.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     showToast('Opening Figma...', 'info');
     await window.api.openInFigma(activeProject?.figmaUrl || undefined);
   });
@@ -3296,7 +3132,7 @@ if (dom.dashBtnOpenFigma) {
 
 if (dom.dashBtnBrowserFigma) {
   dom.dashBtnBrowserFigma.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (activeProject?.figmaUrl) {
       await window.api.openExternal(activeProject.figmaUrl);
     }
@@ -3305,7 +3141,7 @@ if (dom.dashBtnBrowserFigma) {
 
 if (dom.dashBtnBrowserFirebase) {
   dom.dashBtnBrowserFirebase.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (activeProject?.firebaseUrl) {
       await window.api.openExternal(activeProject.firebaseUrl);
     }
@@ -3314,7 +3150,7 @@ if (dom.dashBtnBrowserFirebase) {
 
 if (dom.dashBtnBrowserPlane) {
   dom.dashBtnBrowserPlane.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (activeProject?.planeUrl) {
       await window.api.openExternal(activeProject.planeUrl);
     }
@@ -3323,7 +3159,7 @@ if (dom.dashBtnBrowserPlane) {
 
 if (dom.dashBtnBrowserPrd) {
   dom.dashBtnBrowserPrd.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (activeProject?.legacyPrdUrl) {
       await window.api.openExternal(activeProject.legacyPrdUrl);
     }
@@ -3332,7 +3168,7 @@ if (dom.dashBtnBrowserPrd) {
 
 if (dom.dashBtnBrowserChecklist) {
   dom.dashBtnBrowserChecklist.addEventListener('click', async () => {
-    const { activeProject } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (activeProject?.legacyChecklistUrl) {
       await window.api.openExternal(activeProject.legacyChecklistUrl);
     }
@@ -3341,7 +3177,7 @@ if (dom.dashBtnBrowserChecklist) {
 
 if (dom.dashBtnAddCompetitor) {
   dom.dashBtnAddCompetitor.addEventListener('click', () => {
-    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (!activeProject) {
       showToast('Please select a project first', 'error');
       return;
@@ -3359,7 +3195,7 @@ if (dom.dashBtnAddCompetitor) {
       withAsyncButtonState,
       onSuccess: (updated: any) => {
         activeProject.competitors = updated.competitors;
-        renderDashboardCompetitors(activeProject, activeWt);
+        renderDashboardCompetitors(activeProject);
       },
     });
   });
@@ -3367,7 +3203,7 @@ if (dom.dashBtnAddCompetitor) {
 
 if (dom.dashBtnSyncConfig) {
   dom.dashBtnSyncConfig.addEventListener('click', async () => {
-    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (!activeProject) {
       showToast('Please select a project first', 'error');
       return;
@@ -3375,7 +3211,6 @@ if (dom.dashBtnSyncConfig) {
     showToast('Syncing to .agents/config/ba-project-config.md...', 'info');
     const res = await window.api.syncBaProjectConfig({
       projectPath: activeProject.path,
-      worktreePath: activeWt?.path,
     });
     if (res?.success) {
       showToast('Successfully synced to ba-project-config.md!', 'success');
@@ -3387,8 +3222,8 @@ if (dom.dashBtnSyncConfig) {
 
 if (dom.btnManageSymlinks) {
   dom.btnManageSymlinks.addEventListener('click', () => {
-    const activeWorktreePath = getRequiredActiveWorktreePath();
-    if (!activeWorktreePath) return;
+    const activeProjectPath = getRequiredActiveProjectPath();
+    if (!activeProjectPath) return;
     showSymlinkScreen();
   });
 }
@@ -3406,25 +3241,35 @@ async function loadWorkspaces() {
 
   state.settings = (await window.api.getSettings()) || {};
   state.projects = (await window.api.getWorkspaces()) || [];
+  try {
+    state.syncthing = await window.api.syncthingGetState();
+  } catch (err) {
+    console.warn('Failed to fetch Syncthing state:', err);
+  }
   
   dom.loadingState.style.display = 'none';
   dom.projectsContainer.style.display = '';
 
   if (state.projects.length === 0) {
-    state.selectedProjectPath = null;
-    state.activeWorktreePath = null;
+    state.activeProjectPath = null;
+  } else if (!state.activeProjectPath || !state.projects.some((p: any) => p.path === state.activeProjectPath)) {
+    state.activeProjectPath = state.projects[0].path;
   }
 
-  if (state.expandedProjects.size === 0) {
-    state.projects.forEach((p) => state.expandedProjects.add(p.path));
-  }
+  renderSidebarSyncthing();
   renderSidebar();
+}
 
-  // Automatically select and open the first project on startup
-  if (!state.activeWorktreePath && state.projects.length > 0) {
-    const targetProjPath = state.selectedProjectPath || state.projects[0].path;
-    await openProjectWorkspace(targetProjPath);
+function formatSidebarProjectSubtitle(project: any): string {
+  const compCount = Array.isArray(project.competitors) ? project.competitors.length : 0;
+  if (compCount > 0) {
+    return `${compCount} competitor${compCount === 1 ? '' : 's'}`;
   }
+  const parts = String(project.path || '').split(/[\\/]/).filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2, -1)[0];
+  }
+  return project.path || '';
 }
 
 function renderSidebar() {
@@ -3432,72 +3277,66 @@ function renderSidebar() {
     dom.projectsContainer.innerHTML = '';
     dom.projectsContainer.style.display = 'none';
     dom.emptyState.style.display = '';
-    state.selectedProjectPath = null;
-    state.activeWorktreePath = null;
+    state.activeProjectPath = null;
     updateSidebarActiveState();
     return;
   }
   dom.emptyState.style.display = 'none';
   dom.projectsContainer.style.display = '';
 
-  // Ensure a project is selected
-  if (state.projects.length > 0 && (!state.selectedProjectPath || !state.projects.some(p => p.path === state.selectedProjectPath))) {
-    const activeProject = state.projects.find((p) =>
-      (p.worktrees || []).some((wt) => wt.path === state.activeWorktreePath)
-    );
-    state.selectedProjectPath = activeProject ? activeProject.path : state.projects[0].path;
+  if (!state.activeProjectPath || !state.projects.some((p) => p.path === state.activeProjectPath)) {
+    state.activeProjectPath = state.projects[0].path;
   }
 
-  const selectedProject = state.projects.find(p => p.path === state.selectedProjectPath) || state.projects[0];
-
-  // Render left navigation column
-  const navHtml = state.projects.map((project) => {
-    const isSelected = project.path === state.selectedProjectPath;
+  const itemsHtml = state.projects.map((project) => {
+    const isActive = project.path === state.activeProjectPath;
+    const subtitle = formatSidebarProjectSubtitle(project);
+    const optionsButton = sidebarActionButtonHTML({
+      action: 'project-options',
+      path: project.path,
+      title: 'Options',
+      icon: icons.moreVertical,
+    });
     return `
-      <div class="project-nav-item ${isSelected ? 'selected' : ''}" data-project-path="${esc(project.path)}" title="${esc(project.name)}">
+      <div class="sidebar-project-item ${isActive ? 'active' : ''}" data-project-path="${esc(project.path)}" title="${esc(project.path)}">
         <div class="sidebar-project-icon">${esc(getWorkspaceInitials(project.name))}</div>
+        <div class="sidebar-project-info">
+          <div class="sidebar-project-name">${esc(project.name)}</div>
+          ${subtitle ? `<div class="sidebar-project-sub">${esc(subtitle)}</div>` : ''}
+        </div>
+        <div class="sidebar-project-actions">
+          ${optionsButton}
+        </div>
       </div>
     `;
   }).join('');
 
-  // Render right details column
-  const detailHtml = selectedProject ? sidebarSelectedProjectHTML(selectedProject) : '';
+  dom.projectsContainer.innerHTML = `<div class="sidebar-project-list">${itemsHtml}</div>`;
 
-  dom.projectsContainer.innerHTML = `
-    <div class="projects-nav-col">
-      ${navHtml}
-    </div>
-    <div class="projects-detail-col">
-      ${detailHtml}
-    </div>
-  `;
+  dom.projectsContainer.querySelectorAll('.sidebar-project-item').forEach((itemEl) => {
+    if (!(itemEl instanceof HTMLElement)) return;
+    const projectPath = itemEl.dataset.projectPath || '';
+    const project = state.projects.find((p) => p.path === projectPath);
+    if (!project) return;
 
-  // Attach event listeners
-  // 1. Navigation items
-  dom.projectsContainer.querySelectorAll('.project-nav-item').forEach((navEl) => {
-    if (navEl instanceof HTMLElement) {
-      navEl.addEventListener('click', async () => {
-        const projectPath = navEl.dataset.projectPath || null;
-        if (!projectPath) return;
-        state.selectedProjectPath = projectPath;
-        renderSidebar();
-        await openProjectWorkspace(projectPath);
-      });
-      navEl.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const p = state.projects.find(proj => proj.path === navEl.dataset.projectPath);
-        if (p) showProjectOptionsMenu(p, e.clientX, e.clientY);
-      });
-    }
+    itemEl.addEventListener('click', (e) => {
+      const target = e.target;
+      if (target instanceof Element && target.closest('.sidebar-project-actions')) return;
+      switchProjectContext(project.path);
+    });
+
+    itemEl.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showProjectOptionsMenu(project, e.clientX, e.clientY);
+    });
+
+    itemEl.querySelector('[data-action="project-options"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showProjectOptionsMenu(project, (e as MouseEvent).clientX, (e as MouseEvent).clientY);
+    });
   });
 
-  // 2. Project details events
-  if (selectedProject) {
-    attachSelectedProjectEvents(selectedProject);
-    (selectedProject.worktrees || []).forEach((wt) => loadGitInfo(wt));
-  }
-  
   updateSidebarActiveState();
 }
 
@@ -3511,98 +3350,21 @@ function getWorkspaceInitials(name: string) {
   return name.substring(0, 2);
 }
 
-function sidebarSelectedProjectHTML(project) {
-  const expanded = state.expandedProjects.has(project.path);
-  const wtItems = getDomainBuildWorktreeTree(project, state.settings)
-    .map((node) => sidebarWtItemHTML(project, node)).join('');
-  const refreshButton = sidebarActionButtonHTML({
-    action: 'project-refresh',
-    path: project.path,
-    title: 'Refresh project',
-    icon: icons.refresh,
-  });
-  const optionsButton = sidebarActionButtonHTML({
-    action: 'project-options',
-    path: project.path,
-    title: 'Options',
-    icon: icons.moreVertical,
-  });
-
-  return `
-    <div class="sidebar-project-header" data-action="toggle-project" data-path="${esc(project.path)}">
-      <div class="sidebar-project-left">
-        <span class="sidebar-project-chevron ${expanded ? 'expanded' : ''}">${icons.chevron}</span>
-        <span class="sidebar-project-name" title="${esc(project.path)}">${esc(project.name)}</span>
-      </div>
-      <div class="sidebar-project-actions">
-        ${refreshButton}
-        ${optionsButton}
-      </div>
-    </div>
-    <div class="sidebar-wt-list ${expanded ? '' : 'collapsed'}" data-wt-list="${esc(project.path)}"
-         style="${expanded ? '' : 'max-height:0'}">
-      ${wtItems || sidebarEmptyStateHTML()}
-    </div>
-  `;
-}
-
-function sidebarWtItemHTML(project, node, depth = 0) {
-  const { wt, children } = node;
-  const dotClass = wt.bare ? 'bare' : 'loading';
-  const childHtml = children.map((child) => sidebarWtItemHTML(project, child, depth + 1)).join('');
-  return `
-    <div class="sidebar-wt-node depth-${depth}">
-      <div class="sidebar-wt-item" data-wt-path="${esc(wt.path)}" data-wt-name="${esc(wt.name)}" data-wt-id="${esc(wt.id)}" data-project-path="${esc(project.path)}" style="margin-left:${depth * 16}px;">
-        <span class="sidebar-wt-dot ${dotClass}" id="wt-dot-${esc(wt.id)}"></span>
-        <div class="sidebar-wt-info">
-          <div class="sidebar-wt-name">${esc(wt.name)}</div>
-          <div class="sidebar-wt-branch">${esc(wt.branch || (wt.detached ? 'HEAD detached' : wt.bare ? 'bare' : '...'))}</div>
-        </div>
-        <div class="sidebar-wt-actions">
-        </div>
-      </div>
-      ${childHtml ? `<div class="sidebar-wt-children">${childHtml}</div>` : ''}
-    </div>
-  `;
-}
-
 function updateSidebarActiveState() {
-  document.querySelectorAll('.sidebar-wt-item').forEach((el) => {
+  document.querySelectorAll('.sidebar-project-item').forEach((el) => {
     if (!(el instanceof HTMLElement)) return;
-    el.classList.toggle('active', el.dataset.wtPath === state.activeWorktreePath);
+    el.classList.toggle('active', el.dataset.projectPath === state.activeProjectPath);
   });
 
-  const activeWtPath = state.activeWorktreePath;
-  let activeProject: any = null;
-  let activeWt: any = null;
-
-  if (activeWtPath && state.projects) {
-    for (const p of state.projects) {
-      const found = (p.worktrees || []).find((w: any) => w.path === activeWtPath);
-      if (found) {
-        activeProject = p;
-        activeWt = found;
-        break;
-      }
-    }
-  }
-
+  const activeProject = getActiveProject();
   const titlebarProject = dom.titlebarCrumbProject || document.getElementById('titlebar-crumb-project');
-  const titlebarBranch = dom.titlebarCrumbBranch || document.getElementById('titlebar-crumb-branch');
   const welcomeStatusName = dom.welcomeStatusName || document.getElementById('welcome-status-name');
 
-  if (activeProject && activeWt) {
+  if (activeProject) {
     if (titlebarProject) titlebarProject.textContent = activeProject.name;
-    if (titlebarBranch) titlebarBranch.textContent = `${activeWt.name} (${activeWt.branch || 'detached'})`;
-    if (welcomeStatusName) welcomeStatusName.textContent = `${activeProject.name} — ${activeWt.name} (${activeWt.branch || 'main'})`;
-  } else if (state.projects && state.projects.length > 0) {
-    const selP = state.projects.find((p: any) => p.path === state.selectedProjectPath) || state.projects[0];
-    if (titlebarProject) titlebarProject.textContent = selP.name;
-    if (titlebarBranch) titlebarBranch.textContent = 'Workspace';
-    if (welcomeStatusName) welcomeStatusName.textContent = `${selP.name} — Select a worktree to begin`;
+    if (welcomeStatusName) welcomeStatusName.textContent = activeProject.name;
   } else {
     if (titlebarProject) titlebarProject.textContent = 'BA Space';
-    if (titlebarBranch) titlebarBranch.textContent = 'Ready';
     if (welcomeStatusName) welcomeStatusName.textContent = 'Add or select a project to get started';
   }
 
@@ -3610,300 +3372,12 @@ function updateSidebarActiveState() {
 }
 
 function scrollSelectedProjectIntoView(projectPath?: string) {
-  const targetPath = projectPath || state.selectedProjectPath;
+  const targetPath = projectPath || state.activeProjectPath;
   if (!targetPath || !dom.projectsContainer) return;
-  const navItem = dom.projectsContainer.querySelector(`.project-nav-item[data-project-path="${CSS.escape(targetPath)}"]`);
+  const navItem = dom.projectsContainer.querySelector(`.sidebar-project-item[data-project-path="${CSS.escape(targetPath)}"]`);
   if (navItem instanceof HTMLElement) {
     navItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
-  const detailCol = dom.projectsContainer.querySelector('.projects-detail-col');
-  if (detailCol instanceof HTMLElement) {
-    detailCol.scrollTop = 0;
-  }
-}
-
-function attachSelectedProjectEvents(project) {
-  const container = dom.projectsContainer.querySelector('.projects-detail-col');
-  if (!container) return;
-
-  // Toggle project header
-  const header = container.querySelector('[data-action="toggle-project"]');
-  if (header instanceof HTMLElement) {
-    header.addEventListener('click', (e) => {
-      const target = e.target;
-      if (target instanceof Element && target.closest('.sidebar-project-actions')) return;
-      const p = header.dataset.path;
-      const chevron = header.querySelector('.sidebar-project-chevron');
-      const wtList = container.querySelector(`[data-wt-list="${CSS.escape(p || '')}"]`);
-      if (chevron instanceof HTMLElement && wtList instanceof HTMLElement) {
-        if (state.expandedProjects.has(p || '')) {
-          state.expandedProjects.delete(p || '');
-          chevron.classList.remove('expanded');
-          wtList.classList.add('collapsed');
-          wtList.style.maxHeight = '0';
-        } else {
-          state.expandedProjects.add(p || '');
-          chevron.classList.add('expanded');
-          wtList.classList.remove('collapsed');
-          wtList.style.maxHeight = `${wtList.scrollHeight}px`;
-        }
-      }
-    });
-
-    header.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      showProjectOptionsMenu(project, e.clientX, e.clientY);
-    });
-  }
-
-  // Refresh button
-  container.querySelector('[data-action="project-refresh"]')?.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const btn = e.currentTarget as HTMLElement;
-    const icon = btn?.querySelector('svg, img');
-    if (icon) icon.classList.add('spinning');
-    showToast(`Refreshing ${project.name}...`, 'info');
-    try {
-      await refreshProjectWorkspaces(project.path);
-      showToast(`Refreshed ${project.name}`, 'success');
-    } catch (err) {
-      showToast(`Failed to refresh ${project.name}`, 'error');
-    } finally {
-      if (icon) icon.classList.remove('spinning');
-    }
-  });
-
-  // Options button
-  container.querySelector('[data-action="project-options"]')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showProjectOptionsMenu(project, (e as MouseEvent).clientX, (e as MouseEvent).clientY);
-  });
-
-  // Worktree items → switch to worktree context
-  container.querySelectorAll('.sidebar-wt-item').forEach((wtEl) => {
-    if (!(wtEl instanceof HTMLElement)) return;
-    wtEl.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const wt = (project.worktrees || []).find((item) => item.path === wtEl.dataset.wtPath);
-      if (!wt) return;
-      showWorktreeContextMenu(project, wt, e.clientX, e.clientY);
-    });
-
-    wtEl.addEventListener('click', (e) => {
-      const target = e.target;
-      if (target instanceof Element && target.closest('.sidebar-wt-actions')) return;
-      const wtPath = wtEl.dataset.wtPath || '';
-      if (wtPath) {
-        switchWorktreeContext(wtPath);
-      }
-    });
-
-    wtEl.querySelector('[data-action="android-studio"]')?.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const currentTarget = e.currentTarget;
-      showToast('Opening Android Studio...', 'info');
-      if (currentTarget instanceof HTMLElement) {
-        const res = await window.api.openInAndroidStudio(currentTarget.dataset.path || '');
-        if (res && res.success === false) showToast(res.error || 'Failed to open Android Studio', 'error');
-      }
-    });
-
-    wtEl.querySelector('[data-action="antigravity"]')?.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const currentTarget = e.currentTarget;
-      showToast('Opening Antigravity...', 'info');
-      if (currentTarget instanceof HTMLElement) {
-        const res = await window.api.openInAntigravity(currentTarget.dataset.path || '');
-        if (res && res.success === false) showToast(res.error || 'Failed to open Antigravity IDE', 'error');
-      }
-    });
-
-    wtEl.querySelector('[data-action="obsidian"]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const currentTarget = e.currentTarget;
-      if (currentTarget instanceof HTMLElement) window.api.openInObsidian(currentTarget.dataset.path || '');
-      showToast('Opening Obsidian...', 'info');
-    });
-
-    wtEl.querySelector('[data-action="explorer"]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const currentTarget = e.currentTarget;
-      if (currentTarget instanceof HTMLElement) window.api.openInExplorer(currentTarget.dataset.path || '');
-    });
-  });
-}
-
-// ── Load Git Info ──────────────────────────────────────
-async function loadGitInfo(wt) {
-  if (wt.bare) return;
-  try {
-    const info = await window.api.getGitInfo(wt.path);
-    const dotEl = document.getElementById(`wt-dot-${wt.id}`);
-    if (dotEl) dotEl.className = `sidebar-wt-dot ${info.modifiedCount > 0 ? 'modified' : 'clean'}`;
-  } catch (_) {}
-}
-
-// ── Searchable Branch Dropdown (reusable) ──────────────
-function setupBranchCombo({ containerEl, branches, onSelect, placeholder = 'Search branches...', showCreateOption = false }) {
-  const branchInput = containerEl.querySelector('.branch-combo-input');
-  const branchDropdown = containerEl.querySelector('.branch-combo-dropdown');
-  const branchSelected = containerEl.querySelector('.branch-combo-selected');
-  const branchChipLabel = containerEl.querySelector('.branch-chip-label');
-  const branchChipBadge = containerEl.querySelector('.branch-chip-badge');
-  const branchChipRemove = containerEl.querySelector('.branch-chip-remove');
-
-  branchInput.placeholder = placeholder;
-  let selectedBranch = '';
-  let isCreateNew = false;
-
-  function select(name, createNew) {
-    selectedBranch = name;
-    isCreateNew = createNew;
-    branchChipLabel.textContent = name;
-    if (createNew) {
-      branchChipBadge.textContent = 'new';
-      branchChipBadge.className = 'branch-chip-badge new';
-    } else {
-      branchChipBadge.textContent = '';
-      branchChipBadge.className = 'branch-chip-badge existing';
-      branchChipBadge.style.display = 'none';
-    }
-    branchSelected.style.display = '';
-    branchInput.style.display = 'none';
-    branchInput.value = '';
-    hideDropdown();
-    if (onSelect) onSelect(name, createNew);
-  }
-
-  function clear() {
-    selectedBranch = '';
-    isCreateNew = false;
-    branchSelected.style.display = 'none';
-    branchInput.style.display = '';
-    branchInput.value = '';
-    branchInput.focus();
-    if (onSelect) onSelect('', false);
-  }
-
-  function renderDropdown(query) {
-    const q = query.trim().toLowerCase();
-    const filtered = q
-      ? branches.filter((b) => b.toLowerCase().includes(q))
-      : branches;
-    const exactMatch = branches.some((b) => b.toLowerCase() === q);
-    const showCreate = showCreateOption && q.length > 0 && !exactMatch;
-
-    let html = '';
-
-    if (showCreate) {
-      html += `
-        <button class="branch-dropdown-item create-item" data-action="create" data-branch="${esc(query.trim())}" type="button">
-          <span class="branch-dropdown-icon create">${icons.plus}</span>
-          <span>Create new branch: <strong>${esc(query.trim())}</strong></span>
-        </button>
-      `;
-      if (filtered.length > 0) {
-        html += `<div class="branch-dropdown-divider"></div>`;
-      }
-    }
-
-    if (filtered.length > 0) {
-      for (const b of filtered.slice(0, 20)) {
-        const idx = b.toLowerCase().indexOf(q);
-        let label;
-        if (q && idx >= 0) {
-          label = esc(b.substring(0, idx))
-            + `<mark>${esc(b.substring(idx, idx + q.length))}</mark>`
-            + esc(b.substring(idx + q.length));
-        } else {
-          label = esc(b);
-        }
-        html += `
-          <button class="branch-dropdown-item" data-action="select" data-branch="${esc(b)}" type="button">
-            <span class="branch-dropdown-icon">${icons.gitBranch}</span>
-            <span>${label}</span>
-          </button>
-        `;
-      }
-      if (filtered.length > 20) {
-        html += `<div class="branch-dropdown-more">${filtered.length - 20} more...</div>`;
-      }
-    } else if (!showCreate) {
-      html += `<div class="branch-dropdown-empty">No branches found</div>`;
-    }
-
-    branchDropdown.innerHTML = html;
-    branchDropdown.classList.add('visible');
-
-    branchDropdown.querySelectorAll('.branch-dropdown-item').forEach((item) => {
-      item.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        const action = item.dataset.action;
-        const branch = item.dataset.branch;
-        select(branch, action === 'create');
-      });
-    });
-  }
-
-  function hideDropdown() {
-    branchDropdown.classList.remove('visible');
-  }
-
-  branchInput.addEventListener('input', () => renderDropdown(branchInput.value));
-  branchInput.addEventListener('focus', () => renderDropdown(branchInput.value));
-  branchInput.addEventListener('blur', () => setTimeout(() => hideDropdown(), 150));
-  branchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { hideDropdown(); branchInput.blur(); }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const first = branchDropdown.querySelector('.branch-dropdown-item');
-      if (first) first.click();
-    }
-  });
-  branchChipRemove.addEventListener('click', clear);
-
-  return {
-    getSelected: () => ({ branch: selectedBranch, isNew: isCreateNew }),
-    focus: () => branchInput.focus(),
-  };
-}
-
-/** Generate the branch combo HTML (reusable in both modals) */
-function branchComboHTML() {
-  return `
-    <div class="branch-combo">
-      <div class="branch-combo-selected" style="display:none;">
-        <span class="branch-chip">
-          <span class="branch-chip-icon">${icons.gitBranch}</span>
-          <span class="branch-chip-label"></span>
-          <span class="branch-chip-badge"></span>
-          <button class="branch-chip-remove" type="button">${icons.close}</button>
-        </span>
-      </div>
-      <input class="form-input branch-combo-input" autocomplete="off" spellcheck="false" />
-      <div class="branch-combo-dropdown"></div>
-    </div>
-  `;
-}
-
-// ── Create Branch Modal ────────────────────────────────
-async function showCreateBranchModal(project) {
-  return openCreateBranchModal({
-    project,
-    dom,
-    icons,
-    configureModalFooter,
-    showModal,
-    focusModalInputLater,
-    hideModal,
-    showToast,
-    isInvalidGitBranchName,
-    withAsyncButtonState,
-    bindModalEnterSubmit,
-    api: window.api,
-  });
 }
 
 async function saveSettingsFromUI() {
@@ -3927,14 +3401,21 @@ async function saveSettingsFromUI() {
     obsidianVault: dom.settingsObsidianVault ? dom.settingsObsidianVault.value.trim() : (state.settings?.obsidianVault || ''),
     scrcpyPath: dom.settingsScrcpyPath ? cleanVal(dom.settingsScrcpyPath.value) : '',
     reakitPath: dom.settingsReaKitPath ? cleanVal(dom.settingsReaKitPath.value) : '',
-    autoRefreshCurrentProject: state.settings?.autoRefreshCurrentProject ?? false,
-    autoRefreshInterval: state.settings?.autoRefreshInterval ?? 10,
+    autoCheckUpdates: dom.settingsAutoCheckUpdates
+      ? dom.settingsAutoCheckUpdates.checked
+      : (state.settings?.autoCheckUpdates !== false),
   };
   state.settings = await window.api.updateSettings(nextSettings);
 }
 
 async function showSettingsScreen() {
   if (state.settings) {
+    if (dom.settingsAutoCheckUpdates) {
+      dom.settingsAutoCheckUpdates.checked = state.settings.autoCheckUpdates !== false;
+    }
+    if (state.update) {
+      renderUpdateUI(state.update);
+    }
     if (dom.settingsAntigravityPath) dom.settingsAntigravityPath.value = state.settings.antigravityPath || 'detecting...';
     if (dom.settingsAntigravityAgentPath) dom.settingsAntigravityAgentPath.value = state.settings.antigravityAgentPath || 'detecting...';
     if (dom.settingsClaudeDesktopPath) dom.settingsClaudeDesktopPath.value = state.settings.claudeDesktopPath || 'detecting...';
@@ -3954,6 +3435,7 @@ async function showSettingsScreen() {
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
   if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
+  hideSyncthingScreen();
   dom.settingsScreen.classList.remove('hidden');
 
   try {
@@ -4031,18 +3513,18 @@ async function showSettingsScreen() {
 async function hideSettingsScreen() {
   await saveSettingsFromUI();
   dom.settingsScreen.classList.add('hidden');
-  startAutoRefreshLoop();
 }
 
 // ── Symlink Screen ─────────────────────────────────────
 async function showSymlinkScreen() {
-  const activeWorktreePath = state.activeWorktreePath;
-  const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'No active project';
+  const activeProjectPath = state.activeProjectPath;
+  const activeProjectName = activeProjectPath ? activeProjectPath.split(/[\\/]/).pop() : 'No active project';
 
-  if (dom.symlinkScreenActiveName) dom.symlinkScreenActiveName.textContent = activeWorktreeName;
-  if (dom.symlinkScreenActivePath) dom.symlinkScreenActivePath.textContent = activeWorktreePath || 'Please select a worktree first.';
+  if (dom.symlinkScreenActiveName) dom.symlinkScreenActiveName.textContent = activeProjectName;
+  if (dom.symlinkScreenActivePath) dom.symlinkScreenActivePath.textContent = activeProjectPath || 'Please select a project first.';
 
   dom.settingsScreen.classList.add('hidden');
+  hideSyncthingScreen();
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
@@ -4055,9 +3537,9 @@ async function showSymlinkScreen() {
   if (dom.symlinkScreenNameGroup) dom.symlinkScreenNameGroup.classList.add('hidden');
 
   let targets = state.settings?.symlinkTargets || [];
-  if (activeWorktreePath) {
+  if (activeProjectPath) {
     try {
-      const scanned = await window.api.scanSymlinks({ worktreePath: activeWorktreePath });
+      const scanned = await window.api.scanSymlinks({ projectPath: activeProjectPath });
       if (scanned && scanned.length > 0) {
         let changed = false;
         const updated = [...targets];
@@ -4091,7 +3573,6 @@ async function showSymlinkScreen() {
 
 function hideSymlinkScreen() {
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
-  startAutoRefreshLoop();
 }
 
 async function renderSymlinkScreenList(symlinkTargets) {
@@ -4109,12 +3590,12 @@ async function renderSymlinkScreenList(symlinkTargets) {
     return;
   }
 
-  const activeWorktreePath = state.activeWorktreePath;
-  if (!activeWorktreePath) {
+  const activeProjectPath = state.activeProjectPath;
+  if (!activeProjectPath) {
     listContainer.innerHTML = `
       <div class="symlink-empty-state">
-        <div style="font-weight:600; color: var(--danger-default);">No Active Worktree</div>
-        <p class="form-hint" style="margin:4px 0 0; font-size:11px;">Open a worktree or project first to select/unselect symlinks.</p>
+        <div style="font-weight:600; color: var(--danger-default);">No Active Project</div>
+        <p class="form-hint" style="margin:4px 0 0; font-size:11px;">Open a project first to select/unselect symlinks.</p>
       </div>
     `;
     return;
@@ -4127,7 +3608,7 @@ async function renderSymlinkScreenList(symlinkTargets) {
       symlinkTargets.map(async (t) => {
         try {
           const status = await window.api.checkSymlinkStatus({
-            worktreePath: activeWorktreePath,
+            projectPath: activeProjectPath,
             name: t.name,
             targetPath: t.targetPath,
           });
@@ -4194,7 +3675,7 @@ async function renderSymlinkScreenList(symlinkTargets) {
         try {
           if (isChecked) {
             showToast(`Creating symlink for ${name}...`, 'info');
-            const res = await window.api.createSymlink({ worktreePath: activeWorktreePath, name, targetPath });
+            const res = await window.api.createSymlink({ projectPath: activeProjectPath, name, targetPath });
             if (res.success) {
               showToast(`Linked ${name} successfully!`, 'success');
             } else {
@@ -4203,7 +3684,7 @@ async function renderSymlinkScreenList(symlinkTargets) {
             }
           } else {
             showToast(`Removing symlink for ${name}...`, 'info');
-            const res = await window.api.deleteSymlink({ worktreePath: activeWorktreePath, name });
+            const res = await window.api.deleteSymlink({ projectPath: activeProjectPath, name });
             if (res.success) {
               showToast(`Removed link for ${name}!`, 'success');
             } else {
@@ -4225,10 +3706,10 @@ async function renderSymlinkScreenList(symlinkTargets) {
     listContainer.querySelectorAll('.symlink-delete-btn').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         const name = btn.dataset.name;
-        if (activeWorktreePath) {
+        if (activeProjectPath) {
           try {
             showToast(`Removing symlink for ${name}...`, 'info');
-            const res = await window.api.deleteSymlink({ worktreePath: activeWorktreePath, name });
+            const res = await window.api.deleteSymlink({ projectPath: activeProjectPath, name });
             if (res && !res.success) {
               showToast(`Failed to remove link for ${name}: ${res.error}`, 'error');
             } else {
@@ -4309,13 +3790,13 @@ if (dom.btnAddSymlinkScreenTarget) {
       symlinkTargets: updated,
     });
 
-    const activeWorktreePath = state.activeWorktreePath;
+    const activeProjectPath = state.activeProjectPath;
     let linkSuccess = false;
-    if (activeWorktreePath) {
+    if (activeProjectPath) {
       try {
         showToast(`Creating symlink for ${nameVal}...`, 'info');
         const res = await window.api.createSymlink({
-          worktreePath: activeWorktreePath,
+          projectPath: activeProjectPath,
           name: nameVal,
           targetPath: pathVal,
         });
@@ -4341,85 +3822,6 @@ if (dom.btnAddSymlinkScreenTarget) {
     } else {
       showToast(`Added "${nameVal}" to managed symlinks`, 'success');
     }
-  });
-}
-
-// ── Add Worktree Modal ─────────────────────────────────
-async function showAddWorktreeModal(project) {
-  return openAddWorktreeModal({
-    project,
-    dom,
-    api: window.api,
-    getAvailableWorktreeBranches,
-    getOfficialWorktreeBasePath,
-    branchComboHTML,
-    setupBranchCombo,
-    syncWorktreePathInput,
-    configureModalFooter,
-    showModal,
-    focusModalInputLater,
-    hideModal,
-    createWorktreeSubmitHandler,
-  });
-}
-
-async function showAddSubWorktreeModal(project, sourceWorktree) {
-  return openAddSubWorktreeModal({
-    project,
-    sourceWorktree,
-    dom,
-    state,
-    api: window.api,
-    canCreateNestedWorktree: (projectArg, wtArg) => getDomainCanCreateNestedWorktree(projectArg, wtArg),
-    showToast,
-    getAvailableWorktreeBranches,
-    getWorktreeBasePath: (projectArg) => getDomainWorktreeBasePath(projectArg),
-    esc,
-    branchComboHTML,
-    setupBranchCombo,
-    syncWorktreePathInput,
-    configureModalFooter,
-    showModal,
-    focusModalInputLater,
-    hideModal,
-    createWorktreeSubmitHandler,
-  });
-}
-
-async function showMergeWorktreeModal(project, wt) {
-  return openMergeWorktreeModal({
-    project,
-    wt,
-    dom,
-    api: window.api,
-    showToast,
-    esc,
-    branchComboHTML,
-    setupBranchCombo,
-    configureModalFooter,
-    showModal,
-    focusModalInputLater,
-    hideModal,
-    withAsyncButtonState,
-    refreshProjectWorkspaces,
-    icons,
-  });
-}
-
-async function showForceRemoveWorktreeModal(project, wt) {
-  return openForceRemoveWorktreeModal({
-    project,
-    wt,
-    dom,
-    api: window.api,
-    showToast,
-    esc,
-    configureModalFooter,
-    showModal,
-    hideModal,
-    withAsyncButtonState,
-    refreshProjectWorkspaces,
-    icons,
   });
 }
 
@@ -4475,13 +3877,14 @@ setDashboardToolkitCollapsed(loadDashboardToolkitCollapsed(), { persist: false }
 const deviceManagerScreen = new DeviceManagerScreen({
   dom,
   showToast,
-  getActiveWorktreePath: () => state.activeWorktreePath,
+  getActiveProjectPath: () => state.activeProjectPath,
   icons,
 });
 
 async function toggleDashboardAgentToolkit() {
   const otherScreenOpen = Boolean(
     (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) ||
+    (dom.syncthingScreen && !dom.syncthingScreen.classList.contains('hidden')) ||
     deviceManagerScreen.isRemoteScreenVisible() ||
     (dom.symlinkScreen && !dom.symlinkScreen.classList.contains('hidden')) ||
     (dom.deviceManagerScreen && !dom.deviceManagerScreen.classList.contains('hidden')) ||
@@ -4492,6 +3895,7 @@ async function toggleDashboardAgentToolkit() {
   if (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) {
     await hideSettingsScreen();
   }
+  hideSyncthingScreen();
   if (deviceManagerScreen.isRemoteScreenVisible()) {
     await deviceManagerScreen.closeRemoteScreen(true);
   }
@@ -4509,6 +3913,7 @@ async function toggleDashboardAgentToolkit() {
 
 async function showDeviceManagerScreen() {
   dom.settingsScreen?.classList.add('hidden');
+  hideSyncthingScreen();
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
   if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
@@ -4521,19 +3926,15 @@ async function showDeviceManagerScreen() {
 function hideDeviceManagerScreen() {
   if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
   deviceManagerScreen.hide();
-  startAutoRefreshLoop();
 }
 
 // ── Project Resources Screen (Figma, Firebase, Plane, Legacy Docs) ──
 function renderProjectResourcesScreen() {
-  const { activeProject, activeWt } = getActiveProjectAndWorktree();
+  const activeProject = getActiveProject();
   if (dom.resourcesProjectName) {
     dom.resourcesProjectName.textContent = activeProject ? activeProject.name : 'No active project';
   }
-  if (dom.resourcesBranchBadge) {
-    dom.resourcesBranchBadge.textContent = activeWt ? (activeWt.branch || activeWt.name) : 'main';
-  }
-  const currentPath = activeWt ? activeWt.path : (activeProject ? activeProject.path : 'Please select a project first.');
+  const currentPath = activeProject ? activeProject.path : 'Please select a project first.';
   if (dom.resourcesProjectPath) {
     dom.resourcesProjectPath.textContent = currentPath;
     dom.resourcesProjectPath.title = currentPath;
@@ -4549,6 +3950,7 @@ function renderProjectResourcesScreen() {
 
 function showProjectResourcesScreen() {
   dom.settingsScreen?.classList.add('hidden');
+  hideSyncthingScreen();
   if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
   if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
   if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
@@ -4563,7 +3965,6 @@ function showProjectResourcesScreen() {
 function hideProjectResourcesScreen() {
   if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
   if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
-  startAutoRefreshLoop();
 }
 
 function openMobilerunSetup({ intro = '', onReady = null, onDismiss = null }: { intro?: string; onReady?: (() => Promise<void>) | null; onDismiss?: (() => void) | null } = {}) {
@@ -4590,17 +3991,7 @@ const BAKIT_COMPONENTS = [
     name: 'BA Agent Roster',
     folderName: '.agents/agents',
     sourceFolder: 'agents',
-    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, figma-analyst, ba-researcher, ba-brainstormer and ba-spec-writer agents.',
-    gitExcludePatterns: [
-      '.agents/agents/ba-lead.md',
-      '.agents/agents/code-scout.md',
-      '.agents/agents/competitor-analyst.md',
-      '.agents/agents/evidence-verifier.md',
-      '.agents/agents/figma-analyst.md',
-      '.agents/agents/ba-researcher.md',
-      '.agents/agents/ba-brainstormer.md',
-      '.agents/agents/ba-spec-writer.md'
-    ]
+    description: 'Deploy ba-lead (orchestrator), code-scout, competitor-analyst, evidence-verifier, figma-analyst, ba-researcher, ba-brainstormer and ba-spec-writer agents.'
   },
   {
     id: 'bakit_skills',
@@ -4608,53 +3999,7 @@ const BAKIT_COMPONENTS = [
     name: 'BA Skills & Templates (specs, user-flow, checklist, competitor & Figma analysis, audits, QC, diagrams, Minipower, Office)',
     folderName: '.agents/skills',
     sourceFolder: 'skills',
-    description: '44 skills: ba-templates, apk-feature-extractor (Markdown + Excel), research-feature-checklist, ba-checklist, apk-code-index, competitor-app-analysis, mobilerun, figma-ba-analysis, product-decision, specs (docs/project-srs.md), use-case-writer, user-flow (render_diagrams.py), srs-export, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, problem-solving, sequential-thinking.',
-    gitExcludePatterns: [
-      '.agents/skills/ba-templates/',
-      '.agents/skills/ba-checklist/',
-      '.agents/skills/research-feature-checklist/',
-      '.agents/skills/apk-code-index/',
-      '.agents/skills/apk-feature-extractor/',
-      '.agents/skills/competitor-app-analysis/',
-      '.agents/skills/mobilerun/',
-      '.agents/skills/figma-ba-analysis/',
-      '.agents/skills/specs/',
-      '.agents/skills/srs-export/',
-      '.agents/skills/use-case-writer/',
-      '.agents/skills/user-flow/',
-      '.agents/skills/user-story-ac-writer/',
-      '.agents/skills/minipower/',
-      '.agents/skills/test-cases/',
-      '.agents/skills/BA-audit-SRS/',
-      '.agents/skills/BA-audit-QnA/',
-      '.agents/skills/global-impact-analyzer/',
-      '.agents/skills/global-executor/',
-      '.agents/skills/ba-consistency-inspector/',
-      '.agents/skills/ba-shared-validation-rules/',
-      '.agents/skills/ba-architect/',
-      '.agents/skills/ba-auditor/',
-      '.agents/skills/ba-challenger/',
-      '.agents/skills/qc-ask-ba/',
-      '.agents/skills/qc-scenario-design/',
-      '.agents/skills/qc-tc-design/',
-      '.agents/skills/qc-tc-summary/',
-      '.agents/skills/qc-uc-review/',
-      '.agents/skills/brainstorm-features/',
-      '.agents/skills/product-decision/',
-      '.agents/skills/document-extraction/',
-      '.agents/skills/docx/',
-      '.agents/skills/pdf/',
-      '.agents/skills/mermaidjs-v11/',
-      '.agents/skills/bpmn-generator/',
-      '.agents/skills/drawio-ai-kit/',
-      '.agents/skills/drawio-bpmn/',
-      '.agents/skills/drawio-aws/',
-      '.agents/skills/drawio-azure/',
-      '.agents/skills/drawio-gcp/',
-      '.agents/skills/drawio-databricks/',
-      '.agents/skills/problem-solving/',
-      '.agents/skills/sequential-thinking/'
-    ]
+    description: '44 skills: ba-templates, apk-feature-extractor (Markdown + Excel), research-feature-checklist, ba-checklist, apk-code-index, competitor-app-analysis, mobilerun, figma-ba-analysis, product-decision, specs (docs/project-srs.md), use-case-writer, user-flow (render_diagrams.py), srs-export, user-story-ac-writer, minipower (18 DOCs), BA-audit-SRS/QnA, global-impact-analyzer/executor, ba-architect/auditor/challenger/consistency/validation, test-cases, qc-* suite, drawio-ai-kit + drawio-*, bpmn-generator, mermaidjs-v11, docx, pdf, document-extraction, brainstorm-features, problem-solving, sequential-thinking.'
   },
   {
     id: 'bakit_rules_workflows',
@@ -4667,23 +4012,7 @@ const BAKIT_COMPONENTS = [
       // The project config is filled in per project: never overwrite it, never delete it.
       { name: '.agents/config', source: 'config', pattern: '.agents/config/', preserveExisting: true, keepOnRemove: true }
     ],
-    description: 'Always-on BA rules (6-step PO workflow, Vietnamese deliverables, naming, device safety, Figma routing, markdown formatting), slash workflows (/ba-checklist, /ba-figma, /ba-spec, /ba-review, /ba-export, /ba-competitor), and project config (.agents/config/ba-project-config.md).',
-    gitExcludePatterns: [
-      '.agents/rules/ba-global-rules.md',
-      '.agents/rules/ba-workflow.md',
-      '.agents/rules/ba-naming-convention.md',
-      '.agents/rules/ba-device-automation.md',
-      '.agents/rules/ba-markdown-formatting.md',
-      '.agents/rules/ba-figma.md',
-      '.agents/workflows/apk-feature-extractor.md',
-      '.agents/workflows/ba-checklist.md',
-      '.agents/workflows/ba-competitor.md',
-      '.agents/workflows/ba-export.md',
-      '.agents/workflows/ba-figma.md',
-      '.agents/workflows/ba-review.md',
-      '.agents/workflows/ba-spec.md',
-      '.agents/workflows/ba-template.md'
-    ]
+    description: 'Always-on BA rules (6-step PO workflow, Vietnamese deliverables, naming, device safety, Figma routing, markdown formatting), slash workflows (/ba-checklist, /ba-figma, /ba-spec, /ba-review, /ba-export, /ba-competitor), and project config (.agents/config/ba-project-config.md).'
   },
   {
     id: 'bakit_agents_md',
@@ -4691,16 +4020,14 @@ const BAKIT_COMPONENTS = [
     kind: 'agentsmd',
     name: 'Delegation Rule (AGENTS.md)',
     sourceFile: 'agents-md/AGENTS.block.md',
-    description: 'Adds a marked block to the worktree AGENTS.md so the main Antigravity session plans and dispatches subagents (invoke_subagent) instead of doing the work itself. Your own AGENTS.md content is kept.',
-    gitExcludePatterns: []
+    description: 'Adds a marked block to the project AGENTS.md so the main Antigravity session plans and dispatches subagents (invoke_subagent) instead of doing the work itself. Your own AGENTS.md content is kept.'
   },
   {
     id: 'bakit_figma_mcp',
     toolkit: 'bakit',
     kind: 'mcp',
     name: 'Figma MCP (workspace plugin)',
-    description: 'Adds figma-mcp-android (npx) as an Antigravity plugin in this worktree (.agents/plugins/figma) so /ba-figma can read the design open in Figma Desktop. Uses the bundled Node.js; needs the figma-mcp-android plugin running in Figma Desktop. Skipped when already registered globally.',
-    gitExcludePatterns: []
+    description: 'Adds figma-mcp-android (npx) as an Antigravity plugin in this workspace (.agents/plugins/figma) so /ba-figma can read the design open in Figma Desktop. Uses the bundled Node.js; needs the figma-mcp-android plugin running in Figma Desktop. Skipped when already registered globally.'
   },
   {
     id: 'bakit_mobilerun_mcp',
@@ -4708,17 +4035,97 @@ const BAKIT_COMPONENTS = [
     kind: 'mcp',
     optional: true,
     name: 'Mobilerun MCP (workspace plugin)',
-    description: 'Optional — only needed when driving a connected Android device (Mobilerun mode). Adds the mobilerun server as an Antigravity plugin in this worktree (.agents/plugins/mobilerun); not auto-enabled when applying the harness so Code-Only saves agent tokens.',
-    gitExcludePatterns: []
+    description: 'Optional — only needed when driving a connected Android device (Mobilerun mode). Adds the mobilerun server as an Antigravity plugin in this workspace (.agents/plugins/mobilerun); not auto-enabled when applying the harness so Code-Only saves agent tokens.'
   }
 ];
 
+interface AgentToolkitComponentStatus {
+  id: string;
+  name: string;
+  sourceExists: boolean;
+  exists: boolean;
+  globalOnly?: boolean;
+  needsInstall?: boolean;
+}
+
 const TOOLKIT_COMPONENTS = [...BAKIT_COMPONENTS];
 let agentToolkitRefreshSeq = 0;
-let lastAgentToolkitWorktreePath: string | null = null;
+let lastAgentToolkitProjectPath: string | null = null;
+let lastAgentToolkitStatuses: AgentToolkitComponentStatus[] | null = null;
 let activeToolkitMutations = 0;
 
-function updateDashboardToolkitBadges(statuses: Array<{ id: string; exists: boolean }> | null, loading = false) {
+async function resolveBakitSourcePath(projectPath: string): Promise<string> {
+  const pPath = projectPath.replace(/[\\/]+$/, '');
+  const defaultSources = await window.api.getDefaultToolkitSources();
+  let bakitPath = defaultSources.bakitPath;
+  if (!(await window.api.pathExists(bakitPath)) && (await window.api.pathExists(pPath + '/toolkits/BAKit'))) {
+    bakitPath = pPath + '/toolkits/BAKit';
+  }
+  return bakitPath;
+}
+
+function getToolkitTogglePlan(statuses: AgentToolkitComponentStatus[] | null) {
+  if (!statuses) {
+    return { mode: 'apply' as const, targetIds: [] as string[], hasGlobalOnlyFigma: false };
+  }
+  const byId = new Map(statuses.map((s) => [s.id, s]));
+  const coreManageable = TOOLKIT_COMPONENTS.filter((comp: any) => {
+    if (comp.optional) return false;
+    const st = byId.get(comp.id);
+    return Boolean(st?.sourceExists && !st.needsInstall);
+  });
+  const uncheckedCore = coreManageable.filter((comp: any) => !byId.get(comp.id)?.exists);
+  const removableActive = TOOLKIT_COMPONENTS.filter((comp: any) => {
+    const st = byId.get(comp.id);
+    return Boolean(st?.exists && !st.needsInstall && !st.globalOnly);
+  });
+  const hasGlobalOnlyFigma = statuses.some((s) => s.id === 'bakit_figma_mcp' && s.globalOnly);
+
+  if (coreManageable.length > 0 && uncheckedCore.length === 0 && removableActive.length > 0) {
+    return {
+      mode: 'remove' as const,
+      targetIds: removableActive.map((c: any) => c.id),
+      hasGlobalOnlyFigma,
+    };
+  }
+  return {
+    mode: 'apply' as const,
+    targetIds: uncheckedCore.map((c: any) => c.id),
+    hasGlobalOnlyFigma,
+  };
+}
+
+function updateAgentToolkitToggleButton(
+  statuses: AgentToolkitComponentStatus[] | null,
+  { loading = false, busyLabel = null }: { loading?: boolean; busyLabel?: string | null } = {},
+) {
+  const btn = dom.btnAgentToolkitApplyAll;
+  if (!btn) return;
+  const labelEl = btn.querySelector('.dash-toolkit-toggle-label');
+
+  if (loading || !statuses) {
+    btn.classList.remove('is-active');
+    btn.setAttribute('aria-checked', 'false');
+    btn.disabled = true;
+    if (labelEl) labelEl.textContent = busyLabel || 'Apply all';
+    btn.title = 'Apply all core toolkit components (optional MCPs like Mobilerun stay opt-in)';
+    return;
+  }
+
+  const plan = getToolkitTogglePlan(statuses);
+  const isActive = plan.mode === 'remove';
+  btn.classList.toggle('is-active', isActive);
+  btn.setAttribute('aria-checked', String(isActive));
+  btn.disabled = activeToolkitMutations > 0 || plan.targetIds.length === 0;
+  if (labelEl) labelEl.textContent = busyLabel || 'Apply all';
+  btn.title = isActive
+    ? 'Remove active workspace toolkit components'
+    : 'Apply all core toolkit components (optional MCPs like Mobilerun stay opt-in)';
+}
+
+function updateDashboardToolkitBadges(statuses: AgentToolkitComponentStatus[] | null, loading = false) {
+  updateAgentToolkitToggleButton(statuses, { loading });
+
   if (loading) {
     if (dom.dashToolkitStatusPill) {
       dom.dashToolkitStatusPill.textContent = 'Checking...';
@@ -4767,52 +4174,168 @@ function updateDashboardToolkitBadges(statuses: Array<{ id: string; exists: bool
   }
 }
 
+async function setToolkitComponentEnabled(
+  comp: any,
+  isChecked: boolean,
+  { projectPath, srcBase, silent = false }: { projectPath: string; srcBase: string; silent?: boolean },
+) {
+  const safeDeploy = async (name: string, sourcePath: string, preserveExisting = false) => {
+    const res = await window.api.deployToolkit({
+      projectPath,
+      name,
+      sourcePath,
+      preserveExisting,
+    });
+    if (!res.success) throw new Error(res.error || `Failed to deploy ${name}`);
+  };
+
+  const safeRemove = async (name: string, sourcePath: string) => {
+    const res = await window.api.removeToolkit({
+      projectPath,
+      name,
+      sourcePath,
+    });
+    if (!res.success) throw new Error(res.error || `Failed to remove ${name}`);
+  };
+
+  if (comp.kind === 'agentsmd') {
+    if (isChecked) {
+      const res = await window.api.applyAgentsMdBlock({
+        projectPath,
+        sourcePath: srcBase + '/' + comp.sourceFile,
+      });
+      if (!res.success) throw new Error(res.error || 'Failed to update AGENTS.md');
+      if (!silent) {
+        showToast(`Delegation rule written to ${res.agentsMdPath}. Start a new Antigravity conversation to load it.`, 'success');
+      }
+    } else {
+      const res = await window.api.removeAgentsMdBlock({ projectPath });
+      if (!res.success) throw new Error(res.error || 'Failed to update AGENTS.md');
+      if (!silent) {
+        showToast('Delegation rule removed from AGENTS.md.', 'success');
+      }
+    }
+    return;
+  }
+
+  if (comp.id === 'bakit_figma_mcp') {
+    if (isChecked) {
+      const res = await window.api.registerFigmaMcp({ projectPath });
+      if (!res.success) throw new Error(res.error || 'Failed to register Figma MCP');
+      if (!silent) {
+        if (res.skipped) {
+          showToast(`figma-mcp-android is already registered globally in ${res.globalConfigPath}; this workspace uses it. No workspace plugin added.`, 'info');
+        } else {
+          showToast(`Registered figma-mcp-android in ${res.configPath}. Run the plugin in Figma Desktop and restart the Antigravity agent.`, 'success');
+        }
+      }
+    } else {
+      const res = await window.api.unregisterFigmaMcp({ projectPath });
+      if (!res.success) throw new Error(res.error || 'Failed to unregister Figma MCP');
+      if (!silent) {
+        // The global entry is the user's (AndroidHarnessAGY may rely on it): point at it, never edit it.
+        showToast(res.globalConfigPath
+          ? `Workspace plugin removed. figma-mcp-android is still registered globally in ${res.globalConfigPath}; edit that file to stop it.`
+          : `Removed figma-mcp-android from ${res.configPath}.`, res.globalConfigPath ? 'info' : 'success');
+      }
+    }
+    return;
+  }
+
+  if (comp.kind === 'mcp') {
+    if (isChecked) {
+      const res = await window.api.registerMobilerunMcp({ projectPath });
+      if (!res.success) throw new Error(res.error || 'Failed to register mobilerun MCP');
+      if (!silent) {
+        showToast(`Registered mobilerun in ${res.configPath}. Restart the Antigravity agent to load it.`, 'success');
+        // An entry from an earlier BAKit in the global config would start mobilerun in every workspace.
+        if (res.globalRegistered && window.confirm('mobilerun is also registered in Antigravity\'s global MCP config, so it starts in every workspace. Remove the global entry?')) {
+          const g = await window.api.unregisterGlobalMobilerunMcp();
+          if (!g.success) throw new Error(g.error || 'Failed to remove the global mobilerun entry');
+          showToast(`Removed the global mobilerun entry from ${g.configPath}.`, 'success');
+        }
+      }
+    } else {
+      const res = await window.api.unregisterMobilerunMcp({ projectPath });
+      if (!res.success) throw new Error(res.error || 'Failed to unregister mobilerun MCP');
+      if (!silent) {
+        showToast(`Removed mobilerun from ${res.configPath}.`, 'success');
+      }
+    }
+    return;
+  }
+
+  if (isChecked) {
+    if (!silent) showToast(`Activating ${comp.name}...`, 'info');
+
+    if (comp.isMulti) {
+      for (const f of comp.folders) {
+        const rel = f.source || f.name;
+        await safeDeploy(f.name, srcBase + '/' + rel, !!f.preserveExisting);
+      }
+    } else {
+      const rel = comp.sourceFolder || comp.folderName;
+      await safeDeploy(comp.folderName, srcBase + '/' + rel);
+    }
+
+    if (!silent) showToast(`Successfully activated ${comp.name}!`, 'success');
+  } else {
+    if (!silent) showToast(`Deactivating ${comp.name}...`, 'info');
+
+    if (comp.isMulti) {
+      for (const f of comp.folders) {
+        if (f.keepOnRemove) continue;
+        const rel = f.source || f.name;
+        await safeRemove(f.name, srcBase + '/' + rel);
+      }
+    } else {
+      const rel = comp.sourceFolder || comp.folderName;
+      await safeRemove(comp.folderName, srcBase + '/' + rel);
+    }
+
+    if (!silent) showToast(`Successfully deactivated ${comp.name}.`, 'success');
+  }
+}
+
 async function refreshAgentToolkitStatus({ force = false } = {}) {
   if (activeToolkitMutations > 0 && !force) return;
 
-  const { activeProject, activeWt } = getActiveProjectAndWorktree();
-  const activeWorktreePath = activeWt ? activeWt.path : (activeProject ? activeProject.path : state.activeWorktreePath);
-  const projectPath = activeProject ? activeProject.path : (state.selectedProjectPath || (state.projects[0] ? state.projects[0].path : null));
+  const activeProject = getActiveProject();
+  const projectPath = activeProject ? activeProject.path : state.activeProjectPath;
 
   const listContainer = dom.agentToolkitListContainer;
   if (!listContainer) return;
 
-  if (!activeWorktreePath || !projectPath) {
-    lastAgentToolkitWorktreePath = null;
+  if (!projectPath) {
+    lastAgentToolkitProjectPath = null;
+    lastAgentToolkitStatuses = null;
     updateDashboardToolkitBadges(null);
-    listContainer.innerHTML = `<div class="symlink-empty-state">No Active Worktree or Project path found.</div>`;
+    listContainer.innerHTML = `<div class="symlink-empty-state">No active project path found.</div>`;
     return;
   }
 
   const refreshSeq = ++agentToolkitRefreshSeq;
-  const switchedWorktree = lastAgentToolkitWorktreePath !== activeWorktreePath;
-  lastAgentToolkitWorktreePath = activeWorktreePath;
+  const switchedProject = lastAgentToolkitProjectPath !== projectPath;
+  lastAgentToolkitProjectPath = projectPath;
 
-  const pPath = projectPath.replace(/[\\/]+$/, '');
   const savedScrollTop = listContainer.scrollTop;
 
-  if (switchedWorktree || !listContainer.innerHTML || listContainer.innerHTML.includes('No Active Worktree') || listContainer.innerHTML.includes('No active project')) {
+  if (switchedProject || !listContainer.innerHTML || listContainer.innerHTML.includes('No active project')) {
     updateDashboardToolkitBadges(null, true);
     listContainer.innerHTML = `<div style="display:flex; justify-content:center; padding:16px; align-items:center; gap:8px;"><span class="spinner"></span> Checking status...</div>`;
   }
 
   // 1. Determine toolkit source directories
-  const defaultSources = await window.api.getDefaultToolkitSources();
-
-  let bakitPath = defaultSources.bakitPath;
-  if (!(await window.api.pathExists(bakitPath)) && (await window.api.pathExists(pPath + '/toolkits/BAKit'))) {
-    bakitPath = pPath + '/toolkits/BAKit';
-  }
-
+  const bakitPath = await resolveBakitSourcePath(projectPath);
   const srcBaseFor = (_comp: any) => bakitPath;
 
   try {
     // Fetch statuses for all components
-    const statuses = await Promise.all(TOOLKIT_COMPONENTS.map(async (comp: any) => {
+    const statuses: AgentToolkitComponentStatus[] = await Promise.all(TOOLKIT_COMPONENTS.map(async (comp: any) => {
       if (comp.kind === 'agentsmd') {
         try {
           const st = await window.api.getAgentsMdBlockStatus({
-            worktreePath: activeWorktreePath,
+            projectPath,
             sourcePath: srcBaseFor(comp) + '/' + comp.sourceFile
           });
           return { id: comp.id, name: comp.name, sourceExists: st.sourceExists, exists: st.installed };
@@ -4822,16 +4345,22 @@ async function refreshAgentToolkitStatus({ force = false } = {}) {
       }
       if (comp.id === 'bakit_figma_mcp') {
         try {
-          const mcp = await window.api.getFigmaMcpStatus({ worktreePath: activeWorktreePath });
+          const mcp = await window.api.getFigmaMcpStatus({ projectPath });
           // A global entry serves this workspace too (and holds the plugin port), so it counts as active.
-          return { id: comp.id, name: comp.name, sourceExists: true, exists: mcp.registered || mcp.globalRegistered };
+          return {
+            id: comp.id,
+            name: comp.name,
+            sourceExists: true,
+            exists: mcp.registered || mcp.globalRegistered,
+            globalOnly: !mcp.registered && !!mcp.globalRegistered,
+          };
         } catch (e) {
           return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
         }
       }
       if (comp.kind === 'mcp') {
         try {
-          const mcp = await window.api.getMobilerunMcpStatus({ worktreePath: activeWorktreePath });
+          const mcp = await window.api.getMobilerunMcpStatus({ projectPath });
           return { id: comp.id, name: comp.name, sourceExists: true, exists: mcp.registered };
         } catch (e) {
           return { id: comp.id, name: comp.name, sourceExists: false, exists: false };
@@ -4861,7 +4390,7 @@ async function refreshAgentToolkitStatus({ force = false } = {}) {
           try {
             const rel = f.source || f.name;
             const status = await window.api.checkToolkitStatus({
-              worktreePath: activeWorktreePath,
+              projectPath,
               name: f.name,
               sourcePath: srcBase + '/' + rel
             });
@@ -4875,7 +4404,7 @@ async function refreshAgentToolkitStatus({ force = false } = {}) {
         try {
           const rel = comp.sourceFolder || comp.folderName;
           const status = await window.api.checkToolkitStatus({
-            worktreePath: activeWorktreePath,
+            projectPath,
             name: comp.folderName,
             sourcePath: srcBase + '/' + rel
           });
@@ -4896,6 +4425,7 @@ async function refreshAgentToolkitStatus({ force = false } = {}) {
     if (refreshSeq !== agentToolkitRefreshSeq) return;
     if (activeToolkitMutations > 0 && !force) return;
 
+    lastAgentToolkitStatuses = statuses;
     updateDashboardToolkitBadges(statuses);
 
     const getStatus = (id: string): any => statuses.find(s => s.id === id) || { exists: false, sourceExists: false };
@@ -4981,126 +4511,12 @@ async function refreshAgentToolkitStatus({ force = false } = {}) {
         if (!comp) return;
         target.disabled = true;
         activeToolkitMutations++;
+        updateAgentToolkitToggleButton(lastAgentToolkitStatuses);
 
         const srcBase = srcBaseFor(comp);
 
-        const safeDeploy = async (name: string, sourcePath: string, preserveExisting = false) => {
-          const res = await window.api.deployToolkit({
-            worktreePath: activeWorktreePath,
-            name,
-            sourcePath,
-            preserveExisting
-          });
-          if (!res.success) throw new Error(res.error || `Failed to deploy ${name}`);
-        };
-
-        const safeRemove = async (name: string, sourcePath: string) => {
-          const res = await window.api.removeToolkit({
-            worktreePath: activeWorktreePath,
-            name,
-            sourcePath
-          });
-          if (!res.success) throw new Error(res.error || `Failed to remove ${name}`);
-        };
-
         try {
-          if (comp.kind === 'agentsmd') {
-            if (isChecked) {
-              const res = await window.api.applyAgentsMdBlock({
-                worktreePath: activeWorktreePath,
-                sourcePath: srcBase + '/' + comp.sourceFile
-              });
-              if (!res.success) throw new Error(res.error || 'Failed to update AGENTS.md');
-              showToast(`Delegation rule written to ${res.agentsMdPath}. Start a new Antigravity conversation to load it.`, 'success');
-            } else {
-              const res = await window.api.removeAgentsMdBlock({ worktreePath: activeWorktreePath });
-              if (!res.success) throw new Error(res.error || 'Failed to update AGENTS.md');
-              showToast('Delegation rule removed from AGENTS.md.', 'success');
-            }
-            return;
-          }
-
-          if (comp.id === 'bakit_figma_mcp') {
-            if (isChecked) {
-              const res = await window.api.registerFigmaMcp({ worktreePath: activeWorktreePath });
-              if (!res.success) throw new Error(res.error || 'Failed to register Figma MCP');
-              if (res.skipped) {
-                showToast(`figma-mcp-android is already registered globally in ${res.globalConfigPath}; this workspace uses it. No workspace plugin added.`, 'info');
-              } else {
-                showToast(`Registered figma-mcp-android in ${res.configPath}. Run the plugin in Figma Desktop and restart the Antigravity agent.`, 'success');
-              }
-            } else {
-              const res = await window.api.unregisterFigmaMcp({ worktreePath: activeWorktreePath });
-              if (!res.success) throw new Error(res.error || 'Failed to unregister Figma MCP');
-              // The global entry is the user's (AndroidHarnessAGY may rely on it): point at it, never edit it.
-              showToast(res.globalConfigPath
-                ? `Workspace plugin removed. figma-mcp-android is still registered globally in ${res.globalConfigPath}; edit that file to stop it.`
-                : `Removed figma-mcp-android from ${res.configPath}.`, res.globalConfigPath ? 'info' : 'success');
-            }
-            return;
-          }
-
-          if (comp.kind === 'mcp') {
-            if (isChecked) {
-              const res = await window.api.registerMobilerunMcp({ worktreePath: activeWorktreePath });
-              if (!res.success) throw new Error(res.error || 'Failed to register mobilerun MCP');
-              showToast(`Registered mobilerun in ${res.configPath}. Restart the Antigravity agent to load it.`, 'success');
-              // An entry from an earlier BAKit in the global config would start mobilerun in every workspace.
-              if (res.globalRegistered && window.confirm('mobilerun is also registered in Antigravity\'s global MCP config, so it starts in every workspace. Remove the global entry?')) {
-                const g = await window.api.unregisterGlobalMobilerunMcp();
-                if (!g.success) throw new Error(g.error || 'Failed to remove the global mobilerun entry');
-                showToast(`Removed the global mobilerun entry from ${g.configPath}.`, 'success');
-              }
-            } else {
-              const res = await window.api.unregisterMobilerunMcp({ worktreePath: activeWorktreePath });
-              if (!res.success) throw new Error(res.error || 'Failed to unregister mobilerun MCP');
-              showToast(`Removed mobilerun from ${res.configPath}.`, 'success');
-            }
-            return;
-          }
-
-          if (isChecked) {
-            showToast(`Activating ${comp.name}...`, 'info');
-            
-            if (comp.isMulti) {
-              for (const f of comp.folders) {
-                const rel = f.source || f.name;
-                await safeDeploy(f.name, srcBase + '/' + rel, !!f.preserveExisting);
-              }
-            } else {
-              const rel = comp.sourceFolder || comp.folderName;
-              await safeDeploy(comp.folderName, srcBase + '/' + rel);
-            }
-
-            await window.api.updateGitExclude({
-              worktreePath: activeWorktreePath,
-              patterns: comp.gitExcludePatterns,
-              action: 'add'
-            });
-
-            showToast(`Successfully activated ${comp.name}!`, 'success');
-          } else {
-            showToast(`Deactivating ${comp.name}...`, 'info');
-            
-            if (comp.isMulti) {
-              for (const f of comp.folders) {
-                if (f.keepOnRemove) continue;
-                const rel = f.source || f.name;
-                await safeRemove(f.name, srcBase + '/' + rel);
-              }
-            } else {
-              const rel = comp.sourceFolder || comp.folderName;
-              await safeRemove(comp.folderName, srcBase + '/' + rel);
-            }
-
-            await window.api.updateGitExclude({
-              worktreePath: activeWorktreePath,
-              patterns: comp.gitExcludePatterns,
-              action: 'remove'
-            });
-
-            showToast(`Successfully deactivated ${comp.name}.`, 'success');
-          }
+          await setToolkitComponentEnabled(comp, isChecked, { projectPath, srcBase, silent: false });
         } catch (err) {
           showToast(`Error: ${(err as any).message}`, 'error');
           target.checked = !isChecked;
@@ -5116,6 +4532,7 @@ async function refreshAgentToolkitStatus({ force = false } = {}) {
 
   } catch (err: any) {
     if (refreshSeq !== agentToolkitRefreshSeq) return;
+    lastAgentToolkitStatuses = null;
     updateDashboardToolkitBadges(null);
     listContainer.innerHTML = `<div style="color:var(--danger-default); padding:16px;">Failed to load status: ${err.message}</div>`;
   }
@@ -5124,32 +4541,93 @@ async function refreshAgentToolkitStatus({ force = false } = {}) {
 if (dom.btnAgentToolkitApplyAll) {
   dom.btnAgentToolkitApplyAll.addEventListener('click', async (e: Event) => {
     e.stopPropagation();
-    const listContainer = dom.agentToolkitListContainer;
-    if (!listContainer) return;
-    if (listContainer.querySelectorAll('.agent-toolkit-checkbox').length === 0) {
-      await refreshAgentToolkitStatus({ force: true });
-    }
-    // Optional components (e.g. Mobilerun MCP) and items that need setup are opt-in and skipped when applying the harness.
-    const unchecked = Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:not(:checked):not(:disabled):not([data-needs-install]):not([data-optional="true"])')) as HTMLInputElement[];
-    const targets = unchecked.length > 0
-      ? unchecked
-      : Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox:checked:not(:disabled):not([data-needs-install])')) as HTMLInputElement[];
-    if (targets.length === 0) {
-      showToast('All available toolkits are already active!', 'info');
+    if (activeToolkitMutations > 0) return;
+
+    const activeProject = getActiveProject();
+    const projectPath = activeProject ? activeProject.path : state.activeProjectPath;
+    if (!projectPath) {
+      showToast('Select a project first', 'info');
       return;
     }
-    showToast(unchecked.length > 0 ? `Activating ${targets.length} toolkits...` : `Syncing ${targets.length} active toolkits...`, 'info');
-    for (const cb of targets) {
-      cb.checked = true;
-      cb.dispatchEvent(new Event('change'));
+
+    if (!lastAgentToolkitStatuses || lastAgentToolkitProjectPath !== projectPath) {
+      await refreshAgentToolkitStatus({ force: true });
+    }
+
+    const plan = getToolkitTogglePlan(lastAgentToolkitStatuses);
+    if (plan.targetIds.length === 0) {
+      showToast('No toolkit components available to update.', 'info');
+      return;
+    }
+
+    const shouldEnable = plan.mode === 'apply';
+    const listContainer = dom.agentToolkitListContainer;
+    const checkboxes = listContainer
+      ? (Array.from(listContainer.querySelectorAll('.agent-toolkit-checkbox')) as HTMLInputElement[])
+      : [];
+
+    activeToolkitMutations++;
+    updateAgentToolkitToggleButton(lastAgentToolkitStatuses, {
+      busyLabel: shouldEnable ? 'Applying...' : 'Removing...',
+    });
+    checkboxes.forEach((cb) => {
+      cb.disabled = true;
+    });
+
+    let succeededCount = 0;
+    const errors: string[] = [];
+
+    try {
+      const srcBase = await resolveBakitSourcePath(projectPath);
+      for (const id of plan.targetIds) {
+        const comp: any = TOOLKIT_COMPONENTS.find((c) => c.id === id);
+        if (!comp) continue;
+        try {
+          await setToolkitComponentEnabled(comp, shouldEnable, {
+            projectPath,
+            srcBase,
+            silent: true,
+          });
+          succeededCount++;
+        } catch (err: any) {
+          errors.push(err?.message || String(err));
+        }
+      }
+    } finally {
+      activeToolkitMutations = Math.max(0, activeToolkitMutations - 1);
+      await refreshAgentToolkitStatus({ force: true });
+    }
+
+    if (errors.length === 0) {
+      if (shouldEnable) {
+        showToast(
+          `Applied ${succeededCount} toolkit component${succeededCount === 1 ? '' : 's'}.`,
+          'success',
+        );
+      } else {
+        showToast(
+          `Removed ${succeededCount} toolkit component${succeededCount === 1 ? '' : 's'}${plan.hasGlobalOnlyFigma ? ' (global Figma MCP unchanged)' : ''}.`,
+          'success',
+        );
+      }
+    } else if (succeededCount > 0) {
+      showToast(
+        `${shouldEnable ? 'Applied' : 'Removed'} ${succeededCount}/${plan.targetIds.length} toolkit components (${errors.length} failed: ${errors[0]}).`,
+        'error',
+      );
+    } else {
+      showToast(
+        `Failed to ${shouldEnable ? 'apply' : 'remove'} toolkit: ${errors[0]}`,
+        'error',
+      );
     }
   });
 }
 
 if (dom.btnAgentToolkit) {
   dom.btnAgentToolkit.addEventListener('click', () => {
-    const activeWorktreePath = getRequiredActiveWorktreePath();
-    if (!activeWorktreePath) return;
+    const activeProjectPath = getRequiredActiveProjectPath();
+    if (!activeProjectPath) return;
     void toggleDashboardAgentToolkit();
   });
 }
@@ -5170,7 +4648,7 @@ if (dom.btnCloseProjectResourcesScreen) {
 
 if (dom.btnSyncResourcesConfig) {
   dom.btnSyncResourcesConfig.addEventListener('click', async () => {
-    const { activeProject, activeWt } = getActiveProjectAndWorktree();
+    const activeProject = getActiveProject();
     if (!activeProject) {
       showToast('Please select a project first', 'error');
       return;
@@ -5178,7 +4656,6 @@ if (dom.btnSyncResourcesConfig) {
     showToast('Syncing to .agents/config/ba-project-config.md...', 'info');
     const res = await window.api.syncBaProjectConfig({
       projectPath: activeProject.path,
-      worktreePath: activeWt?.path,
     });
     if (res?.success) {
       showToast('Successfully synced to ba-project-config.md!', 'success');
@@ -5193,29 +4670,777 @@ if (dom.btnSyncResourcesConfig) {
 
 
 
-// ── Auto Refresh ───────────────────────────────────────
-let autoRefreshIntervalId = null;
+// ── Syncthing Sync UI & Events ─────────────────────────
+let selectedSyncthingMode: 'selected' | 'all' = 'all';
 
-function startAutoRefreshLoop() {
-  if (autoRefreshIntervalId) {
-    clearInterval(autoRefreshIntervalId);
-    autoRefreshIntervalId = null;
+function updateSyncthingSyncModeUI(mode: 'selected' | 'all') {
+  selectedSyncthingMode = mode === 'selected' ? 'selected' : 'all';
+  dom.syncthingSyncModeGroup?.querySelectorAll('.segmented-btn').forEach((btn) => {
+    const btnMode = (btn as HTMLElement).dataset.syncMode;
+    btn.classList.toggle('active', btnMode === selectedSyncthingMode);
+  });
+  if (dom.syncthingSyncModeHint) {
+    dom.syncthingSyncModeHint.innerHTML = selectedSyncthingMode === 'all'
+      ? 'All Projects mode syncs <code>docs/</code> and <code>.bas/</code> for every project folder inside the Sync Root.'
+      : 'Selected mode uses an allowlist in <code>.stignore-bas</code> so only opted-in projects sync.';
   }
-  if (!state.settings?.autoRefreshCurrentProject) {
-    return;
+}
+
+function populateSyncthingSettingsFields() {
+  const s = state.settings || {};
+  const st = state.syncthing;
+  if (dom.settingsSyncthingRootPath) {
+    dom.settingsSyncthingRootPath.value = s.syncthingRootPath || st?.rootPath || '';
   }
-  const intervalSeconds = state.settings?.autoRefreshInterval || 10;
-  const intervalMs = intervalSeconds * 1000;
-  autoRefreshIntervalId = setInterval(async () => {
-    if (state.settings?.autoRefreshCurrentProject && state.selectedProjectPath) {
-      try {
-        await window.api.refreshWorktrees(state.selectedProjectPath);
-        await loadWorkspaces();
-      } catch (err) {
-        console.error('Auto refresh failed:', err);
+  if (dom.settingsSyncthingFolderId) {
+    dom.settingsSyncthingFolderId.value = s.syncthingFolderId || st?.folderId || 'bas-projects';
+  }
+  if (dom.settingsSyncthingPath) {
+    dom.settingsSyncthingPath.value = s.syncthingPath || '';
+  }
+  if (dom.settingsSyncthingApiUrl) {
+    dom.settingsSyncthingApiUrl.value = s.syncthingApiUrl || '';
+  }
+  updateSyncthingSyncModeUI((s.syncthingSyncMode || st?.syncMode || 'all') as 'selected' | 'all');
+}
+
+function showSyncthingScreen() {
+  dom.settingsScreen?.classList.add('hidden');
+  if (dom.symlinkScreen) dom.symlinkScreen.classList.add('hidden');
+  if (dom.deviceManagerScreen) dom.deviceManagerScreen.classList.add('hidden');
+  if (dom.deviceRemoteScreen) dom.deviceRemoteScreen.classList.add('hidden');
+  if (dom.btnDeviceManager) dom.btnDeviceManager.classList.remove('active');
+  if (dom.projectResourcesScreen) dom.projectResourcesScreen.classList.add('hidden');
+  if (dom.btnProjectResources) dom.btnProjectResources.classList.remove('active');
+
+  if (dom.syncthingScreen) dom.syncthingScreen.classList.remove('hidden');
+  if (dom.btnWorkspaceSyncthing) dom.btnWorkspaceSyncthing.classList.add('active');
+
+  populateSyncthingSettingsFields();
+  renderSettingsSyncthingCard();
+  void refreshSyncthingState();
+}
+
+function hideSyncthingScreen() {
+  if (dom.syncthingScreen) dom.syncthingScreen.classList.add('hidden');
+  if (dom.btnWorkspaceSyncthing) dom.btnWorkspaceSyncthing.classList.remove('active');
+}
+
+function renderSettingsSyncthingCard() {
+  const st = state.syncthing;
+  if (!st) return;
+
+  if (dom.syncthingStatusBadge) {
+    dom.syncthingStatusBadge.classList.remove('connected', 'partial');
+    if (st.running) {
+      dom.syncthingStatusBadge.textContent = 'Connected';
+      dom.syncthingStatusBadge.classList.add('connected');
+    } else if (st.installed) {
+      dom.syncthingStatusBadge.textContent = 'Offline';
+      dom.syncthingStatusBadge.classList.add('partial');
+    } else {
+      dom.syncthingStatusBadge.textContent = 'Not Found';
+    }
+  }
+
+  if (dom.syncthingVersionTag) {
+    if (st.running) {
+      dom.syncthingVersionTag.textContent = `${st.version || 'Syncthing'} • ${st.folderRegistered ? `${st.folderState} (${st.folderCompletion}%)` : 'Folder not registered'}`;
+    } else if (st.installed) {
+      dom.syncthingVersionTag.textContent = `${st.version || 'Installed'} • Daemon stopped`;
+    } else {
+      dom.syncthingVersionTag.textContent = 'Install Syncthing or set executable path below';
+    }
+  }
+
+  if (dom.syncthingDeviceId) {
+    dom.syncthingDeviceId.textContent = st.myDeviceId || '—';
+    dom.syncthingDeviceId.title = st.myDeviceId || '';
+  }
+  if (dom.btnSyncthingCopyId) {
+    dom.btnSyncthingCopyId.disabled = !st.myDeviceId;
+  }
+  if (dom.btnSyncthingStart) {
+    dom.btnSyncthingStart.style.display = st.running ? 'none' : '';
+  }
+  if (dom.btnSyncthingOpenUi) {
+    dom.btnSyncthingOpenUi.disabled = !st.apiUrl;
+  }
+
+  if (dom.syncthingDevicesList) {
+    if (!st.running) {
+      dom.syncthingDevicesList.innerHTML = `<div class="syncthing-devices-empty">Start Syncthing to view and select paired devices.</div>`;
+    } else if (!st.devices || st.devices.length === 0) {
+      dom.syncthingDevicesList.innerHTML = `<div class="syncthing-devices-empty">No remote devices paired yet. Share your Device ID in Syncthing Web UI.</div>`;
+    } else {
+      dom.syncthingDevicesList.innerHTML = st.devices.map((dev) => `
+        <label class="syncthing-device-row">
+          <div class="syncthing-device-left">
+            <input type="checkbox" class="syncthing-device-checkbox" value="${esc(dev.deviceID)}" ${dev.selected ? 'checked' : ''} />
+            <span class="syncthing-device-dot ${dev.connected ? 'online' : ''}" title="${dev.connected ? 'Online' : 'Offline'}"></span>
+            <span class="syncthing-device-name">${esc(dev.name)}</span>
+          </div>
+          <span class="syncthing-device-short-id">${esc(dev.deviceID.slice(0, 7))}</span>
+        </label>
+      `).join('');
+    }
+  }
+
+  if (dom.btnSyncthingRescan) {
+    dom.btnSyncthingRescan.disabled = !st.running || !st.rootPath;
+  }
+
+  if (dom.syncthingProjectsList) {
+    const projectEntries = Object.values(st.projects || {});
+    if (projectEntries.length === 0) {
+      dom.syncthingProjectsList.innerHTML = `<div class="syncthing-devices-empty">No projects added yet.</div>`;
+    } else {
+      dom.syncthingProjectsList.innerHTML = projectEntries.map((proj) => {
+        const badgeLabel =
+          proj.state === 'synced' ? 'Synced' :
+          proj.state === 'syncing' ? `Syncing ${proj.completion}%` :
+          proj.state === 'paused' ? 'Paused' :
+          proj.state === 'conflict' ? `Conflict (${proj.conflicts.length})` :
+          proj.state === 'outside-root' ? 'Outside Sync Root' :
+          proj.state === 'offline' ? 'Offline' :
+          'Not Configured';
+
+        const canToggle = proj.inSyncRoot && st.syncMode === 'selected';
+        const toggleHtml = proj.inSyncRoot
+          ? `<label class="switch-toggle" title="${st.syncMode === 'all' ? 'All Projects mode is active' : 'Toggle sync for this project'}">
+               <input type="checkbox" class="syncthing-project-toggle" data-path="${esc(proj.projectPath)}" ${proj.enabled ? 'checked' : ''} ${canToggle ? '' : 'disabled'} />
+               <span class="switch-slider"></span>
+             </label>`
+          : '';
+
+        const conflictsHtml = proj.conflicts.length > 0
+          ? `<div class="syncthing-conflict-list" style="margin-top: 8px;">
+               ${proj.conflicts.map((c) => `
+                 <div class="syncthing-conflict-item">
+                   <div class="syncthing-conflict-info">
+                     <div class="syncthing-conflict-path">${esc(c.relativePath)}</div>
+                     <div class="syncthing-conflict-sub">Original: <span class="mono-text">${esc(c.originalRelativePath)}</span>${c.timestamp ? ` • ${esc(c.timestamp)}` : ''}</div>
+                   </div>
+                   <div class="syncthing-conflict-actions">
+                     <button type="button" class="btn-secondary btn-small" data-conflict-action="keep-mine" data-project-path="${esc(proj.projectPath)}" data-conflict-path="${esc(c.relativePath)}">Keep Mine</button>
+                     <button type="button" class="btn-primary btn-small" data-conflict-action="use-remote" data-project-path="${esc(proj.projectPath)}" data-conflict-path="${esc(c.relativePath)}">Use Remote</button>
+                     <button type="button" class="btn-secondary btn-small" data-conflict-action="reveal" data-project-path="${esc(proj.projectPath)}" data-conflict-path="${esc(c.relativePath)}">Reveal</button>
+                   </div>
+                 </div>
+               `).join('')}
+             </div>`
+          : '';
+
+        return `
+          <div class="syncthing-project-row${proj.conflicts.length > 0 ? ' has-conflicts' : ''}">
+            <div class="syncthing-project-row-main">
+              <div class="syncthing-project-row-info">
+                <div class="syncthing-device-name">${esc(proj.projectName)}</div>
+                <div class="syncthing-device-short-id" title="${esc(proj.projectPath)}">${esc(proj.folderName ? `${proj.folderName}/` : proj.projectPath)}</div>
+              </div>
+              <div class="syncthing-project-row-right">
+                <span class="dash-sync-pill is-${esc(proj.state)}">
+                  <span class="dash-sync-dot"></span>
+                  <span>${esc(badgeLabel)}</span>
+                </span>
+                ${toggleHtml}
+              </div>
+            </div>
+            ${conflictsHtml}
+          </div>
+        `;
+      }).join('');
+
+      dom.syncthingProjectsList.querySelectorAll('.syncthing-project-toggle').forEach((el) => {
+        el.addEventListener('change', async () => {
+          const input = el as HTMLInputElement;
+          const projPath = input.dataset.path || '';
+          if (!projPath) return;
+          input.disabled = true;
+          const res = await window.api.syncthingToggleProject({ projectPath: projPath, enabled: input.checked });
+          if (res?.state) state.syncthing = res.state;
+          renderSidebarSyncthing();
+          renderSettingsSyncthingCard();
+          if (res?.success) {
+            showToast(input.checked ? 'Project sync enabled' : 'Project sync paused', 'success');
+          } else {
+            showToast(res?.error || 'Failed to toggle project sync', 'error');
+          }
+        });
+      });
+
+      dom.syncthingProjectsList.querySelectorAll('button[data-conflict-action]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const el = btn as HTMLButtonElement;
+          const action = el.dataset.conflictAction as 'keep-mine' | 'use-remote' | 'reveal';
+          const projPath = el.dataset.projectPath || '';
+          const conflictPath = el.dataset.conflictPath || '';
+          if (!action || !projPath || !conflictPath) return;
+          el.disabled = true;
+          const res = await window.api.syncthingResolveConflict({
+            projectPath: projPath,
+            conflictRelativePath: conflictPath,
+            resolution: action,
+          });
+          if (res?.state) state.syncthing = res.state;
+          if (res?.success) {
+            if (action === 'use-remote') {
+              await loadWorkspaces();
+              renderDashboardViewer();
+              showToast('Applied remote file version', 'success');
+            } else if (action === 'keep-mine') {
+              showToast('Kept local file and removed conflict', 'success');
+            }
+          } else {
+            showToast(res?.error || 'Failed to resolve conflict', 'error');
+          }
+          renderSidebarSyncthing();
+          renderSettingsSyncthingCard();
+        });
+      });
+    }
+  }
+}
+
+function renderSidebarSyncthing() {
+  const st = state.syncthing;
+  if (dom.sidebarSyncDot && dom.btnWorkspaceSyncthing) {
+    dom.sidebarSyncDot.classList.remove('is-synced', 'is-syncing', 'is-conflict', 'is-offline', 'is-unconfigured');
+    let cls = 'is-unconfigured';
+    let title = 'Project Sync: Not configured (click to configure)';
+
+    if (st && st.rootPath) {
+      if (st.totalConflicts > 0) {
+        cls = 'is-conflict';
+        title = `Project Sync: ${st.totalConflicts} conflict${st.totalConflicts === 1 ? '' : 's'} detected`;
+      } else if (!st.running) {
+        cls = 'is-offline';
+        title = 'Project Sync: Syncthing offline';
+      } else if (st.folderState === 'syncing' || st.folderState === 'sync-preparing' || st.needItems > 0) {
+        cls = 'is-syncing';
+        title = `Project Sync: Syncing (${st.folderCompletion}%)`;
+      } else {
+        cls = 'is-synced';
+        title = `Project Sync: Synced (${st.folderId})`;
       }
     }
-  }, intervalMs);
+    dom.sidebarSyncDot.classList.add(cls);
+    dom.btnWorkspaceSyncthing.classList.toggle('is-syncing', cls === 'is-syncing');
+    dom.btnWorkspaceSyncthing.title = title;
+  }
+
+  if (dom.btnWorkspaceSyncthingBadge) {
+    dom.btnWorkspaceSyncthingBadge.classList.remove('connected');
+    if (!st || !st.rootPath) {
+      dom.btnWorkspaceSyncthingBadge.style.display = 'none';
+    } else {
+      dom.btnWorkspaceSyncthingBadge.style.display = '';
+      if (st.totalConflicts > 0) {
+        dom.btnWorkspaceSyncthingBadge.textContent = `${st.totalConflicts} Conflict`;
+      } else if (!st.running) {
+        dom.btnWorkspaceSyncthingBadge.textContent = 'Offline';
+      } else if (st.folderState === 'syncing' || st.folderState === 'sync-preparing' || st.needItems > 0) {
+        dom.btnWorkspaceSyncthingBadge.textContent = `${st.folderCompletion}%`;
+      } else {
+        dom.btnWorkspaceSyncthingBadge.textContent = 'Synced';
+        dom.btnWorkspaceSyncthingBadge.classList.add('connected');
+      }
+    }
+  }
+
+  if (dom.sidebarDiscoveredBanner) {
+    const discovered = st?.discoveredProjects || [];
+    if (discovered.length === 0) {
+      dom.sidebarDiscoveredBanner.style.display = 'none';
+      dom.sidebarDiscoveredBanner.innerHTML = '';
+    } else {
+      dom.sidebarDiscoveredBanner.style.display = 'flex';
+      dom.sidebarDiscoveredBanner.innerHTML = `
+        <div class="sidebar-discovered-title">Synced Projects Found (${discovered.length})</div>
+        ${discovered.map((proj) => `
+          <div class="sidebar-discovered-item">
+            <div class="sidebar-discovered-info">
+              <div class="sidebar-discovered-name" title="${esc(proj.path)}">${esc(proj.name)}</div>
+              <div class="sidebar-discovered-sub">${proj.competitorCount} competitor${proj.competitorCount === 1 ? '' : 's'} • ${proj.hasDocs ? 'docs/' : '.bas/'}</div>
+            </div>
+            <button type="button" class="btn-primary btn-small btn-import-discovered" data-path="${esc(proj.path)}">Import</button>
+          </div>
+        `).join('')}
+      `;
+
+      dom.sidebarDiscoveredBanner.querySelectorAll('.btn-import-discovered').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const projPath = (btn as HTMLElement).dataset.path || '';
+          if (!projPath) return;
+          (btn as HTMLButtonElement).disabled = true;
+          (btn as HTMLButtonElement).textContent = '...';
+          const res = await window.api.syncthingImportDiscoveredProject({ projectPath: projPath });
+          if (res?.success) {
+            if (res.state) state.syncthing = res.state;
+            await loadWorkspaces();
+            switchProjectContext(projPath);
+            scrollSelectedProjectIntoView(projPath);
+            showToast(`Imported synced project: ${res.project?.name || projPath.split(/[\\/]/).pop()}`, 'success');
+          } else {
+            showToast(res?.error || 'Failed to import synced project', 'error');
+            renderSidebarSyncthing();
+          }
+        });
+      });
+    }
+  }
+}
+
+function renderCompetitorConflictBanner(activeProject: any) {
+  if (!dom.dashCompSyncConflictBanner) return;
+  if (!activeProject) {
+    dom.dashCompSyncConflictBanner.style.display = 'none';
+    dom.dashCompSyncConflictBanner.innerHTML = '';
+    return;
+  }
+
+  const projStatus = state.syncthing?.projects?.[activeProject.path];
+  const manifestConflicts = projStatus?.manifestConflicts || [];
+  if (manifestConflicts.length === 0) {
+    dom.dashCompSyncConflictBanner.style.display = 'none';
+    dom.dashCompSyncConflictBanner.innerHTML = '';
+    return;
+  }
+
+  const first = manifestConflicts[0];
+  dom.dashCompSyncConflictBanner.style.display = 'flex';
+  dom.dashCompSyncConflictBanner.innerHTML = `
+    <div>
+      <strong>Competitor config sync conflict detected:</strong>
+      <span class="mono-text">${esc(first.relativePath)}</span>
+    </div>
+    <div class="dash-comp-conflict-actions">
+      <button type="button" class="btn-secondary btn-small" data-conflict-action="keep-mine">Keep Mine</button>
+      <button type="button" class="btn-primary btn-small" data-conflict-action="use-remote">Use Remote</button>
+      <button type="button" class="btn-secondary btn-small" data-conflict-action="reveal">Reveal</button>
+    </div>
+  `;
+
+  dom.dashCompSyncConflictBanner.querySelectorAll('button[data-conflict-action]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const action = (btn as HTMLElement).dataset.conflictAction as 'keep-mine' | 'use-remote' | 'reveal';
+      (btn as HTMLButtonElement).disabled = true;
+      const res = await window.api.syncthingResolveConflict({
+        projectPath: activeProject.path,
+        conflictRelativePath: first.relativePath,
+        resolution: action,
+      });
+      if (res?.state) state.syncthing = res.state;
+      if (res?.success) {
+        if (action === 'use-remote') {
+          await loadWorkspaces();
+          renderDashboardViewer();
+          showToast('Applied remote competitor config', 'success');
+        } else if (action === 'keep-mine') {
+          renderSidebarSyncthing();
+          renderCompetitorConflictBanner(activeProject);
+          showToast('Kept local competitor config and removed conflict file', 'success');
+        }
+      } else {
+        showToast(res?.error || 'Failed to resolve conflict', 'error');
+      }
+    });
+  });
+}
+
+async function refreshSyncthingState() {
+  try {
+    state.syncthing = await window.api.syncthingGetState();
+    renderSidebarSyncthing();
+    renderCompetitorConflictBanner(getActiveProject());
+    if (dom.syncthingScreen && !dom.syncthingScreen.classList.contains('hidden')) {
+      renderSettingsSyncthingCard();
+    }
+  } catch (err) {
+    console.warn('Failed to refresh Syncthing state:', err);
+  }
+}
+
+dom.btnWorkspaceSyncthing?.addEventListener('click', () => {
+  if (dom.syncthingScreen && !dom.syncthingScreen.classList.contains('hidden')) {
+    hideSyncthingScreen();
+  } else {
+    showSyncthingScreen();
+  }
+});
+
+dom.btnCloseSyncthingScreen?.addEventListener('click', hideSyncthingScreen);
+
+dom.btnSyncthingRescan?.addEventListener('click', async () => {
+  if (!dom.btnSyncthingRescan) return;
+  dom.btnSyncthingRescan.disabled = true;
+  try {
+    const res = await window.api.syncthingRescan();
+    if (res?.state) state.syncthing = res.state;
+    renderSidebarSyncthing();
+    renderSettingsSyncthingCard();
+    if (res?.success) {
+      showToast('Triggered Syncthing rescan', 'info');
+    } else {
+      showToast(res?.error || 'Failed to rescan', 'error');
+    }
+  } finally {
+    if (dom.btnSyncthingRescan) {
+      dom.btnSyncthingRescan.disabled = !state.syncthing?.running || !state.syncthing?.rootPath;
+    }
+  }
+});
+
+dom.syncthingSyncModeGroup?.querySelectorAll('.segmented-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const mode = (btn as HTMLElement).dataset.syncMode === 'selected' ? 'selected' : 'all';
+    updateSyncthingSyncModeUI(mode);
+  });
+});
+
+dom.btnBrowseSyncthingRoot?.addEventListener('click', async () => {
+  const selected = await window.api.selectDirectory('Select Projects Parent Folder (Sync Root)');
+  if (selected && dom.settingsSyncthingRootPath) {
+    dom.settingsSyncthingRootPath.value = selected;
+  }
+});
+
+dom.btnBrowseSyncthingPath?.addEventListener('click', async () => {
+  const selected = await window.api.selectExecutable();
+  if (selected && dom.settingsSyncthingPath) {
+    dom.settingsSyncthingPath.value = selected;
+  }
+});
+
+dom.btnSyncthingCopyId?.addEventListener('click', () => {
+  const id = state.syncthing?.myDeviceId;
+  if (id) {
+    navigator.clipboard.writeText(id);
+    showToast('Syncthing Device ID copied', 'info');
+  }
+});
+
+dom.btnSyncthingStart?.addEventListener('click', async () => {
+  if (!dom.btnSyncthingStart) return;
+  dom.btnSyncthingStart.disabled = true;
+  dom.btnSyncthingStart.textContent = 'Starting...';
+  try {
+    const res = await window.api.syncthingStartDaemon();
+    if (res?.state) state.syncthing = res.state;
+    renderSettingsSyncthingCard();
+    renderSidebarSyncthing();
+    if (res?.success) {
+      showToast('Syncthing started', 'success');
+    } else {
+      showToast(res?.error || 'Failed to start Syncthing', 'error');
+    }
+  } finally {
+    if (dom.btnSyncthingStart) {
+      dom.btnSyncthingStart.disabled = false;
+      dom.btnSyncthingStart.textContent = 'Start Syncthing';
+    }
+  }
+});
+
+dom.btnSyncthingOpenUi?.addEventListener('click', async () => {
+  const res = await window.api.syncthingOpenWebUi();
+  if (!res?.success) {
+    showToast(res?.error || 'Could not open Syncthing Web UI', 'error');
+  }
+});
+
+dom.btnSyncthingRefresh?.addEventListener('click', async () => {
+  await refreshSyncthingState();
+  showToast('Syncthing status refreshed', 'info');
+});
+
+dom.btnSyncthingSaveApply?.addEventListener('click', async () => {
+  if (!dom.btnSyncthingSaveApply) return;
+  dom.btnSyncthingSaveApply.disabled = true;
+  const prevLabel = dom.btnSyncthingSaveApply.textContent || 'Save & Apply Sync';
+  dom.btnSyncthingSaveApply.textContent = 'Applying...';
+
+  try {
+    const deviceIds = Array.from(
+      dom.syncthingDevicesList?.querySelectorAll('.syncthing-device-checkbox:checked') || []
+    ).map((el) => (el as HTMLInputElement).value).filter(Boolean);
+
+    const hasRenderedDevices = Boolean(dom.syncthingDevicesList?.querySelector('.syncthing-device-checkbox'));
+    const res = await window.api.syncthingConfigureRoot({
+      rootPath: dom.settingsSyncthingRootPath?.value.trim() || '',
+      folderId: dom.settingsSyncthingFolderId?.value.trim() || 'bas-projects',
+      syncMode: selectedSyncthingMode,
+      ...(hasRenderedDevices ? { deviceIds } : {}),
+      syncthingPath: dom.settingsSyncthingPath?.value.trim() || '',
+      syncthingApiUrl: dom.settingsSyncthingApiUrl?.value.trim() || '',
+    });
+
+    state.settings = (await window.api.getSettings()) || {};
+    if (res?.state) state.syncthing = res.state;
+    await loadWorkspaces();
+    renderSettingsSyncthingCard();
+    renderDashboardViewer();
+
+    if (res?.success) {
+      showToast('Syncthing sync configuration applied!', 'success');
+    } else {
+      showToast(res?.error || 'Failed to apply Syncthing configuration', 'error');
+    }
+  } finally {
+    if (dom.btnSyncthingSaveApply) {
+      dom.btnSyncthingSaveApply.disabled = false;
+      dom.btnSyncthingSaveApply.textContent = prevLabel;
+    }
+  }
+});
+
+window.api.onSyncthingUpdated(async ({ state: nextState, mergedProjects }) => {
+  state.syncthing = nextState;
+  if (Array.isArray(mergedProjects) && mergedProjects.length > 0) {
+    state.settings = (await window.api.getSettings()) || {};
+    state.projects = (await window.api.getWorkspaces()) || [];
+    renderSidebarSyncthing();
+    renderSidebar();
+    const names = mergedProjects.map((p) => p.name).filter(Boolean).join(', ');
+    if (names) {
+      showToast(`Synced remote updates for ${names}`, 'info');
+    }
+  } else {
+    renderSidebarSyncthing();
+    renderCompetitorConflictBanner(getActiveProject());
+  }
+  if (dom.syncthingScreen && !dom.syncthingScreen.classList.contains('hidden')) {
+    renderSettingsSyncthingCard();
+  }
+});
+
+// ── App Updates (GitHub Releases) ──────────────────────
+function formatUpdateCheckedTime(iso: string | null): string {
+  if (!iso) return 'Not checked yet';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'Not checked yet';
+  return `Last checked ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function renderUpdateUI(updateState: AppUpdateState | null) {
+  if (!updateState) return;
+  const release = updateState.release;
+  const hasNewUpdate = Boolean(release?.updateAvailable);
+
+  if (dom.btnTitlebarUpdate && dom.titlebarUpdateText) {
+    dom.btnTitlebarUpdate.classList.remove('is-available', 'is-downloading', 'is-downloaded');
+    if (updateState.status === 'downloading') {
+      const pct = updateState.downloadProgress?.percent ?? 0;
+      dom.btnTitlebarUpdate.classList.remove('hidden');
+      dom.btnTitlebarUpdate.classList.add('is-downloading');
+      dom.titlebarUpdateText.textContent = `Downloading ${pct}%`;
+    } else if (updateState.status === 'downloaded' && release) {
+      dom.btnTitlebarUpdate.classList.remove('hidden');
+      dom.btnTitlebarUpdate.classList.add('is-downloaded');
+      dom.titlebarUpdateText.textContent = `Install v${release.version}`;
+    } else if (hasNewUpdate && release) {
+      dom.btnTitlebarUpdate.classList.remove('hidden');
+      dom.btnTitlebarUpdate.classList.add('is-available');
+      dom.titlebarUpdateText.textContent = `Update v${release.version}`;
+    } else {
+      dom.btnTitlebarUpdate.classList.add('hidden');
+    }
+  }
+
+  if (dom.settingsUpdateCurrentVersion) {
+    dom.settingsUpdateCurrentVersion.textContent = `v${updateState.currentVersion}`;
+  }
+
+  if (dom.settingsUpdateStatusPill) {
+    dom.settingsUpdateStatusPill.classList.remove(
+      'is-checking',
+      'is-available',
+      'is-downloading',
+      'is-downloaded',
+      'is-uptodate',
+      'is-error'
+    );
+    let label = 'Idle';
+    let cls = '';
+    switch (updateState.status) {
+      case 'checking':
+        label = 'Checking...';
+        cls = 'is-checking';
+        break;
+      case 'available':
+        label = 'Update Available';
+        cls = 'is-available';
+        break;
+      case 'downloading':
+        label = 'Downloading...';
+        cls = 'is-downloading';
+        break;
+      case 'downloaded':
+        label = 'Ready to Install';
+        cls = 'is-downloaded';
+        break;
+      case 'up-to-date':
+        label = 'Up to Date';
+        cls = 'is-uptodate';
+        break;
+      case 'error':
+        label = 'Error';
+        cls = 'is-error';
+        break;
+    }
+    if (cls) dom.settingsUpdateStatusPill.classList.add(cls);
+    dom.settingsUpdateStatusPill.textContent = label;
+  }
+
+  if (dom.settingsUpdateSummary) {
+    if (updateState.status === 'checking') {
+      dom.settingsUpdateSummary.textContent = 'Checking GitHub Releases for a newer version...';
+    } else if (updateState.status === 'downloading' && release) {
+      dom.settingsUpdateSummary.textContent = `Downloading BA Space v${release.version}...`;
+    } else if (updateState.status === 'downloaded' && release) {
+      dom.settingsUpdateSummary.textContent = `BA Space v${release.version} is downloaded and ready to install.`;
+    } else if (hasNewUpdate && release) {
+      dom.settingsUpdateSummary.textContent = `BA Space v${release.version} is available (currently v${updateState.currentVersion}).`;
+    } else if (updateState.status === 'up-to-date') {
+      dom.settingsUpdateSummary.textContent = `You are running the latest version (v${updateState.currentVersion}).`;
+    } else if (updateState.status === 'error') {
+      dom.settingsUpdateSummary.textContent = 'Could not check GitHub Releases.';
+    } else {
+      dom.settingsUpdateSummary.textContent = 'Check GitHub Releases for the latest version of BA Space.';
+    }
+  }
+
+  if (dom.settingsUpdateLastChecked) {
+    dom.settingsUpdateLastChecked.textContent = formatUpdateCheckedTime(updateState.lastCheckedAt);
+  }
+
+  if (dom.settingsUpdateProgressWrap && dom.settingsUpdateProgressFill && dom.settingsUpdateProgressText) {
+    if (updateState.status === 'downloading') {
+      const progress = updateState.downloadProgress;
+      const pct = progress?.percent ?? 0;
+      const dl = formatBytes(progress?.downloadedBytes || 0);
+      const total = progress?.totalBytes ? formatBytes(progress.totalBytes) : '?';
+      const speed = progress?.bytesPerSecond ? ` • ${formatBytes(progress.bytesPerSecond)}/s` : '';
+      dom.settingsUpdateProgressWrap.classList.remove('hidden');
+      dom.settingsUpdateProgressFill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+      dom.settingsUpdateProgressText.textContent = `${pct}% — ${dl} / ${total}${speed}`;
+    } else {
+      dom.settingsUpdateProgressWrap.classList.add('hidden');
+    }
+  }
+
+  if (dom.settingsUpdateError) {
+    if (updateState.status === 'error' && updateState.error) {
+      dom.settingsUpdateError.classList.remove('hidden');
+      dom.settingsUpdateError.textContent = updateState.error;
+    } else {
+      dom.settingsUpdateError.classList.add('hidden');
+      dom.settingsUpdateError.textContent = '';
+    }
+  }
+
+  if (dom.btnSettingsCheckUpdates) {
+    const busy = updateState.status === 'checking' || updateState.status === 'downloading';
+    dom.btnSettingsCheckUpdates.disabled = busy;
+    const labelSpan = dom.btnSettingsCheckUpdates.querySelector('span');
+    if (labelSpan) {
+      labelSpan.textContent = updateState.status === 'checking' ? 'Checking...' : 'Check for Updates';
+    }
+  }
+
+  if (dom.btnSettingsOpenUpdateModal) {
+    if (hasNewUpdate || updateState.status === 'downloading' || updateState.status === 'downloaded') {
+      dom.btnSettingsOpenUpdateModal.classList.remove('hidden');
+      const labelSpan = dom.btnSettingsOpenUpdateModal.querySelector('span');
+      if (labelSpan) {
+        labelSpan.textContent = updateState.status === 'downloaded' ? 'Install Update' : 'View Update';
+      }
+    } else {
+      dom.btnSettingsOpenUpdateModal.classList.add('hidden');
+    }
+  }
+
+  if (activeUpdateModal) {
+    activeUpdateModal.update(updateState);
+  }
+}
+
+async function openAppUpdateModal() {
+  if (!state.update) {
+    state.update = await window.api.getUpdateState();
+  }
+  activeUpdateModal = openUpdateModal({
+    updateState: state.update,
+    dom,
+    configureModalFooter,
+    showModal,
+    hideModal,
+    showToast,
+    platform: window.api.platform,
+  });
+}
+
+dom.btnTitlebarUpdate?.addEventListener('click', () => {
+  void openAppUpdateModal();
+});
+
+dom.btnSettingsOpenUpdateModal?.addEventListener('click', () => {
+  void openAppUpdateModal();
+});
+
+dom.btnSettingsOpenReleases?.addEventListener('click', () => {
+  void window.api.openReleasePage();
+});
+
+dom.btnSettingsCheckUpdates?.addEventListener('click', async () => {
+  const nextState = await window.api.checkForUpdates();
+  state.update = nextState;
+  renderUpdateUI(nextState);
+  if (nextState.status === 'available' && nextState.release) {
+    showToast(`Update v${nextState.release.version} is available!`, 'success');
+  } else if (nextState.status === 'downloaded' && nextState.release) {
+    showToast(`Update v${nextState.release.version} is already downloaded and ready to install.`, 'success');
+  } else if (nextState.status === 'up-to-date') {
+    showToast(`BA Space is up to date (v${nextState.currentVersion})`, 'info');
+  } else if (nextState.status === 'error' && nextState.error) {
+    showToast(nextState.error, 'error');
+  }
+});
+
+dom.settingsAutoCheckUpdates?.addEventListener('change', () => {
+  void saveSettingsFromUI();
+});
+
+window.api.onUpdateStateChanged((nextState) => {
+  state.update = nextState;
+  renderUpdateUI(nextState);
+});
+
+async function initAppUpdates() {
+  try {
+    state.update = await window.api.getUpdateState();
+    renderUpdateUI(state.update);
+  } catch (err) {
+    console.warn('Failed to load initial update state:', err);
+  }
+
+  setTimeout(async () => {
+    try {
+      const settings = state.settings && Object.keys(state.settings).length > 0
+        ? state.settings
+        : ((await window.api.getSettings()) || {});
+      if (settings.autoCheckUpdates === false) return;
+
+      const nextState = await window.api.checkForUpdates();
+      state.update = nextState;
+      renderUpdateUI(nextState);
+      if (nextState.status === 'available' && nextState.release) {
+        showToast(`BA Space v${nextState.release.version} is available — click Update in the titlebar`, 'info');
+      }
+    } catch (err) {
+      console.warn('Background update check failed:', err);
+    }
+  }, 2500);
 }
 
 // ── Initialize ─────────────────────────────────────────
@@ -5225,8 +5450,8 @@ initializeRendererLifecycle({
   loadWorkspaces,
 });
 
-startAutoRefreshLoop();
 void checkMobilerunSetupOnLaunch().catch((err) => console.warn('Mobilerun setup check failed:', err));
+void initAppUpdates();
 
 // ── Global Keyboard Shortcuts ──────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -5238,6 +5463,10 @@ window.addEventListener('keydown', (e) => {
     }
     if (dom.settingsScreen && !dom.settingsScreen.classList.contains('hidden')) {
       dom.btnCloseSettings?.click();
+      return;
+    }
+    if (dom.syncthingScreen && !dom.syncthingScreen.classList.contains('hidden')) {
+      hideSyncthingScreen();
       return;
     }
     if (dom.symlinkScreen && !dom.symlinkScreen.classList.contains('hidden')) {

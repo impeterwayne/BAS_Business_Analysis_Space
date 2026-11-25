@@ -52,7 +52,7 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
   ipcMain.handle('add-project', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory'],
-      title: 'Select a Git Project Root',
+      title: 'Select a Project Folder',
     });
     if (result.canceled || !result.filePaths.length) return null;
 
@@ -60,7 +60,6 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
   });
 
   ipcMain.handle('remove-project', (_, projectPath) => workspaceService.removeProject(projectPath));
-  ipcMain.handle('refresh-worktrees', (_, projectPath) => workspaceService.refreshWorktrees(projectPath));
 
   // ── Project Metadata & Assets ──
   ipcMain.handle('project:update-metadata', (_, { projectPath, metadata }) =>
@@ -95,8 +94,8 @@ function registerWorkspaceIpc({ ipcMain, dialog, mainWindow, workspaceService, d
     workspaceService.unlinkCompetitorApk(projectPath, competitorId)
   );
 
-  ipcMain.handle('project:sync-ba-config', (_, { projectPath, worktreePath }) =>
-    workspaceService.syncBaProjectConfig(projectPath, worktreePath)
+  ipcMain.handle('project:sync-ba-config', (_, { projectPath }) =>
+    workspaceService.syncBaProjectConfig(projectPath)
   );
 
   ipcMain.handle('competitor:detect-app', async (_, { url }) => {

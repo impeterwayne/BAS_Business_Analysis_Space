@@ -17,9 +17,6 @@ contextBridge.exposeInMainWorld('api', {
   detectIntegrationPaths: () => ipcRenderer.invoke('detect-integration-paths'),
   addProject: () => ipcRenderer.invoke('add-project'),
   removeProject: (path) => ipcRenderer.invoke('remove-project', path),
-  refreshWorktrees: (path) => ipcRenderer.invoke('refresh-worktrees', path),
-  getGitInfo: (path) => ipcRenderer.invoke('get-git-info', path),
-  getRecentCommits: (path) => ipcRenderer.invoke('get-recent-commits', path),
 
   // ── Launch actions ──
   openInExplorer: (path) => ipcRenderer.invoke('open-in-explorer', path),
@@ -36,16 +33,6 @@ contextBridge.exposeInMainWorld('api', {
   scrcpyCaptureUi: (opts) => ipcRenderer.invoke('scrcpy:capture-ui', opts),
   scrcpyDeviceList: () => ipcRenderer.invoke('scrcpy:device-list'),
 
-  // ── Git operations ──
-  gitPull: (path) => ipcRenderer.invoke('git-pull', path),
-  gitFetch: (path) => ipcRenderer.invoke('git-fetch', path),
-  addWorktree: (opts) => ipcRenderer.invoke('add-worktree', opts),
-  removeWorktree: (opts) => ipcRenderer.invoke('remove-worktree', opts),
-  forceRemoveWorktree: (opts) => ipcRenderer.invoke('force-remove-worktree', opts),
-  getBranches: (path) => ipcRenderer.invoke('get-branches', path),
-  createBranch: (opts) => ipcRenderer.invoke('create-branch', opts),
-  mergeWorktreeToBranch: (opts) => ipcRenderer.invoke('merge-worktree-to-branch', opts),
-
   // ── Symlink operations ──
   selectDirectory: (title) => ipcRenderer.invoke('select-directory', title),
   checkSymlinkStatus: (opts) => ipcRenderer.invoke('symlink:check-status', opts),
@@ -53,8 +40,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteSymlink: (opts) => ipcRenderer.invoke('symlink:delete', opts),
   scanSymlinks: (opts) => ipcRenderer.invoke('symlink:scan', opts),
 
-  // ── Git Exclude / Directory operations ──
-  updateGitExclude: (opts) => ipcRenderer.invoke('git:update-exclude', opts),
+  // ── Directory & Toolkit operations ──
   createDirectory: (path) => ipcRenderer.invoke('dir:create', { dirPath: path }),
   pathExists: (path) => ipcRenderer.invoke('path:exists', path),
   checkToolkitStatus: (opts) => ipcRenderer.invoke('toolkit:check-status', opts),
@@ -79,7 +65,7 @@ contextBridge.exposeInMainWorld('api', {
   getFigmaMcpStatus: (opts) => ipcRenderer.invoke('bakit:figma-mcp-status', opts),
   registerFigmaMcp: (opts) => ipcRenderer.invoke('bakit:figma-mcp-register', opts),
   unregisterFigmaMcp: (opts) => ipcRenderer.invoke('bakit:figma-mcp-unregister', opts),
-  // ── BAKit: delegation block in the worktree's AGENTS.md ──
+  // ── BAKit: delegation block in the project's AGENTS.md ──
   getAgentsMdBlockStatus: (opts) => ipcRenderer.invoke('bakit:agents-md-status', opts),
   applyAgentsMdBlock: (opts) => ipcRenderer.invoke('bakit:agents-md-apply', opts),
   removeAgentsMdBlock: (opts) => ipcRenderer.invoke('bakit:agents-md-remove', opts),
@@ -98,7 +84,7 @@ contextBridge.exposeInMainWorld('api', {
   detectCompetitorApp: (url: string) => ipcRenderer.invoke('competitor:detect-app', { url }),
   fetchCompetitorIcon: (opts: { projectPath?: string; competitorId?: string; url?: string; packageName?: string }) =>
     ipcRenderer.invoke('competitor:fetch-icon', opts),
-  syncBaProjectConfig: (opts: { projectPath: string; worktreePath?: string }) => ipcRenderer.invoke('project:sync-ba-config', opts),
+  syncBaProjectConfig: (opts: { projectPath: string }) => ipcRenderer.invoke('project:sync-ba-config', opts),
   selectApkFile: () => ipcRenderer.invoke('select-apk-file'),
   getFileInfo: (filePath: string) => ipcRenderer.invoke('get-file-info', filePath),
   installApk: (opts: { apkPath: string; serial?: string }) => ipcRenderer.invoke('adb:install-apk', opts),
@@ -144,5 +130,38 @@ contextBridge.exposeInMainWorld('api', {
   deviceStreamText: (opts) => ipcRenderer.invoke('device:stream-text', opts),
   deviceStreamScroll: (opts) => ipcRenderer.invoke('device:stream-scroll', opts),
   deviceStreamAction: (opts) => ipcRenderer.invoke('device:stream-action', opts),
+
+  // ── Syncthing Project Sync ──
+  syncthingGetState: () => ipcRenderer.invoke('syncthing:get-state'),
+  syncthingConfigureRoot: (opts) => ipcRenderer.invoke('syncthing:configure-root', opts),
+  syncthingToggleProject: (opts) => ipcRenderer.invoke('syncthing:toggle-project', opts),
+  syncthingRescan: (opts) => ipcRenderer.invoke('syncthing:rescan', opts),
+  syncthingStartDaemon: () => ipcRenderer.invoke('syncthing:start-daemon'),
+  syncthingOpenWebUi: () => ipcRenderer.invoke('syncthing:open-web-ui'),
+  syncthingResolveConflict: (opts) => ipcRenderer.invoke('syncthing:resolve-conflict', opts),
+  syncthingImportDiscoveredProject: (opts) => ipcRenderer.invoke('syncthing:import-discovered-project', opts),
+  onSyncthingUpdated: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('syncthing:updated', handler);
+    return () => {
+      ipcRenderer.removeListener('syncthing:updated', handler);
+    };
+  },
+
+  // ── App Updates ──
+  getUpdateState: () => ipcRenderer.invoke('update:get-state'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: (opts) => ipcRenderer.invoke('update:download', opts),
+  cancelUpdateDownload: () => ipcRenderer.invoke('update:cancel-download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  revealUpdateFile: () => ipcRenderer.invoke('update:reveal-file'),
+  openReleasePage: () => ipcRenderer.invoke('update:open-release-page'),
+  onUpdateStateChanged: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('update:state-changed', handler);
+    return () => {
+      ipcRenderer.removeListener('update:state-changed', handler);
+    };
+  },
 });
 

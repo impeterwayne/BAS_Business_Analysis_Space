@@ -47,7 +47,7 @@ export type CaptureMode = 'screenshot' | 'dump' | 'both';
 
 export interface CaptureUiOptions {
   serial?: string;
-  worktreePath: string;
+  projectPath: string;
   prefix?: string;
   mode?: CaptureMode;
 }
@@ -482,14 +482,14 @@ export class DeviceService {
   }
 
   public async captureUi(options: CaptureUiOptions): Promise<any> {
-    const { worktreePath, prefix, mode = 'both' } = options;
+    const { projectPath, prefix, mode = 'both' } = options;
     const serial = options.serial || this.activeSerial;
 
-    if (!worktreePath || !fs.existsSync(worktreePath)) {
-      return { success: false, error: 'Invalid or missing worktree path' };
+    if (!projectPath || !fs.existsSync(projectPath)) {
+      return { success: false, error: 'Invalid or missing project path' };
     }
 
-    const evidenceDir = path.join(worktreePath, 'docs', 'spec', 'evidence');
+    const evidenceDir = path.join(projectPath, 'docs', 'spec', 'evidence');
     fs.mkdirSync(evidenceDir, { recursive: true });
 
     const pad = (n: number) => String(n).padStart(2, '0');

@@ -1,11 +1,9 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
-const { execSync, execFileSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
-const { getWorktrees: readWorktrees, getGitInfo: readGitInfo } = require('./git/gitInfo');
-const { excludeFromGit } = require('./git/gitExclude');
 const { createWorkspaceConfigStore } = require('../application/workspaceConfigStore');
 const { createWorkspaceService } = require('../application/workspaceService');
 const { registerWorkspaceIpc } = require('./ipc/workspaceIpc');
@@ -15,6 +13,12 @@ const { registerReakitIpc } = require('./reakit/reakitService');
 const { DeviceService } = require('./device/deviceService');
 const { DeviceStreamService } = require('./device/deviceStreamService');
 const { registerDeviceIpc } = require('./ipc/deviceIpc');
+const { SyncthingService } = require('./syncthing/syncthingService');
+const { registerSyncthingIpc } = require('./ipc/syncthingIpc');
+const { UpdateService } = require('./update/updateService');
+const { registerUpdateIpc } = require('./ipc/updateIpc');
+const { parseRepoFromPackageJson } = require('../domain');
+const pkg = require('../../package.json');
 const {
   isWin, isMac, findOnPath, findAllOnPath, firstExisting, buildLaunch, fixUnixPath, localDataDir, roamingConfigDir, unixBinDirs,
 } = require('./platform');
@@ -28,137 +32,40 @@ const configPath = path.join(app.getPath('userData'), 'workspaces.json');
 const workspaceConfigStore = createWorkspaceConfigStore({ configPath });
 const workspaceService = createWorkspaceService({
   configStore: workspaceConfigStore,
-  getWorktrees: (projectPath) => readWorktrees(projectPath, execSync, path, Buffer),
 });
 const deviceService = new DeviceService(() => workspaceService.getSettings());
 const deviceStreamService = new DeviceStreamService(deviceService);
 let mainWindow = null;
+const syncthingService = new SyncthingService({
+  workspaceService,
+  shell,
+  onStateUpdated: (payload: any) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('syncthing:updated', payload);
+    }
+  },
+});
+workspaceService.setOnProjectChanged((projectPath: string) => {
+  syncthingService.onLocalProjectChanged(projectPath);
+});
+const updateRepo = parseRepoFromPackageJson(pkg);
+const updateService = new UpdateService({
+  currentVersion: app.getVersion(),
+  repoOwner: updateRepo.owner,
+  repoRepo: updateRepo.repo,
+  updatesDir: path.join(app.getPath('userData'), 'updates'),
+  shell,
+  app,
+  onStateChanged: (payload: any) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:state-changed', payload);
+    }
+  },
+});
 
-// ── Git Helpers ────────────────────────────────────────
-function getGitInfo(dirPath) {
-  return readGitInfo(dirPath, execSync);
-}
-
-function getRecentCommits(dirPath, count = 5) {
-  try {
-    const output = execSync(`git log -${count} --format="%h|%s|%cr|%an"`, {
-      cwd: dirPath,
-      encoding: 'utf-8',
-      timeout: 5000,
-    }).trim();
-
-    return output.split('\n').filter(Boolean).map((line) => {
-      const [hash, message, date, author] = line.split('|');
-      return { hash, message, date, author };
-    });
-  } catch (_) {
-    return [];
-  }
-}
-
-function normalizeWorktreePath(targetPath) {
+function normalizeFsPath(targetPath) {
   const resolvedPath = path.resolve(targetPath);
   return process.platform === 'win32' ? resolvedPath.toLowerCase() : resolvedPath;
-}
-
-function findWorktree(projectPath, wtPath) {
-  const normalizedWtPath = normalizeWorktreePath(wtPath);
-  return readWorktrees(projectPath, execSync, path, Buffer)
-    .find((worktree) => worktree.path && normalizeWorktreePath(worktree.path) === normalizedWtPath);
-}
-
-function isLocalBranch(projectPath, branchName) {
-  if (!branchName) {
-    return false;
-  }
-
-  try {
-    execFileSync('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`], {
-      cwd: projectPath,
-      stdio: 'ignore',
-      timeout: 10000,
-    });
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-function isLockRelatedRemoveError(error) {
-  const message = `${error?.stderr || ''}\n${error?.message || ''}`.toLowerCase();
-  return message.includes('permission denied')
-    || message.includes('access is denied')
-    || message.includes('device or resource busy')
-    || message.includes('used by another process')
-    || message.includes('file is being used by another process');
-}
-
-function removeWorktreeWithOptionalBranchDelete({ projectPath, wtPath, force = false, deleteBranch = false }) {
-  if (!projectPath || !wtPath) {
-    return { success: false, error: 'Project path and worktree path are required' };
-  }
-
-  if (normalizeWorktreePath(projectPath) === normalizeWorktreePath(wtPath)) {
-    return { success: false, error: 'Cannot remove the primary project worktree' };
-  }
-
-  const worktree = findWorktree(projectPath, wtPath);
-  if (!worktree) {
-    return { success: false, error: 'Worktree path was not found in this repository' };
-  }
-
-  if (deleteBranch) {
-    if (!worktree.branch || worktree.detached || worktree.bare) {
-      return { success: false, error: 'Cannot delete branch: worktree does not have a local branch' };
-    }
-    if (!isLocalBranch(projectPath, worktree.branch)) {
-      return { success: false, error: 'Cannot delete branch: only local branches can be deleted' };
-    }
-  }
-
-  let removeOutput = '';
-  try {
-    const removeArgs = ['worktree', 'remove'];
-    if (force) removeArgs.push('--force');
-    removeArgs.push(wtPath);
-    removeOutput = execFileSync('git', removeArgs, {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      timeout: 30000,
-    }) || '';
-  } catch (e) {
-    const errorMessage = e.stderr || e.message;
-    if (isLockRelatedRemoveError(e)) {
-      return {
-        success: false,
-        error: `${errorMessage}\nClose terminals, editors, Explorer windows, or other apps using this worktree, then retry. Admin rights usually do not fix active file locks.`,
-      };
-    }
-    return { success: false, error: errorMessage };
-  }
-
-  if (!deleteBranch) {
-    return { success: true, output: removeOutput.trim() };
-  }
-
-  try {
-    const branchOutput = execFileSync('git', ['branch', '--delete', worktree.branch], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      timeout: 30000,
-    }) || '';
-    const output = [removeOutput, branchOutput].filter(Boolean).join('\n').trim();
-    return { success: true, output, branchDeleted: true };
-  } catch (e) {
-    const branchDeleteError = e.stderr || e.message;
-    return {
-      success: false,
-      error: `Worktree removed but branch deletion failed: ${branchDeleteError}`,
-      output: removeOutput.trim(),
-      removedWorktree: true,
-      branchDeleted: false,
-    };
-  }
 }
 
 // ── External links ─────────────────────────────────────
@@ -282,6 +189,7 @@ function installMacAppMenu() {
 // ── App lifecycle ──────────────────────────────────────
 app.whenReady().then(() => {
   workspaceConfigStore.loadConfig();
+  syncthingService.importAllSyncedProjects();
   if (isMac) installMacAppMenu();
   createWindow();
   registerWorkspaceIpc({
@@ -300,12 +208,12 @@ app.whenReady().then(() => {
   });
   registerDeviceIpc({ ipcMain, deviceService, deviceStreamService });
   registerReakitIpc({ ipcMain, workspaceService, shell });
+  registerSyncthingIpc({ ipcMain, syncthingService });
+  registerUpdateIpc({ ipcMain, updateService });
+  syncthingService.start();
 
-  ipcMain.handle('get-git-info', (_, dirPath) => getGitInfo(dirPath));
-  ipcMain.handle('get-recent-commits', (_, dirPath) => getRecentCommits(dirPath));
-
-  ipcMain.handle('symlink:check-status', (_, { worktreePath, name, targetPath }) => {
-    const linkPath = path.join(worktreePath, name);
+  ipcMain.handle('symlink:check-status', (_, { projectPath, name, targetPath }) => {
+    const linkPath = path.join(projectPath, name);
     try {
       const stats = fs.lstatSync(linkPath);
       let currentTarget = null;
@@ -321,8 +229,8 @@ app.whenReady().then(() => {
       }
       
       if (isLink && currentTarget) {
-        const resolvedCurrent = normalizeWorktreePath(path.resolve(worktreePath, currentTarget));
-        const resolvedTarget = normalizeWorktreePath(targetPath);
+        const resolvedCurrent = normalizeFsPath(path.resolve(projectPath, currentTarget));
+        const resolvedTarget = normalizeFsPath(targetPath);
         if (resolvedCurrent === resolvedTarget) {
           return { exists: true, pointsToTarget: true };
         } else {
@@ -336,8 +244,8 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('symlink:create', (_, { worktreePath, name, targetPath }) => {
-    const linkPath = path.join(worktreePath, name);
+  ipcMain.handle('symlink:create', (_, { projectPath, name, targetPath }) => {
+    const linkPath = path.join(projectPath, name);
     try {
       try {
         const stats = fs.lstatSync(linkPath);
@@ -364,8 +272,8 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('symlink:delete', (_, { worktreePath, name }) => {
-    const linkPath = path.join(worktreePath, name);
+  ipcMain.handle('symlink:delete', (_, { projectPath, name }) => {
+    const linkPath = path.join(projectPath, name);
     try {
       const stats = fs.lstatSync(linkPath);
       let isLink = stats.isSymbolicLink();
@@ -387,13 +295,13 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('symlink:scan', (_, { worktreePath }) => {
-    if (!worktreePath) return [];
+  ipcMain.handle('symlink:scan', (_, { projectPath }) => {
+    if (!projectPath) return [];
     try {
-      const files = fs.readdirSync(worktreePath);
+      const files = fs.readdirSync(projectPath);
       const discovered = [];
       for (const file of files) {
-        const linkPath = path.join(worktreePath, file);
+        const linkPath = path.join(projectPath, file);
         try {
           const stats = fs.lstatSync(linkPath);
           let isLink = stats.isSymbolicLink();
@@ -410,7 +318,7 @@ app.whenReady().then(() => {
           if (isLink && target) {
             discovered.push({
               name: file,
-              targetPath: path.resolve(worktreePath, target),
+              targetPath: path.resolve(projectPath, target),
             });
           }
         } catch (e) {}
@@ -419,91 +327,6 @@ app.whenReady().then(() => {
     } catch (err) {
       console.error('Failed to scan symlinks:', err);
       return [];
-    }
-  });
-
-  ipcMain.handle('git:update-exclude', (_, { worktreePath, patterns, action }) => {
-    try {
-      let excludePath;
-      try {
-        const gitExcludeRel = execSync('git rev-parse --git-path info/exclude', {
-          cwd: worktreePath,
-          encoding: 'utf-8',
-          timeout: 3000,
-        }).trim();
-        excludePath = path.resolve(worktreePath, gitExcludeRel);
-      } catch (e) {
-        excludePath = path.join(worktreePath, '.git', 'info', 'exclude');
-      }
-
-      const infoDir = path.dirname(excludePath);
-      
-      let lines = [];
-      if (fs.existsSync(excludePath)) {
-        lines = fs.readFileSync(excludePath, 'utf-8')
-          .split(/\r?\n/)
-          .map(l => l.trim());
-      }
-
-      if (action === 'add') {
-        if (!fs.existsSync(infoDir)) {
-          fs.mkdirSync(infoDir, { recursive: true });
-        }
-        
-        let changed = false;
-        const newLines = [...lines];
-        
-        const header = '# Agent toolkit (auto-added by coding-space)';
-        if (!newLines.includes(header) && !newLines.includes('# SkillHub toolkit (auto-added by coding-space)')) {
-          if (newLines.length > 0 && newLines[newLines.length - 1] !== '') {
-            newLines.push('');
-          }
-          newLines.push(header);
-          changed = true;
-        }
-        
-        for (const pattern of patterns) {
-          if (!newLines.includes(pattern)) {
-            newLines.push(pattern);
-            changed = true;
-          }
-        }
-        
-        if (changed) {
-          fs.writeFileSync(excludePath, newLines.join('\n') + '\n', 'utf-8');
-        }
-      } else if (action === 'remove') {
-        if (fs.existsSync(excludePath)) {
-          let changed = false;
-          const filteredLines = lines.filter(line => {
-            if (patterns.includes(line)) {
-              changed = true;
-              return false;
-            }
-            if (line === '# SkillHub toolkit (auto-added by coding-space)' || line === '# Agent toolkit (auto-added by coding-space)') {
-              changed = true;
-              return false;
-            }
-            return true;
-          });
-          
-          const finalLines = [];
-          for (let i = 0; i < filteredLines.length; i++) {
-            if (filteredLines[i] === '' && (i === 0 || filteredLines[i-1] === '')) {
-              changed = true;
-              continue;
-            }
-            finalLines.push(filteredLines[i]);
-          }
-          
-          if (changed) {
-            fs.writeFileSync(excludePath, finalLines.join('\n') + '\n', 'utf-8');
-          }
-        }
-      }
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
     }
   });
 
@@ -589,8 +412,8 @@ app.whenReady().then(() => {
     };
   });
 
-  ipcMain.handle('toolkit:check-status', (_, { worktreePath, name, sourcePath }) => {
-    const targetPath = path.join(worktreePath, name);
+  ipcMain.handle('toolkit:check-status', (_, { projectPath, name, sourcePath }) => {
+    const targetPath = path.join(projectPath, name);
     try {
       if (sourcePath && fs.existsSync(sourcePath)) {
         const stats = fs.statSync(sourcePath);
@@ -621,9 +444,9 @@ app.whenReady().then(() => {
     }
   });
 
-  // preserveExisting: keep items already present in the worktree (user-edited files such as a filled-in project config).
-  ipcMain.handle('toolkit:deploy', (_, { worktreePath, name, sourcePath, preserveExisting }) => {
-    const destPath = path.join(worktreePath, name);
+  // preserveExisting: keep items already present in the project (user-edited files such as a filled-in project config).
+  ipcMain.handle('toolkit:deploy', (_, { projectPath, name, sourcePath, preserveExisting }) => {
+    const destPath = path.join(projectPath, name);
     try {
       if (!fs.existsSync(sourcePath)) {
         return { success: false, error: `Source path does not exist: ${sourcePath}` };
@@ -658,8 +481,8 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('toolkit:remove', (_, { worktreePath, name, sourcePath }) => {
-    const destPath = path.join(worktreePath, name);
+  ipcMain.handle('toolkit:remove', (_, { projectPath, name, sourcePath }) => {
+    const destPath = path.join(projectPath, name);
     try {
       if (sourcePath && fs.existsSync(sourcePath)) {
         const stats = fs.statSync(sourcePath);
@@ -946,6 +769,7 @@ app.whenReady().then(() => {
         path.join(process.cwd(), '..', 'ReaKit'),
         path.join(process.cwd(), 'ReaKit'),
       ]),
+      syncthingPath: syncthingService.resolveBinaryPath(),
     };
   });
 
@@ -1156,9 +980,6 @@ app.whenReady().then(() => {
         }
       }
     }
-    if (repoRoot) {
-      excludeFromGit(repoRoot, 'docs/.obsidian/');
-    }
   }
 
   ipcMain.handle('open-in-antigravity', async (_, dirPath) => {
@@ -1170,7 +991,7 @@ app.whenReady().then(() => {
       }
       const { file: spawnFile, args: spawnArgs, windowsVerbatimArguments } = buildLaunch(exe, [dirPath]);
 
-      // Launch Antigravity IDE in the worktree directory safely (no shell-escaping issues)
+      // Launch Antigravity IDE in the project directory safely (no shell-escaping issues)
       await spawnDetached(spawnFile, spawnArgs, { cwd: dirPath, shell: false, windowsVerbatimArguments });
       return { success: true };
     } catch (e) {
@@ -1372,149 +1193,13 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('scrcpy:capture-ui', async (_, opts: { worktreePath?: string; prefix?: string; serial?: string; mode?: 'screenshot' | 'dump' | 'both' } = {}) => {
-    return deviceService.captureUi({ worktreePath: opts.worktreePath, prefix: opts.prefix, serial: opts.serial, mode: opts.mode });
-  });
-
-  // ── Quick git commands ───────────────────────────────
-
-  ipcMain.handle('git-pull', async (_, dirPath) => {
-    try {
-      const output = execSync('git pull', {
-        cwd: dirPath,
-        encoding: 'utf-8',
-        timeout: 30000,
-      });
-      return { success: true, output: output.trim() };
-    } catch (e) {
-      return { success: false, error: e.stderr || e.message };
-    }
-  });
-
-  ipcMain.handle('git-fetch', async (_, dirPath) => {
-    try {
-      const output = execSync('git fetch --all', {
-        cwd: dirPath,
-        encoding: 'utf-8',
-        timeout: 30000,
-      });
-      return { success: true, output: output.trim() };
-    } catch (e) {
-      return { success: false, error: e.stderr || e.message };
-    }
-  });
-
-  ipcMain.handle('add-worktree', async (_, { projectPath, sourceWorktreePath, branchName, wtPath, createBranch }) => {
-    try {
-      // No shell: branch names and paths go to git as plain argv entries.
-      const args = createBranch
-        // git worktree add -b <new-branch> <path>
-        ? ['worktree', 'add', '-b', branchName, wtPath]
-        : ['worktree', 'add', wtPath, branchName];
-      const output = execFileSync('git', args, {
-        cwd: sourceWorktreePath || projectPath,
-        encoding: 'utf-8',
-        timeout: 30000,
-      });
-      return { success: true, output: output.trim() };
-    } catch (e) {
-      return { success: false, error: e.stderr || e.message };
-    }
-  });
-
-  ipcMain.handle('remove-worktree', async (_, { projectPath, wtPath, deleteBranch = false }) => {
-    return removeWorktreeWithOptionalBranchDelete({ projectPath, wtPath, deleteBranch, force: false });
-  });
-
-  ipcMain.handle('force-remove-worktree', async (_, { projectPath, wtPath, deleteBranch = false }) => {
-    return removeWorktreeWithOptionalBranchDelete({ projectPath, wtPath, deleteBranch, force: true });
-  });
-
-  ipcMain.handle('get-branches', async (_, projectPath) => {
-    try {
-      const output = execSync('git branch -a --format="%(refname:short)"', {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 10000,
-      });
-      return output.trim().split('\n').filter(Boolean);
-    } catch (_) {
-      return [];
-    }
-  });
-
-  ipcMain.handle('create-branch', async (_, { projectPath, branchName }) => {
-    try {
-      const output = execFileSync('git', ['branch', branchName], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 10000,
-      });
-      return { success: true, output: output.trim() };
-    } catch (e) {
-      return { success: false, error: e.stderr || e.message };
-    }
-  });
-
-  ipcMain.handle('merge-worktree-to-branch', async (_, { projectPath, sourceBranch, targetBranch }) => {
-    try {
-      if (!projectPath || !sourceBranch || !targetBranch) {
-        return { success: false, error: 'Project path, source branch, and target branch are required' };
-      }
-      if (targetBranch.startsWith('origin/')) {
-        return { success: false, error: 'Please choose a local target branch' };
-      }
-      if (sourceBranch === targetBranch) {
-        return { success: false, error: 'Source and target branches must be different' };
-      }
-
-      const statusOutput = execSync('git status --porcelain', {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 10000,
-      }).trim();
-
-      if (statusOutput) {
-        return { success: false, error: 'Target worktree has uncommitted changes. Commit or stash them before merging.' };
-      }
-
-      const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 10000,
-      }).trim();
-
-      let output = '';
-      try {
-        output += execFileSync('git', ['checkout', targetBranch], {
-          cwd: projectPath,
-          encoding: 'utf-8',
-          timeout: 30000,
-        });
-        output += execFileSync('git', ['merge', sourceBranch], {
-          cwd: projectPath,
-          encoding: 'utf-8',
-          timeout: 30000,
-        });
-      } finally {
-        if (currentBranch && currentBranch !== targetBranch) {
-          try {
-            execFileSync('git', ['checkout', currentBranch], {
-              cwd: projectPath,
-              encoding: 'utf-8',
-              timeout: 30000,
-            });
-          } catch (_) {}
-        }
-      }
-
-      return { success: true, output: output.trim() };
-    } catch (e) {
-      return { success: false, error: e.stderr || e.message };
-    }
+  ipcMain.handle('scrcpy:capture-ui', async (_, opts: { projectPath?: string; prefix?: string; serial?: string; mode?: 'screenshot' | 'dump' | 'both' } = {}) => {
+    return deviceService.captureUi({ projectPath: opts.projectPath, prefix: opts.prefix, serial: opts.serial, mode: opts.mode });
   });
 });
 
 app.on('will-quit', () => {
+  updateService.cancelDownload();
+  syncthingService.stop();
   deviceStreamService.stopAllStreams();
 });

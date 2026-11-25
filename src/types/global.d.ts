@@ -1,17 +1,3 @@
-type WorktreeRemovalOptions = {
-  projectPath: string;
-  wtPath: string;
-  deleteBranch?: boolean;
-};
-
-type WorktreeRemovalResult = {
-  success: boolean;
-  output?: string;
-  error?: string;
-  branchDeleted?: boolean;
-  removedWorktree?: boolean;
-};
-
 declare global {
   interface MobilerunSetupStatus {
     python: { path: string; version: string } | null;
@@ -23,6 +9,140 @@ declare global {
     installRoot: string;
   }
 
+  interface SyncthingDevice {
+    deviceID: string;
+    name: string;
+    connected: boolean;
+    paused: boolean;
+    selected: boolean;
+    address: string;
+  }
+
+  interface SyncthingConflict {
+    projectPath: string;
+    projectName: string;
+    relativePath: string;
+    originalRelativePath: string;
+    fullPath: string;
+    timestamp: string;
+    devicePrefix: string;
+    isManifestConflict: boolean;
+  }
+
+  type ProjectSyncBadgeState =
+    | 'synced'
+    | 'syncing'
+    | 'paused'
+    | 'conflict'
+    | 'outside-root'
+    | 'offline'
+    | 'unconfigured';
+
+  interface SyncthingProjectStatus {
+    projectPath: string;
+    projectName: string;
+    folderName: string | null;
+    inSyncRoot: boolean;
+    enabled: boolean;
+    state: ProjectSyncBadgeState;
+    completion: number;
+    conflicts: SyncthingConflict[];
+    manifestConflicts: SyncthingConflict[];
+  }
+
+  interface SyncthingDiscoveredProject {
+    path: string;
+    folderName: string;
+    name: string;
+    hasManifest: boolean;
+    hasDocs: boolean;
+    competitorCount: number;
+  }
+
+  interface SyncthingState {
+    installed: boolean;
+    running: boolean;
+    binaryPath: string | null;
+    version: string | null;
+    configPath: string | null;
+    apiUrl: string;
+    myDeviceId: string;
+    rootPath: string;
+    folderId: string;
+    syncMode: 'selected' | 'all';
+    folderRegistered: boolean;
+    folderState: string;
+    folderCompletion: number;
+    needBytes: number;
+    needItems: number;
+    devices: SyncthingDevice[];
+    projects: Record<string, SyncthingProjectStatus>;
+    discoveredProjects: SyncthingDiscoveredProject[];
+    totalConflicts: number;
+    lastError: string | null;
+  }
+
+  interface SyncthingMergedProjectEvent {
+    projectPath: string;
+    name: string;
+    competitorsChanged: boolean;
+  }
+
+  interface SyncthingUpdatedEvent {
+    state: SyncthingState;
+    mergedProjects?: SyncthingMergedProjectEvent[];
+  }
+
+  interface AppReleaseAsset {
+    id: number;
+    name: string;
+    size: number;
+    sizeApproximate?: boolean;
+    downloadUrl: string;
+    contentType: string;
+  }
+
+  interface AppReleaseInfo {
+    tagName: string;
+    version: string;
+    name: string;
+    body: string;
+    htmlUrl: string;
+    publishedAt: string;
+    assets: AppReleaseAsset[];
+    recommendedAsset: AppReleaseAsset | null;
+    updateAvailable: boolean;
+  }
+
+  interface AppUpdateProgress {
+    downloadedBytes: number;
+    totalBytes: number;
+    percent: number;
+    bytesPerSecond: number;
+  }
+
+  type AppUpdateStatus =
+    | 'idle'
+    | 'checking'
+    | 'up-to-date'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'error';
+
+  interface AppUpdateState {
+    status: AppUpdateStatus;
+    currentVersion: string;
+    repoOwner: string;
+    repoRepo: string;
+    lastCheckedAt: string | null;
+    release: AppReleaseInfo | null;
+    selectedAssetName: string | null;
+    downloadProgress: AppUpdateProgress | null;
+    downloadedFilePath: string | null;
+    error: string | null;
+  }
+
   interface Window {
     api: {
       platform: string;
@@ -32,9 +152,6 @@ declare global {
       getWorkspaces: () => Promise<any[]>;
       addProject: () => Promise<any>;
       removeProject: (path: string) => Promise<any>;
-      refreshWorktrees: (path: string) => Promise<any>;
-      getGitInfo: (path: string) => Promise<any>;
-      getRecentCommits: (path: string) => Promise<any>;
       openInExplorer: (path: string) => Promise<any>;
       openExternal: (url: string) => Promise<any>;
       openInAndroidStudio: (path: string) => Promise<any>;
@@ -46,7 +163,7 @@ declare global {
       openInFigma: (pathOrUrl?: string) => Promise<any>;
       openInObsidian: (pathOrVault?: string) => Promise<any>;
       scrcpyMirror: (serial?: string) => Promise<any>;
-      scrcpyCaptureUi: (opts: { worktreePath: string; prefix?: string; serial?: string; mode?: 'screenshot' | 'dump' | 'both' }) => Promise<{
+      scrcpyCaptureUi: (opts: { projectPath: string; prefix?: string; serial?: string; mode?: 'screenshot' | 'dump' | 'both' }) => Promise<{
         success: boolean;
         mode?: 'screenshot' | 'dump' | 'both';
         screenshotPath?: string;
@@ -57,7 +174,6 @@ declare global {
       }>;
       scrcpyDeviceList: () => Promise<{ success: boolean; devices: string[]; raw?: string; error?: string }>;
       getSettings: () => Promise<{
-        subworktreeBranchParents?: Record<string, string>;
         vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
@@ -69,12 +185,17 @@ declare global {
         obsidianVault?: string;
         scrcpyPath?: string;
         reakitPath?: string;
-        autoRefreshCurrentProject?: boolean;
-        autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
+        syncthingPath?: string;
+        syncthingApiUrl?: string;
+        syncthingRootPath?: string;
+        syncthingFolderId?: string;
+        syncthingSyncMode?: 'selected' | 'all';
+        syncthingDeviceIds?: string[];
+        syncthingEnabledProjects?: string[];
+        autoCheckUpdates?: boolean;
       }>;
       updateSettings: (settings: {
-        subworktreeBranchParents?: Record<string, string>;
         vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
@@ -86,11 +207,16 @@ declare global {
         obsidianVault?: string;
         scrcpyPath?: string;
         reakitPath?: string;
-        autoRefreshCurrentProject?: boolean;
-        autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
+        syncthingPath?: string;
+        syncthingApiUrl?: string;
+        syncthingRootPath?: string;
+        syncthingFolderId?: string;
+        syncthingSyncMode?: 'selected' | 'all';
+        syncthingDeviceIds?: string[];
+        syncthingEnabledProjects?: string[];
+        autoCheckUpdates?: boolean;
       }) => Promise<{
-        subworktreeBranchParents?: Record<string, string>;
         vscodePath?: string;
         androidStudioPath?: string;
         antigravityPath?: string;
@@ -102,9 +228,15 @@ declare global {
         obsidianVault?: string;
         scrcpyPath?: string;
         reakitPath?: string;
-        autoRefreshCurrentProject?: boolean;
-        autoRefreshInterval?: number;
         symlinkTargets?: Array<{ name: string; targetPath: string }>;
+        syncthingPath?: string;
+        syncthingApiUrl?: string;
+        syncthingRootPath?: string;
+        syncthingFolderId?: string;
+        syncthingSyncMode?: 'selected' | 'all';
+        syncthingDeviceIds?: string[];
+        syncthingEnabledProjects?: string[];
+        autoCheckUpdates?: boolean;
       }>;
       selectExecutable: () => Promise<string | null>;
       detectIntegrationPaths: () => Promise<{
@@ -118,32 +250,24 @@ declare global {
         obsidianPath?: string | null;
         obsidianVault?: string | null;
         reakitPath?: string | null;
+        syncthingPath?: string | null;
       }>;
-      gitPull: (path: string) => Promise<any>;
-      gitFetch: (path: string) => Promise<any>;
-      addWorktree: (opts: any) => Promise<any>;
-      removeWorktree: (opts: WorktreeRemovalOptions) => Promise<WorktreeRemovalResult>;
-      forceRemoveWorktree: (opts: WorktreeRemovalOptions) => Promise<WorktreeRemovalResult>;
-      getBranches: (path: string) => Promise<string[]>;
-      createBranch: (opts: any) => Promise<any>;
-      mergeWorktreeToBranch: (opts: any) => Promise<any>;
       selectDirectory: (title: string) => Promise<string | null>;
-      checkSymlinkStatus: (opts: { worktreePath: string; name: string; targetPath: string }) => Promise<any>;
-      createSymlink: (opts: { worktreePath: string; name: string; targetPath: string }) => Promise<any>;
-      deleteSymlink: (opts: { worktreePath: string; name: string }) => Promise<any>;
-      scanSymlinks: (opts: { worktreePath: string }) => Promise<any[]>;
-      updateGitExclude: (opts: { worktreePath: string; patterns: string[]; action: 'add' | 'remove' }) => Promise<any>;
+      checkSymlinkStatus: (opts: { projectPath: string; name: string; targetPath: string }) => Promise<any>;
+      createSymlink: (opts: { projectPath: string; name: string; targetPath: string }) => Promise<any>;
+      deleteSymlink: (opts: { projectPath: string; name: string }) => Promise<any>;
+      scanSymlinks: (opts: { projectPath: string }) => Promise<any[]>;
       createDirectory: (path: string) => Promise<any>;
       pathExists: (path: string) => Promise<boolean>;
-      checkToolkitStatus: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ exists: boolean }>;
-      deployToolkit: (opts: { worktreePath: string; name: string; sourcePath: string; preserveExisting?: boolean }) => Promise<{ success: boolean; error?: string }>;
-      removeToolkit: (opts: { worktreePath: string; name: string; sourcePath?: string }) => Promise<{ success: boolean; error?: string }>;
+      checkToolkitStatus: (opts: { projectPath: string; name: string; sourcePath?: string }) => Promise<{ exists: boolean }>;
+      deployToolkit: (opts: { projectPath: string; name: string; sourcePath: string; preserveExisting?: boolean }) => Promise<{ success: boolean; error?: string }>;
+      removeToolkit: (opts: { projectPath: string; name: string; sourcePath?: string }) => Promise<{ success: boolean; error?: string }>;
       getDefaultToolkitSources: () => Promise<{ bakitPath: string }>;
 
       // ── BAKit: mobilerun MCP as a workspace plugin (.agents/plugins/mobilerun) ──
-      getMobilerunMcpStatus: (opts: { worktreePath: string }) => Promise<{ registered: boolean; configPath: string; pythonPath: string | null; globalRegistered: boolean; globalConfigPath: string; error?: string }>;
-      registerMobilerunMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; configPath?: string; globalRegistered?: boolean; error?: string }>;
-      unregisterMobilerunMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; configPath?: string; error?: string }>;
+      getMobilerunMcpStatus: (opts: { projectPath: string }) => Promise<{ registered: boolean; configPath: string; pythonPath: string | null; globalRegistered: boolean; globalConfigPath: string; error?: string }>;
+      registerMobilerunMcp: (opts: { projectPath: string }) => Promise<{ success: boolean; configPath?: string; globalRegistered?: boolean; error?: string }>;
+      unregisterMobilerunMcp: (opts: { projectPath: string }) => Promise<{ success: boolean; configPath?: string; error?: string }>;
       unregisterGlobalMobilerunMcp: () => Promise<{ success: boolean; configPath?: string; error?: string }>;
 
       // ── BAKit: Python + mobilerun install (app-managed venvs under %LOCALAPPDATA%/BA Space/mobilerun) ──
@@ -152,14 +276,14 @@ declare global {
       onMobilerunSetupLog: (callback: (line: string) => void) => () => void;
 
       // ── BAKit: figma-mcp-android as a workspace plugin (.agents/plugins/figma) ──
-      getFigmaMcpStatus: (opts: { worktreePath: string }) => Promise<{ registered: boolean; configPath: string; globalRegistered: boolean; globalConfigPath: string | null; error?: string }>;
-      registerFigmaMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; skipped?: boolean; configPath?: string; globalConfigPath?: string | null; error?: string }>;
-      unregisterFigmaMcp: (opts: { worktreePath: string }) => Promise<{ success: boolean; configPath?: string; globalConfigPath?: string | null; error?: string }>;
+      getFigmaMcpStatus: (opts: { projectPath: string }) => Promise<{ registered: boolean; configPath: string; globalRegistered: boolean; globalConfigPath: string | null; error?: string }>;
+      registerFigmaMcp: (opts: { projectPath: string }) => Promise<{ success: boolean; skipped?: boolean; configPath?: string; globalConfigPath?: string | null; error?: string }>;
+      unregisterFigmaMcp: (opts: { projectPath: string }) => Promise<{ success: boolean; configPath?: string; globalConfigPath?: string | null; error?: string }>;
 
-      // ── BAKit: delegation block in the worktree's AGENTS.md ──
-      getAgentsMdBlockStatus: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ installed: boolean; current: boolean; sourceExists: boolean; agentsMdPath: string }>;
-      applyAgentsMdBlock: (opts: { worktreePath: string; sourcePath: string }) => Promise<{ success: boolean; created?: boolean; agentsMdPath?: string; error?: string }>;
-      removeAgentsMdBlock: (opts: { worktreePath: string }) => Promise<{ success: boolean; deleted?: boolean; agentsMdPath?: string; error?: string }>;
+      // ── BAKit: delegation block in the project's AGENTS.md ──
+      getAgentsMdBlockStatus: (opts: { projectPath: string; sourcePath: string }) => Promise<{ installed: boolean; current: boolean; sourceExists: boolean; agentsMdPath: string }>;
+      applyAgentsMdBlock: (opts: { projectPath: string; sourcePath: string }) => Promise<{ success: boolean; created?: boolean; agentsMdPath?: string; error?: string }>;
+      removeAgentsMdBlock: (opts: { projectPath: string }) => Promise<{ success: boolean; deleted?: boolean; agentsMdPath?: string; error?: string }>;
 
       // ── Project Metadata, Assets & ADB ──
       updateProjectMetadata: (projectPath: string, metadata: {
@@ -221,7 +345,7 @@ declare global {
         url?: string;
         packageName?: string;
       }) => Promise<{ success: boolean; iconUrl?: string; error?: string }>;
-      syncBaProjectConfig: (opts: { projectPath: string; worktreePath?: string }) => Promise<{ success: boolean; path?: string; error?: string }>;
+      syncBaProjectConfig: (opts: { projectPath: string }) => Promise<{ success: boolean; path?: string; error?: string }>;
       selectApkFile: () => Promise<{ name: string; path: string; size: number } | null>;
       getFileInfo: (filePath: string) => Promise<{ name: string; path: string; size: number; isFile: boolean } | null>;
       installApk: (opts: { apkPath: string; serial?: string }) => Promise<{ success: boolean; output?: string; error?: string }>;
@@ -303,7 +427,7 @@ declare global {
       }) => Promise<{ success: boolean; error?: string }>;
       deviceCaptureUi: (options: {
         serial?: string;
-        worktreePath: string;
+        projectPath: string;
         prefix?: string;
         mode?: 'screenshot' | 'dump' | 'both';
       }) => Promise<{
@@ -358,6 +482,38 @@ declare global {
         serial?: string;
         action: 'notification' | 'settings' | 'collapse' | 'rotate' | 'wake' | 'power';
       }) => Promise<{ success: boolean; error?: string }>;
+
+      // ── Syncthing Project Sync ──
+      syncthingGetState: () => Promise<SyncthingState>;
+      syncthingConfigureRoot: (opts: {
+        rootPath?: string;
+        folderId?: string;
+        syncMode?: 'selected' | 'all';
+        deviceIds?: string[];
+        syncthingPath?: string;
+        syncthingApiUrl?: string;
+      }) => Promise<{ success: boolean; state?: SyncthingState; error?: string }>;
+      syncthingToggleProject: (opts: { projectPath: string; enabled: boolean }) => Promise<{ success: boolean; state?: SyncthingState; error?: string }>;
+      syncthingRescan: (opts?: { projectPath?: string }) => Promise<{ success: boolean; state?: SyncthingState; error?: string }>;
+      syncthingStartDaemon: () => Promise<{ success: boolean; state?: SyncthingState; error?: string }>;
+      syncthingOpenWebUi: () => Promise<{ success: boolean; error?: string }>;
+      syncthingResolveConflict: (opts: {
+        projectPath: string;
+        conflictRelativePath: string;
+        resolution: 'keep-mine' | 'use-remote' | 'reveal';
+      }) => Promise<{ success: boolean; state?: SyncthingState; error?: string }>;
+      syncthingImportDiscoveredProject: (opts: { projectPath: string }) => Promise<{ success: boolean; project?: any; state?: SyncthingState; error?: string }>;
+      onSyncthingUpdated: (callback: (payload: SyncthingUpdatedEvent) => void) => () => void;
+
+      // ── App Updates ──
+      getUpdateState: () => Promise<AppUpdateState>;
+      checkForUpdates: () => Promise<AppUpdateState>;
+      downloadUpdate: (opts?: { assetName?: string }) => Promise<{ success: boolean; state: AppUpdateState; filePath?: string; error?: string }>;
+      cancelUpdateDownload: () => Promise<{ success: boolean; state: AppUpdateState }>;
+      installUpdate: () => Promise<{ success: boolean; action?: 'launched-and-quitting' | 'opened' | 'revealed'; error?: string }>;
+      revealUpdateFile: () => Promise<{ success: boolean; error?: string }>;
+      openReleasePage: () => Promise<{ success: boolean; error?: string }>;
+      onUpdateStateChanged: (callback: (state: AppUpdateState) => void) => () => void;
     };
   }
 }

@@ -12,14 +12,32 @@ function test(name, fn) {
   }
 }
 
+const DEFAULT_SETTINGS = {
+  vscodePath: '',
+  androidStudioPath: '',
+  antigravityPath: '',
+  antigravityAgentPath: '',
+  claudeDesktopPath: '',
+  figmaPath: '',
+  figmaUrl: 'https://www.figma.com',
+  obsidianPath: '',
+  obsidianVault: '',
+  scrcpyPath: '',
+  reakitPath: '',
+  symlinkTargets: [],
+  syncthingPath: '',
+  syncthingApiUrl: '',
+  syncthingRootPath: '',
+  syncthingFolderId: 'bas-projects',
+  syncthingSyncMode: 'all',
+  syncthingDeviceIds: [],
+  syncthingEnabledProjects: [],
+  autoCheckUpdates: true,
+};
+
 test('normalizeSettings trims values and drops blank entries', () => {
   assert.deepStrictEqual(
     normalizeSettings({
-      subworktreeBranchParents: {
-        ' feature/foo ': ' main ',
-        '': 'ignored',
-        'child': '   ',
-      },
       vscodePath: '   code  ',
       androidStudioPath: '  studio64  ',
       antigravityPath: '  antigravity-ide  ',
@@ -27,97 +45,53 @@ test('normalizeSettings trims values and drops blank entries', () => {
       claudeDesktopPath: '  claude-desktop  ',
     }),
     {
-      subworktreeBranchParents: {
-        'feature/foo': 'main',
-      },
+      ...DEFAULT_SETTINGS,
       vscodePath: 'code',
       androidStudioPath: 'studio64',
       antigravityPath: 'antigravity-ide',
       antigravityAgentPath: 'antigravity',
       claudeDesktopPath: 'claude-desktop',
-      figmaPath: '',
-      figmaUrl: 'https://www.figma.com',
-      obsidianPath: '',
-      obsidianVault: '',
-      scrcpyPath: '',
-      reakitPath: '',
-      autoRefreshCurrentProject: false,
-      autoRefreshInterval: 10,
     }
   );
 });
 
 test('normalizeSettings falls back for non-object input', () => {
-  assert.deepStrictEqual(normalizeSettings(null), {
-    subworktreeBranchParents: {},
-    vscodePath: '',
-    androidStudioPath: '',
-    antigravityPath: '',
-    antigravityAgentPath: '',
-    claudeDesktopPath: '',
-    figmaPath: '',
-    figmaUrl: 'https://www.figma.com',
-    obsidianPath: '',
-    obsidianVault: '',
-    scrcpyPath: '',
-    reakitPath: '',
-    autoRefreshCurrentProject: false,
-    autoRefreshInterval: 10,
-  });
+  assert.deepStrictEqual(normalizeSettings(null), DEFAULT_SETTINGS);
 });
 
-test('normalizeSettings preserves autoRefreshCurrentProject boolean state', () => {
-  assert.strictEqual(
-    normalizeSettings({ autoRefreshCurrentProject: false }).autoRefreshCurrentProject,
-    false
-  );
-  assert.strictEqual(
-    normalizeSettings({ autoRefreshCurrentProject: true }).autoRefreshCurrentProject,
-    true
-  );
-  assert.strictEqual(
-    normalizeSettings({}).autoRefreshCurrentProject,
-    false
+test('normalizeSettings normalizes Syncthing settings and deduplicates lists', () => {
+  assert.deepStrictEqual(
+    normalizeSettings({
+      syncthingPath: '  /usr/bin/syncthing  ',
+      syncthingApiUrl: '  http://127.0.0.1:8384/  ',
+      syncthingRootPath: '  /home/peter/BAProjects  ',
+      syncthingFolderId: '  custom-folder  ',
+      syncthingSyncMode: 'selected',
+      syncthingDeviceIds: [' DEV-1 ', '', 'DEV-1', 'DEV-2'],
+      syncthingEnabledProjects: [' Wallet ', 'Wallet', '  ', 'PayApp'],
+    }),
+    {
+      ...DEFAULT_SETTINGS,
+      syncthingPath: '/usr/bin/syncthing',
+      syncthingApiUrl: 'http://127.0.0.1:8384',
+      syncthingRootPath: '/home/peter/BAProjects',
+      syncthingFolderId: 'custom-folder',
+      syncthingSyncMode: 'selected',
+      syncthingDeviceIds: ['DEV-1', 'DEV-2'],
+      syncthingEnabledProjects: ['Wallet', 'PayApp'],
+    }
   );
 });
 
-test('normalizeSettings validates and preserves autoRefreshInterval', () => {
-  assert.strictEqual(
-    normalizeSettings({ autoRefreshInterval: 5 }).autoRefreshInterval,
-    5
-  );
-  assert.strictEqual(
-    normalizeSettings({ autoRefreshInterval: 0 }).autoRefreshInterval,
-    10
-  );
-  assert.strictEqual(
-    normalizeSettings({ autoRefreshInterval: -5 }).autoRefreshInterval,
-    10
-  );
-  assert.strictEqual(
-    normalizeSettings({ autoRefreshInterval: 'not-a-number' }).autoRefreshInterval,
-    10
-  );
+test('normalizeSettings preserves explicit autoCheckUpdates boolean and defaults to true', () => {
+  assert.strictEqual(normalizeSettings({ autoCheckUpdates: false }).autoCheckUpdates, false);
+  assert.strictEqual(normalizeSettings({ autoCheckUpdates: true }).autoCheckUpdates, true);
+  assert.strictEqual(normalizeSettings({ autoCheckUpdates: 'false' }).autoCheckUpdates, true);
 });
 
 test('normalizeWorkspaceConfig keeps projects array and normalizes settings', () => {
   const projects = [{ path: 'C:\\repo' }];
   const result = normalizeWorkspaceConfig({ projects, settings: {} });
   assert.strictEqual(result.projects, projects);
-  assert.deepStrictEqual(result.settings, {
-    subworktreeBranchParents: {},
-    vscodePath: '',
-    androidStudioPath: '',
-    antigravityPath: '',
-    antigravityAgentPath: '',
-    claudeDesktopPath: '',
-    figmaPath: '',
-    figmaUrl: 'https://www.figma.com',
-    obsidianPath: '',
-    obsidianVault: '',
-    scrcpyPath: '',
-    reakitPath: '',
-    autoRefreshCurrentProject: false,
-    autoRefreshInterval: 10,
-  });
+  assert.deepStrictEqual(result.settings, DEFAULT_SETTINGS);
 });

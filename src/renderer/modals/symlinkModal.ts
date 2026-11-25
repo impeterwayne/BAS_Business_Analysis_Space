@@ -1,17 +1,17 @@
-async function openSymlinkModal({ activeWorktreePath, dom, state, icons, configureModalFooter, showModal, hideModal, showToast, api }) {
+async function openSymlinkModal({ activeProjectPath, dom, state, icons, configureModalFooter, showModal, hideModal, showToast, api }) {
   dom.modalTitle.textContent = 'Manage Symlinks';
 
   // Add custom class to modal for sizing
   dom.modal.classList.add('symlink-modal');
 
-  const activeWorktreeName = activeWorktreePath ? activeWorktreePath.split(/[\\/]/).pop() : 'No active project';
+  const activeProjectName = activeProjectPath ? activeProjectPath.split(/[\\/]/).pop() : 'No active project';
 
   dom.modalBody.innerHTML = `
     <div style="margin-bottom: 12px;">
-      <span class="form-label" style="display:inline;">Active Worktree: </span>
-      <span class="symlink-name" style="font-family: var(--font-mono); font-size:12px;">${activeWorktreeName}</span>
+      <span class="form-label" style="display:inline;">Active Project: </span>
+      <span class="symlink-name" style="font-family: var(--font-mono); font-size:12px;">${activeProjectName}</span>
       <div style="font-size: 11px; color: var(--text-tertiary); word-break: break-all; margin-top: 4px;">
-        ${activeWorktreePath || 'Please select a worktree first.'}
+        ${activeProjectPath || 'Please select a project first.'}
       </div>
     </div>
 
@@ -70,7 +70,7 @@ async function openSymlinkModal({ activeWorktreePath, dom, state, icons, configu
       symlinkTargets: updatedTargets,
     };
     state.settings = await api.updateSettings(nextSettings);
-    await renderSymlinkList(dom.modalBody, activeWorktreePath, state.settings.symlinkTargets, api, icons, showToast, saveAndReload);
+    await renderSymlinkList(dom.modalBody, activeProjectPath, state.settings.symlinkTargets, api, icons, showToast, saveAndReload);
   };
 
   addBtn.addEventListener('click', async () => {
@@ -98,11 +98,11 @@ async function openSymlinkModal({ activeWorktreePath, dom, state, icons, configu
     const updated = [...currentTargets, { name: nameVal, targetPath: pathVal }];
 
     let linkSuccess = false;
-    if (activeWorktreePath) {
+    if (activeProjectPath) {
       try {
         showToast(`Creating symlink for ${nameVal}...`, 'info');
         const res = await api.createSymlink({
-          worktreePath: activeWorktreePath,
+          projectPath: activeProjectPath,
           name: nameVal,
           targetPath: pathVal,
         });
@@ -130,11 +130,11 @@ async function openSymlinkModal({ activeWorktreePath, dom, state, icons, configu
     }
   });
 
-  // Scan and merge existing symlinks in the active worktree
+  // Scan and merge existing symlinks in the active project
   let initialTargets = state.settings?.symlinkTargets || [];
-  if (activeWorktreePath) {
+  if (activeProjectPath) {
     try {
-      const scanned = await api.scanSymlinks({ worktreePath: activeWorktreePath });
+      const scanned = await api.scanSymlinks({ projectPath: activeProjectPath });
       if (scanned && scanned.length > 0) {
         let changed = false;
         const updated = [...initialTargets];
@@ -163,7 +163,7 @@ async function openSymlinkModal({ activeWorktreePath, dom, state, icons, configu
     }
   }
 
-  await renderSymlinkList(dom.modalBody, activeWorktreePath, initialTargets, api, icons, showToast, saveAndReload);
+  await renderSymlinkList(dom.modalBody, activeProjectPath, initialTargets, api, icons, showToast, saveAndReload);
 
   showModal();
 
@@ -193,7 +193,7 @@ async function openSymlinkModal({ activeWorktreePath, dom, state, icons, configu
   };
 }
 
-async function renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, api, icons, showToast, saveAndReload) {
+async function renderSymlinkList(modalBody, activeProjectPath, symlinkTargets, api, icons, showToast, saveAndReload) {
   const listContainer = modalBody.querySelector('#symlink-list-container');
   if (!listContainer) return;
 
@@ -210,11 +210,11 @@ async function renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, 
 
   listContainer.innerHTML = `<div style="display:flex; justify-content:center; padding:16px; align-items:center; gap:8px;"><span class="spinner"></span> Checking status...</div>`;
 
-  if (!activeWorktreePath) {
+  if (!activeProjectPath) {
     listContainer.innerHTML = `
       <div class="symlink-empty-state">
-        <div style="font-weight:600; color: var(--danger-default);">No Active Worktree</div>
-        <p class="form-hint" style="margin:4px 0 0; font-size:11px;">Open a worktree or project first to select/unselect symlinks.</p>
+        <div style="font-weight:600; color: var(--danger-default);">No Active Project</div>
+        <p class="form-hint" style="margin:4px 0 0; font-size:11px;">Open a project first to select/unselect symlinks.</p>
       </div>
     `;
     return;
@@ -225,7 +225,7 @@ async function renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, 
       symlinkTargets.map(async (t) => {
         try {
           const status = await api.checkSymlinkStatus({
-            worktreePath: activeWorktreePath,
+            projectPath: activeProjectPath,
             name: t.name,
             targetPath: t.targetPath,
           });
@@ -292,7 +292,7 @@ async function renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, 
         try {
           if (isChecked) {
             showToast(`Creating symlink for ${name}...`, 'info');
-            const res = await api.createSymlink({ worktreePath: activeWorktreePath, name, targetPath });
+            const res = await api.createSymlink({ projectPath: activeProjectPath, name, targetPath });
             if (res.success) {
               showToast(`Linked ${name} successfully!`, 'success');
             } else {
@@ -301,7 +301,7 @@ async function renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, 
             }
           } else {
             showToast(`Removing symlink for ${name}...`, 'info');
-            const res = await api.deleteSymlink({ worktreePath: activeWorktreePath, name });
+            const res = await api.deleteSymlink({ projectPath: activeProjectPath, name });
             if (res.success) {
               showToast(`Removed link for ${name}!`, 'success');
             } else {
@@ -315,7 +315,7 @@ async function renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, 
         } finally {
           target.disabled = false;
           // Re-render to update status badges
-          renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, api, icons, showToast, saveAndReload);
+          renderSymlinkList(modalBody, activeProjectPath, symlinkTargets, api, icons, showToast, saveAndReload);
         }
       });
     });
@@ -324,10 +324,10 @@ async function renderSymlinkList(modalBody, activeWorktreePath, symlinkTargets, 
     listContainer.querySelectorAll('.symlink-delete-btn').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         const name = btn.dataset.name;
-        if (activeWorktreePath) {
+        if (activeProjectPath) {
           try {
             showToast(`Removing symlink for ${name}...`, 'info');
-            const res = await api.deleteSymlink({ worktreePath: activeWorktreePath, name });
+            const res = await api.deleteSymlink({ projectPath: activeProjectPath, name });
             if (res && !res.success) {
               showToast(`Failed to remove link for ${name}: ${res.error}`, 'error');
             } else {

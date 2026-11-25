@@ -1,7 +1,7 @@
 export interface DeviceManagerContext {
   dom: any;
   showToast: (message: string, type?: 'info' | 'success' | 'error') => void;
-  getActiveWorktreePath: () => string | null;
+  getActiveProjectPath: () => string | null;
   refreshDashboardDeviceChip?: () => Promise<void>;
   icons?: Record<string, string>;
 }
@@ -20,7 +20,7 @@ const SVG_ICONS = {
 export class DeviceManagerScreen {
   private dom: any;
   private showToast: (message: string, type?: 'info' | 'success' | 'error') => void;
-  private getActiveWorktreePath: () => string | null;
+  private getActiveProjectPath: () => string | null;
   private refreshDashboardDeviceChip?: () => Promise<void>;
   private devices: any[] = [];
   private activeSerial: string | null = null;
@@ -34,7 +34,7 @@ export class DeviceManagerScreen {
   constructor(ctx: DeviceManagerContext) {
     this.dom = ctx.dom;
     this.showToast = ctx.showToast;
-    this.getActiveWorktreePath = ctx.getActiveWorktreePath;
+    this.getActiveProjectPath = ctx.getActiveProjectPath;
     this.refreshDashboardDeviceChip = ctx.refreshDashboardDeviceChip;
     this.bindEvents();
     this.setupTouchInteraction();
@@ -896,9 +896,9 @@ export class DeviceManagerScreen {
   }
 
   private async captureDevice(serial: string, mode: 'screenshot' | 'dump' | 'both' = 'both'): Promise<void> {
-    const worktreePath = this.getActiveWorktreePath();
-    if (!worktreePath) {
-      this.showToast('Please select an active project/worktree first to store capture evidence.', 'error');
+    const projectPath = this.getActiveProjectPath();
+    if (!projectPath) {
+      this.showToast('Please select an active project first to store capture evidence.', 'error');
       return;
     }
 
@@ -907,7 +907,7 @@ export class DeviceManagerScreen {
     try {
       const res = await (window as any).api.deviceCaptureUi({
         serial,
-        worktreePath,
+        projectPath,
         mode,
       });
 

@@ -2,21 +2,22 @@ const fs = require('fs');
 const path = require('path');
 const { extractPlayStorePackageName, inferAppNameFromPackage, parseBenchmarkFlows } = require('../domain/project');
 
-function buildFallbackWorktrees(projectPath) {
-  return [{
-    path: projectPath,
-    name: path.basename(projectPath),
-    id: Buffer.from(projectPath).toString('base64url'),
-    branch: 'none',
-  }];
-}
+function createWorkspaceService({ configStore, now = () => Date.now(), onProjectChanged = null }) {
+  let projectChangedCallback = typeof onProjectChanged === 'function' ? onProjectChanged : null;
 
-function resolveProjectWorktrees(projectPath, getWorktrees) {
-  const worktrees = getWorktrees(projectPath);
-  return worktrees && worktrees.length > 0 ? worktrees : buildFallbackWorktrees(projectPath);
-}
+  function setOnProjectChanged(fn) {
+    projectChangedCallback = typeof fn === 'function' ? fn : null;
+  }
 
-function createWorkspaceService({ configStore, getWorktrees, now = () => Date.now() }) {
+  function notifyProjectChanged(projectPath) {
+    if (!projectChangedCallback || !projectPath) return;
+    try {
+      projectChangedCallback(projectPath);
+    } catch (err) {
+      console.error('Failed to run onProjectChanged hook:', err);
+    }
+  }
+
   function getWorkspaceConfig() {
     return configStore.getConfig();
   }
@@ -125,7 +126,6 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     const project = {
       path: projectPath,
       name: path.basename(projectPath),
-      worktrees: resolveProjectWorktrees(projectPath, getWorktrees),
       addedAt: now(),
     };
 
@@ -139,16 +139,6 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     workspaceConfig.projects = workspaceConfig.projects.filter((project) => project.path !== projectPath);
     configStore.saveConfig();
     return true;
-  }
-
-  function refreshWorktrees(projectPath) {
-    const worktrees = resolveProjectWorktrees(projectPath, getWorktrees);
-    const project = getWorkspaceConfig().projects.find((entry) => entry.path === projectPath);
-    if (project) {
-      project.worktrees = worktrees;
-      configStore.saveConfig();
-    }
-    return worktrees;
   }
 
   function updateProjectMetadata(projectPath, metadata) {
@@ -185,6 +175,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
       project.competitors = metadata.competitors;
     }
     configStore.saveConfig();
+    notifyProjectChanged(projectPath);
     return { success: true, project };
   }
 
@@ -246,6 +237,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     };
     project.competitors.push(compEntry);
     configStore.saveConfig();
+    notifyProjectChanged(projectPath);
     return { success: true, project, competitor: compEntry };
   }
 
@@ -279,6 +271,7 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     };
     enrichCompetitorFromDisk(projectPath, project.competitors[index]);
     configStore.saveConfig();
+    notifyProjectChanged(projectPath);
     return { success: true, project, competitor: project.competitors[index] };
   }
 
@@ -325,14 +318,32 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     if (!Array.isArray(project.competitors)) project.competitors = [];
     project.competitors = project.competitors.filter((c) => c.id !== competitorId);
     configStore.saveConfig();
+    notifyProjectChanged(projectPath);
     return { success: true, project };
   }
 
-  function syncBaProjectConfig(projectPath, worktreePath) {
+  function applySyncedProjectUpdate(projectPath, mergedProject) {
+    const workspaceConfig = getWorkspaceConfig();
+    const index = workspaceConfig.projects.findIndex((entry) => entry.path === projectPath);
+    if (index === -1) {
+      return { success: false, error: 'Project not found' };
+    }
+    if (Array.isArray(mergedProject.competitors)) {
+      for (const comp of mergedProject.competitors) {
+        enrichCompetitorFromDisk(projectPath, comp);
+      }
+    }
+    workspaceConfig.projects[index] = mergedProject;
+    configStore.saveConfig();
+    syncBaProjectConfig(projectPath);
+    return { success: true, project: workspaceConfig.projects[index] };
+  }
+
+  function syncBaProjectConfig(projectPath) {
     const workspaceConfig = getWorkspaceConfig();
     const project = workspaceConfig.projects.find((entry) => entry.path === projectPath);
     if (!project) return { success: false, error: 'Project not found' };
-    const targetDir = worktreePath || projectPath;
+    const targetDir = projectPath;
     const configDir = path.join(targetDir, '.agents', 'config');
     const configFilePath = path.join(configDir, 'ba-project-config.md');
 
@@ -472,7 +483,6 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     updateSettings,
     addProject,
     removeProject,
-    refreshWorktrees,
     updateProjectMetadata,
     addProjectApk,
     removeProjectApk,
@@ -482,6 +492,8 @@ function createWorkspaceService({ configStore, getWorktrees, now = () => Date.no
     linkCompetitorApk,
     unlinkCompetitorApk,
     syncBaProjectConfig,
+    applySyncedProjectUpdate,
+    setOnProjectChanged,
   };
 }
 

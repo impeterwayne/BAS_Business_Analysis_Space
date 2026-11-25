@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Test
-        run: node --test src/domain/branch/index.test.js src/domain/device/index.test.js src/domain/project/index.test.js src/domain/settings/index.test.js src/domain/worktree/index.test.js
+        run: node --test src/domain/device/index.test.js src/domain/project/index.test.js src/domain/settings/index.test.js src/domain/syncthing/index.test.js src/domain/update/index.test.js
 
       - name: Build
         run: npm run build

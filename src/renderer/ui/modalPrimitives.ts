@@ -1,4 +1,4 @@
-function createModalPrimitives(dom) {
+function createModalPrimitives(dom, options: { onHide?: () => void } = {}) {
   function showModal() {
     dom.modalOverlay.style.display = '';
   }
@@ -6,7 +6,10 @@ function createModalPrimitives(dom) {
   function hideModal() {
     dom.modalOverlay.style.display = 'none';
     if (dom.modal) {
-      dom.modal.classList.remove('symlink-modal', 'competitor-modal');
+      dom.modal.classList.remove('symlink-modal', 'competitor-modal', 'syncthing-modal', 'update-modal');
+    }
+    if (typeof options.onHide === 'function') {
+      options.onHide();
     }
   }
 

@@ -1,11 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { app } from 'electron';
-import { getManagedMobilerunPython } from './mobilerunSetup';
-import { venvExecutable } from '../platform';
 import { npxLaunch } from '../runtimes';
-import { excludeFromGit } from '../git/gitExclude';
 
 // mobilerun is registered per workspace as an Antigravity plugin: .agents/plugins/mobilerun/ with a
 // plugin.json marker and an mcp_config.json. Antigravity discovers plugins under the workspace's .agents/,
@@ -25,8 +21,8 @@ function npxServerEntry(existing: any, pkg: string) {
 }
 
 // The entry holds absolute, per-machine paths (the bundled Node in this user's data folder). It goes stale when the
-// worktree's config came from somewhere else (committed by a teammate, copied from another machine or user) or the
-// data folder was wiped: then the command or npx-cli.js it names no longer exists.
+// project's config came from somewhere else (copied from another machine or user) or the data folder was wiped:
+// then the command or npx-cli.js it names no longer exists.
 function isStaleEntry(entry: any): boolean {
   if (!entry || typeof entry.command !== 'string') return false;
   const files = [entry.command, ...(Array.isArray(entry.args) ? entry.args.filter((a: any) => typeof a === 'string' && /npx-cli\.js$/.test(a)) : [])];
@@ -37,7 +33,7 @@ function isStaleEntry(entry: any): boolean {
 
 // Rewrites our server entry when it is stale (see isStaleEntry), so a workspace opened in BA Space always starts the
 // server with this machine's Node. Returns whether the entry is registered.
-function repairServerEntry(worktreePath: string, configPath: string, serverName: string, pkg: string): boolean {
+function repairServerEntry(configPath: string, serverName: string, pkg: string): boolean {
   const config = readMcpConfig(configPath);
   const entry = config.mcpServers[serverName];
   if (!entry) return false;
@@ -45,18 +41,7 @@ function repairServerEntry(worktreePath: string, configPath: string, serverName:
     config.mcpServers[serverName] = npxServerEntry(entry, pkg);
     writeMcpConfig(configPath, config);
   }
-  excludePluginDir(worktreePath, configPath);
   return true;
-}
-
-// Machine-specific config: keep it out of the repo so it is never committed for teammates. Status checks run this
-// often, so each plugin folder is handled once per session.
-const excludedPluginDirs = new Set<string>();
-function excludePluginDir(worktreePath: string, configPath: string) {
-  if (excludedPluginDirs.has(configPath)) return;
-  excludedPluginDirs.add(configPath);
-  const rel = path.relative(worktreePath, path.dirname(configPath)).split(path.sep).join('/');
-  excludeFromGit(worktreePath, `${rel}/`);
 }
 
 export interface MobilerunMcpStatus {
@@ -75,8 +60,8 @@ export function getAntigravityMcpConfigPath(homeDir: string = os.homedir()): str
   return path.join(geminiDir, 'antigravity', 'mcp_config.json');
 }
 
-export function getWorkspaceMobilerunConfigPath(worktreePath: string): string {
-  return path.join(worktreePath, MOBILERUN_PLUGIN_DIR, 'mcp_config.json');
+export function getWorkspaceMobilerunConfigPath(projectPath: string): string {
+  return path.join(projectPath, MOBILERUN_PLUGIN_DIR, 'mcp_config.json');
 }
 
 export function resolveMobilerunPython(_customPath?: string): string | null {
@@ -107,20 +92,20 @@ function isGloballyRegistered(globalConfigPath: string): boolean {
   }
 }
 
-export function getMobilerunMcpStatus(worktreePath: string, _customPath?: string): MobilerunMcpStatus {
-  const configPath = getWorkspaceMobilerunConfigPath(worktreePath);
+export function getMobilerunMcpStatus(projectPath: string, _customPath?: string): MobilerunMcpStatus {
+  const configPath = getWorkspaceMobilerunConfigPath(projectPath);
   const globalConfigPath = getAntigravityMcpConfigPath();
   const globalRegistered = isGloballyRegistered(globalConfigPath);
   try {
-    const registered = repairServerEntry(worktreePath, configPath, MOBILERUN_SERVER_NAME, MOBILERUN_PACKAGE);
+    const registered = repairServerEntry(configPath, MOBILERUN_SERVER_NAME, MOBILERUN_PACKAGE);
     return { registered, configPath, pythonPath: 'npx', globalRegistered, globalConfigPath };
   } catch (err: any) {
     return { registered: false, configPath, pythonPath: null, globalRegistered, globalConfigPath, error: `Invalid JSON in ${configPath}: ${err.message}` };
   }
 }
 
-export function registerMobilerunMcp(worktreePath: string, _customPath?: string) {
-  const configPath = getWorkspaceMobilerunConfigPath(worktreePath);
+export function registerMobilerunMcp(projectPath: string, _customPath?: string) {
+  const configPath = getWorkspaceMobilerunConfigPath(projectPath);
   const globalRegistered = isGloballyRegistered(getAntigravityMcpConfigPath());
   try {
     const pluginDir = path.dirname(configPath);
@@ -133,15 +118,14 @@ export function registerMobilerunMcp(worktreePath: string, _customPath?: string)
     const config = readMcpConfig(configPath);
     config.mcpServers[MOBILERUN_SERVER_NAME] = npxServerEntry(config.mcpServers[MOBILERUN_SERVER_NAME], MOBILERUN_PACKAGE);
     writeMcpConfig(configPath, config);
-    excludePluginDir(worktreePath, configPath);
     return { success: true, configPath, globalRegistered };
   } catch (err: any) {
     return { success: false, error: err.message, configPath, globalRegistered };
   }
 }
 
-export function unregisterMobilerunMcp(worktreePath: string) {
-  const pluginDir = path.join(worktreePath, MOBILERUN_PLUGIN_DIR);
+export function unregisterMobilerunMcp(projectPath: string) {
+  const pluginDir = path.join(projectPath, MOBILERUN_PLUGIN_DIR);
   try {
     fs.rmSync(pluginDir, { recursive: true, force: true });
     const pluginsDir = path.dirname(pluginDir);
@@ -182,8 +166,8 @@ export interface FigmaMcpStatus {
   error?: string;
 }
 
-export function getWorkspaceFigmaConfigPath(worktreePath: string): string {
-  return path.join(worktreePath, FIGMA_PLUGIN_DIR, 'mcp_config.json');
+export function getWorkspaceFigmaConfigPath(projectPath: string): string {
+  return path.join(projectPath, FIGMA_PLUGIN_DIR, 'mcp_config.json');
 }
 
 // Only the global file Antigravity reads counts (same resolution as mobilerun). Any enabled entry that
@@ -204,20 +188,20 @@ function findGlobalFigmaConfig(): string | null {
   }
 }
 
-export function getFigmaMcpStatus(worktreePath: string): FigmaMcpStatus {
-  const configPath = getWorkspaceFigmaConfigPath(worktreePath);
+export function getFigmaMcpStatus(projectPath: string): FigmaMcpStatus {
+  const configPath = getWorkspaceFigmaConfigPath(projectPath);
   const globalConfigPath = findGlobalFigmaConfig();
   const globalRegistered = !!globalConfigPath;
   try {
-    const registered = repairServerEntry(worktreePath, configPath, FIGMA_SERVER_NAME, FIGMA_PACKAGE);
+    const registered = repairServerEntry(configPath, FIGMA_SERVER_NAME, FIGMA_PACKAGE);
     return { registered, configPath, globalRegistered, globalConfigPath };
   } catch (err: any) {
     return { registered: false, configPath, globalRegistered, globalConfigPath, error: `Invalid JSON in ${configPath}: ${err.message}` };
   }
 }
 
-export function registerFigmaMcp(worktreePath: string) {
-  const configPath = getWorkspaceFigmaConfigPath(worktreePath);
+export function registerFigmaMcp(projectPath: string) {
+  const configPath = getWorkspaceFigmaConfigPath(projectPath);
   const globalConfigPath = findGlobalFigmaConfig();
   if (globalConfigPath) return { success: true, skipped: true, configPath, globalConfigPath };
   try {
@@ -230,15 +214,14 @@ export function registerFigmaMcp(worktreePath: string) {
     const config = readMcpConfig(configPath);
     config.mcpServers[FIGMA_SERVER_NAME] = npxServerEntry(config.mcpServers[FIGMA_SERVER_NAME], FIGMA_PACKAGE);
     writeMcpConfig(configPath, config);
-    excludePluginDir(worktreePath, configPath);
     return { success: true, skipped: false, configPath, globalConfigPath: null };
   } catch (err: any) {
     return { success: false, error: err.message, configPath };
   }
 }
 
-export function unregisterFigmaMcp(worktreePath: string) {
-  const pluginDir = path.join(worktreePath, FIGMA_PLUGIN_DIR);
+export function unregisterFigmaMcp(projectPath: string) {
+  const pluginDir = path.join(projectPath, FIGMA_PLUGIN_DIR);
   try {
     fs.rmSync(pluginDir, { recursive: true, force: true });
     const pluginsDir = path.dirname(pluginDir);
@@ -249,14 +232,14 @@ export function unregisterFigmaMcp(worktreePath: string) {
   }
 }
 
-// The delegation rule goes into the worktree's AGENTS.md as a marked block: Antigravity always reads
+// The delegation rule goes into the project's AGENTS.md as a marked block: Antigravity always reads
 // AGENTS.md, while rule files load unreliably. Content outside the markers belongs to the user.
 const AGENTS_MD_START = '<!-- bakit:orchestrate:start -->';
 const AGENTS_MD_END = '<!-- bakit:orchestrate:end -->';
 const AGENTS_MD_BLOCK_RE = /<!-- bakit:orchestrate:start -->[\s\S]*?<!-- bakit:orchestrate:end -->\r?\n?/;
 
-export function getAgentsMdBlockStatus(worktreePath: string, sourcePath: string) {
-  const agentsMdPath = path.join(worktreePath, 'AGENTS.md');
+export function getAgentsMdBlockStatus(projectPath: string, sourcePath: string) {
+  const agentsMdPath = path.join(projectPath, 'AGENTS.md');
   const sourceExists = fs.existsSync(sourcePath);
   if (!fs.existsSync(agentsMdPath)) return { installed: false, current: false, sourceExists, agentsMdPath };
   const content = fs.readFileSync(agentsMdPath, 'utf8');
@@ -266,8 +249,8 @@ export function getAgentsMdBlockStatus(worktreePath: string, sourcePath: string)
   return { installed: true, current, sourceExists, agentsMdPath };
 }
 
-export function applyAgentsMdBlock(worktreePath: string, sourcePath: string) {
-  const agentsMdPath = path.join(worktreePath, 'AGENTS.md');
+export function applyAgentsMdBlock(projectPath: string, sourcePath: string) {
+  const agentsMdPath = path.join(projectPath, 'AGENTS.md');
   try {
     if (!fs.existsSync(sourcePath)) return { success: false, error: `Source not found: ${sourcePath}` };
     const block = `${AGENTS_MD_START}\n${fs.readFileSync(sourcePath, 'utf8').trim()}\n${AGENTS_MD_END}\n`;
@@ -283,8 +266,8 @@ export function applyAgentsMdBlock(worktreePath: string, sourcePath: string) {
   }
 }
 
-export function removeAgentsMdBlock(worktreePath: string) {
-  const agentsMdPath = path.join(worktreePath, 'AGENTS.md');
+export function removeAgentsMdBlock(projectPath: string) {
+  const agentsMdPath = path.join(projectPath, 'AGENTS.md');
   try {
     if (!fs.existsSync(agentsMdPath)) return { success: true, deleted: false, agentsMdPath };
     const rest = fs.readFileSync(agentsMdPath, 'utf8').replace(AGENTS_MD_BLOCK_RE, '').replace(/^\s+/, '');
@@ -300,17 +283,17 @@ export function removeAgentsMdBlock(worktreePath: string) {
 }
 
 export function registerBakitIpc({ ipcMain }: { ipcMain: any }) {
-  ipcMain.handle('bakit:mcp-status', (_: any, { worktreePath }: { worktreePath: string }) => getMobilerunMcpStatus(worktreePath));
-  ipcMain.handle('bakit:mcp-register', (_: any, { worktreePath }: { worktreePath: string }) => registerMobilerunMcp(worktreePath));
-  ipcMain.handle('bakit:mcp-unregister', (_: any, { worktreePath }: { worktreePath: string }) => unregisterMobilerunMcp(worktreePath));
+  ipcMain.handle('bakit:mcp-status', (_: any, { projectPath }: { projectPath: string }) => getMobilerunMcpStatus(projectPath));
+  ipcMain.handle('bakit:mcp-register', (_: any, { projectPath }: { projectPath: string }) => registerMobilerunMcp(projectPath));
+  ipcMain.handle('bakit:mcp-unregister', (_: any, { projectPath }: { projectPath: string }) => unregisterMobilerunMcp(projectPath));
   ipcMain.handle('bakit:mcp-unregister-global', () => unregisterGlobalMobilerunMcp());
-  ipcMain.handle('bakit:figma-mcp-status', (_: any, { worktreePath }: { worktreePath: string }) => getFigmaMcpStatus(worktreePath));
-  ipcMain.handle('bakit:figma-mcp-register', (_: any, { worktreePath }: { worktreePath: string }) => registerFigmaMcp(worktreePath));
-  ipcMain.handle('bakit:figma-mcp-unregister', (_: any, { worktreePath }: { worktreePath: string }) => unregisterFigmaMcp(worktreePath));
-  ipcMain.handle('bakit:agents-md-status', (_: any, { worktreePath, sourcePath }: { worktreePath: string; sourcePath: string }) =>
-    getAgentsMdBlockStatus(worktreePath, sourcePath));
-  ipcMain.handle('bakit:agents-md-apply', (_: any, { worktreePath, sourcePath }: { worktreePath: string; sourcePath: string }) =>
-    applyAgentsMdBlock(worktreePath, sourcePath));
-  ipcMain.handle('bakit:agents-md-remove', (_: any, { worktreePath }: { worktreePath: string }) =>
-    removeAgentsMdBlock(worktreePath));
+  ipcMain.handle('bakit:figma-mcp-status', (_: any, { projectPath }: { projectPath: string }) => getFigmaMcpStatus(projectPath));
+  ipcMain.handle('bakit:figma-mcp-register', (_: any, { projectPath }: { projectPath: string }) => registerFigmaMcp(projectPath));
+  ipcMain.handle('bakit:figma-mcp-unregister', (_: any, { projectPath }: { projectPath: string }) => unregisterFigmaMcp(projectPath));
+  ipcMain.handle('bakit:agents-md-status', (_: any, { projectPath, sourcePath }: { projectPath: string; sourcePath: string }) =>
+    getAgentsMdBlockStatus(projectPath, sourcePath));
+  ipcMain.handle('bakit:agents-md-apply', (_: any, { projectPath, sourcePath }: { projectPath: string; sourcePath: string }) =>
+    applyAgentsMdBlock(projectPath, sourcePath));
+  ipcMain.handle('bakit:agents-md-remove', (_: any, { projectPath }: { projectPath: string }) =>
+    removeAgentsMdBlock(projectPath));
 }
